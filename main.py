@@ -1,7 +1,17 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from database import get_db_connection
 
 app = FastAPI(title="SI-BANSOS Desa Ngrowo API")
+
+# Konfigurasi CORS agar Frontend (HTML/JS Nur) bisa mengakses Backend ini
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
