@@ -1,167 +1,90 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import Footer from '../components/Footer';
+import { getCurrentUser } from '../api';
 
 export default function Dashboard() {
+  const user = getCurrentUser();
+  if (!user) return <Navigate to="/login" replace />;
+  const firstName = user.nama_lengkap.trim().split(/\s+/)[0];
+
   return (
-    <div className="bg-[#f8f9ff] font-body-md text-[#121c2a] min-h-screen flex flex-col justify-between selection:bg-[#acf4a4]">
-      
-      {/* HEADER / NAVBAR ATAS */}
-      <header className="fixed top-0 w-full z-50 pt-safe bg-white border-b border-gray-200 shadow-sm">
-        <div className="h-16 px-5 flex items-center justify-between gap-2">
+    <div className="min-h-screen bg-white font-body-md text-[#121c2a] selection:bg-[#acf4a4]">
+      <header className="fixed top-0 z-50 w-full border-b border-gray-100 bg-white/95 backdrop-blur-md pt-safe">
+        <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-[18px] shadow-sm bg-[#1B4D3E]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#1B4D3E]/10 bg-[#E8F2EE] text-[#1B4D3E]">
               <span className="material-symbols-outlined text-[22px]">account_balance</span>
             </div>
             <div className="flex flex-col">
-              <span className="font-headline-sm text-[17px] font-bold tracking-tight text-[#121c2a] leading-tight">SI-BANSOS NGROWO</span>
-              <span className="font-caption text-[12px] text-[#40493d] font-medium">Dashboard Warga Desa</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#1B4D3E]">SI-BANSOS NGROWO</span>
+              <span className="text-[18px] font-bold leading-tight text-gray-900">Dashboard Warga</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="w-10 h-10 rounded-full border border-gray-200 bg-white flex items-center justify-center text-[#121c2a] hover:bg-gray-50 transition-colors relative">
+          <button aria-label="Notifikasi" className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-[#121c2a] hover:bg-gray-50">
               <span className="material-symbols-outlined text-[20px]">notifications</span>
-              <span className="w-2 h-2 rounded-full absolute top-2 right-2 bg-[#1B4D3E]"></span>
-            </button>
-            <div className="w-10 h-10 rounded-full border-2 border-gray-200 overflow-hidden flex items-center justify-center bg-gray-100 flex-shrink-0">
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzp9wMOczF7pUPB089obHKjwNwuyANTXh_cEV8zplzbU-o15cs7DKJpQoYkNkBq_XTSQBnOB9T4QyZ5pNN7fRC6OPrVyMZABOkZmor96pX2w6Xhp_JfuHT4c34AXCMAqZ8_zN2q9TohUymC82OCF1zZ4BN-mqGXKbjIE3QG_EdNl2UWBoQd9GsMcHz8ws03sb4WCxRw2f4cSyAXXq_A2PJcLUr7MstC65uLu6z7L7rZeqZadpuGa614U4vXtdQoio0_EprF4FG3Oojng" 
-                alt="Foto Bu Siti" 
-                className="w-full h-full object-cover" 
-              />
-            </div>
-          </div>
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500"></span>
+          </button>
         </div>
       </header>
 
-      {/* KONTEN UTAMA */}
-      <main className="flex flex-col relative w-full pt-16 pb-28 bg-white min-h-screen">
-        <div className="flex flex-col w-full">
-          <div className="px-5 pt-4 flex flex-col gap-5">
-            
-            {/* Greetings & Status Warga */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex flex-col gap-1.5">
-                <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-xs font-semibold border bg-[#F0FDF4] border-[#DCFCE7] text-[#166534]">
-                  <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                  <span>Warga Terverifikasi • RT 02 / RW 01 Dusun Krajan</span>
-                </div>
-                <h1 className="text-[26px] font-bold tracking-tight text-[#121c2a]">Halo, Bu Siti!</h1>
-                <p className="text-[14px] text-[#40493d]">Berikut ringkasan bantuan sosial dan layanan warga desa anda.</p>
+      <main className="mx-auto min-h-screen w-full max-w-lg bg-[#f8f9ff] px-4 pb-24 pt-24">
+        <div className="flex flex-col gap-5">
+          <section className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="min-w-0 pr-3">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-xl font-bold text-gray-900">Halo, {firstName}!</h1>
+                <span className="material-symbols-outlined text-[18px] text-[#1B4D3E]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              </div>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="rounded-md bg-[#E8F2EE] px-2 py-1 text-[11px] font-semibold text-[#1B4D3E]">Warga Terverifikasi</span>
+                <span className="truncate text-xs text-gray-500">• RT {user.rt}, RW {user.rw} Desa Ngrowo</span>
               </div>
             </div>
-
-            {/* Kartu Status Bantuan Aktif */}
-            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm relative overflow-hidden">
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#1B4D3E]"></div>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#E8F5E9] text-[#1B4D3E]">
-                    <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>payments</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium text-[#40493d]">Program Bantuan Aktif</span>
-                    <span className="text-[17px] font-bold text-[#121c2a] leading-tight mt-0.5">BLT Dana Desa (BLT-DD)</span>
-                  </div>
-                </div>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border bg-[#DCFCE7] border-[#BBF7D0] text-[#166534]">
-                  <span className="w-2 h-2 rounded-full animate-pulse bg-[#166534]"></span>Tersalurkan
-                </span>
-              </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[11px] text-[#40493d]">Nominal Bantuan</span>
-                  <span className="text-[18px] font-bold tracking-tight leading-snug text-[#1B4D3E]">
-                    Rp 300.000 <span className="text-[13px] font-normal text-[#40493d]">/ Bulan</span>
-                  </span>
-                </div>
-                <div className="flex flex-col text-right">
-                  <span className="text-[11px] text-[#40493d]">Jadwal Pencairan Berikutnya</span>
-                  <span className="text-[13px] font-semibold text-[#121c2a]">Tahap II: 14 Mei 2026</span>
-                </div>
-              </div>
+            <div className="relative shrink-0">
+              <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-[#E8F2EE] bg-[#E8F2EE] text-xl font-bold text-[#1B4D3E]">{firstName.charAt(0).toUpperCase()}</div>
+              <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-[#1B4D3E] ring-2 ring-white"></span>
             </div>
+          </section>
 
-            {/* Banner Pengumuman Desa */}
-            <div className="bg-white rounded-xl p-3.5 flex items-center gap-3.5 border border-gray-200 shadow-sm">
-              <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[#F3F4F6] text-[#1B4D3E]">
-                <span className="material-symbols-outlined text-[22px]">campaign</span>
+          <section className="space-y-4 rounded-2xl border border-gray-200 border-l-4 border-l-[#1B4D3E] bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#1B4D3E]">Program Bantuan Aktif</span>
+                <h2 className="mt-0.5 text-xl font-bold leading-snug text-gray-900">BLT Dana Desa</h2>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded text-white leading-none bg-[#1B4D3E]">Pengumuman</span>
-                  <span className="text-xs text-[#40493d]">Balai Desa</span>
-                </div>
-                <h2 className="text-[14px] font-bold text-[#121c2a] truncate mt-1">Jadwal Sembako Beras: Selasa Pagi di Pendopo</h2>
-              </div>
-              <span className="material-symbols-outlined text-gray-400 text-[20px]">chevron_right</span>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#E8F2EE] px-2.5 py-1 text-xs font-bold text-[#1B4D3E]"><span className="h-2 w-2 rounded-full bg-[#1B4D3E]"></span>Tersalurkan</span>
             </div>
+            <div className="flex flex-col rounded-xl border border-gray-100 bg-gray-50/80 p-3.5">
+              <span className="text-xs font-medium text-gray-500">Nominal Manfaat Diterima</span>
+              <div className="mt-0.5 flex items-baseline gap-1"><span className="text-2xl font-extrabold tracking-tight text-[#1B4D3E]">Rp 300.000</span><span className="text-xs font-semibold text-gray-500">/ Bulan</span></div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-lg border border-[#1B4D3E]/10 bg-[#F2F7F5] px-3 py-2 text-xs text-gray-600"><span className="material-symbols-outlined shrink-0 text-[18px] text-[#1B4D3E]">event_available</span><span>Jadwal Berikutnya: <strong className="text-gray-900">Penyaluran Tahap II: 14 Mei 2026</strong></span></div>
+            <div className="flex items-center justify-between border-t border-gray-100 pt-1"><Link className="inline-flex items-center gap-1 text-xs font-bold text-[#1B4D3E] hover:underline" to="/jadwal">Rincian Penyaluran Buku Kas <span className="material-symbols-outlined text-[16px]">arrow_forward</span></Link><span className="text-[11px] font-semibold text-gray-400">TA 2026</span></div>
+          </section>
 
-            {/* SECTION: Layanan Utama Warga */}
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[18px] font-bold text-[#121c2a]">Layanan Utama Warga</h2>
-                <span className="text-xs text-[#40493d] font-medium">4 Menu Layanan</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex items-center gap-3 rounded-xl border border-[#1B4D3E]/20 bg-[#E8F2EE]/60 p-3.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1B4D3E] text-white"><span className="material-symbols-outlined text-[20px]">calendar_month</span></div><div className="min-w-0"><span className="block truncate text-xs font-bold text-[#1B4D3E]">Musyawarah Desa (Musdes) Penyaluran</span><p className="mt-0.5 truncate text-[12px] text-gray-600">Kamis depan pukul 09.00 WIB di Pendopo Balai Desa</p></div></div>
+
+          <section className="space-y-2.5 pt-1"><div className="flex items-center justify-between"><h2 className="text-sm font-bold tracking-tight text-gray-900">Layanan Utama Bansos</h2><span className="text-xs font-semibold text-gray-400">Pelayanan Terpadu</span></div><div className="grid grid-cols-2 gap-3">
                 
                 {/* Menu 1 */}
-                <Link to="/cek-bansos" className="group flex items-start gap-3.5 bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:border-gray-300 transition-all active:scale-[0.99]">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors bg-[#E8F5E9] text-[#1B4D3E]">
-                    <span className="material-symbols-outlined text-[24px]">search_check</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-[15px] font-bold text-[#121c2a]">Cek Status Bansos</h3>
-                      <span className="material-symbols-outlined text-gray-400 text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
-                    </div>
-                    <p className="text-[13px] text-[#40493d] mt-1 leading-relaxed">Ketik NIK untuk cek kepesertaan PKH, BPNT, dan BLT.</p>
-                  </div>
+                <Link to="/cek-bansos" className="group flex min-h-[148px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-[#1B4D3E] hover:shadow">
+                  <div className="flex items-start justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E8F2EE] text-[#1B4D3E]"><span className="material-symbols-outlined text-[24px]">search</span></div><span className="material-symbols-outlined text-[18px] text-gray-400">arrow_forward</span></div><div className="mt-3"><h3 className="text-sm font-bold leading-snug text-gray-900">Cek Status Bansos</h3><p className="mt-1 text-[12px] leading-tight text-gray-500">Periksa kepesertaan PKH, BPNT &amp; BLT</p></div>
                 </Link>
 
                 {/* Menu 2 */}
-                <Link to="/pengaduan" className="group flex items-start gap-3.5 bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:border-gray-300 transition-all active:scale-[0.99]">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors bg-[#E8F5E9] text-[#1B4D3E]">
-                    <span className="material-symbols-outlined text-[24px]">edit_note</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-[15px] font-bold text-[#121c2a]">Ajukan Sanggahan</h3>
-                      <span className="material-symbols-outlined text-gray-400 text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
-                    </div>
-                    <p className="text-[13px] text-[#40493d] mt-1 leading-relaxed">Laporkan ketidaktepatan sasaran atau usulkan warga baru.</p>
-                  </div>
+                <Link to="/pengaduan" className="group flex min-h-[148px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-[#1B4D3E] hover:shadow"><div className="flex items-start justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E8F2EE] text-[#1B4D3E]"><span className="material-symbols-outlined text-[24px]">edit_note</span></div><span className="material-symbols-outlined text-[18px] text-gray-400">arrow_forward</span></div><div className="mt-3"><h3 className="text-sm font-bold leading-snug text-gray-900">Ajukan Sanggahan</h3><p className="mt-1 text-[12px] leading-tight text-gray-500">Laporkan ketidaktepatan penerima</p></div>
                 </Link>
 
                 {/* Menu 3 */}
-                <Link to="/tracking" className="group flex items-start gap-3.5 bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:border-gray-300 transition-all active:scale-[0.99]">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors bg-[#E8F5E9] text-[#1B4D3E]">
-                    <span className="material-symbols-outlined text-[24px]">timeline</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-[15px] font-bold text-[#121c2a]">Tracking Laporan</h3>
-                      <span className="material-symbols-outlined text-gray-400 text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
-                    </div>
-                    <p className="text-[13px] text-[#40493d] mt-1 leading-relaxed">Pantau tindak lanjut usulan oleh Ketua RT dan Balai Desa.</p>
-                  </div>
+                <Link to="/tracking" className="group flex min-h-[148px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-[#1B4D3E] hover:shadow"><div className="flex items-start justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E8F2EE] text-[#1B4D3E]"><span className="material-symbols-outlined text-[24px]">query_stats</span></div><span className="material-symbols-outlined text-[18px] text-gray-400">arrow_forward</span></div><div className="mt-3"><h3 className="text-sm font-bold leading-snug text-gray-900">Tracking Laporan</h3><p className="mt-1 text-[12px] leading-tight text-gray-500">Pantau progres verifikasi aduan</p></div>
                 </Link>
 
                 {/* Menu 4 */}
-                <Link to="/info" className="group flex items-start gap-3.5 bg-white rounded-xl p-4 border border-gray-200 shadow-sm hover:border-gray-300 transition-all active:scale-[0.99]">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors bg-[#E8F5E9] text-[#1B4D3E]">
-                    <span className="material-symbols-outlined text-[24px]">menu_book</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-[15px] font-bold text-[#121c2a]">Info Program Bansos</h3>
-                      <span className="material-symbols-outlined text-gray-400 text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
-                    </div>
-                    <p className="text-[13px] text-[#40493d] mt-1 leading-relaxed">Syarat penerima, jadwal sembako, &amp; kuota desa tahun 2026.</p>
-                  </div>
+                <Link to="/jadwal" className="group flex min-h-[148px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-[#1B4D3E] hover:shadow"><div className="flex items-start justify-between"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#E8F2EE] text-[#1B4D3E]"><span className="material-symbols-outlined text-[24px]">event_note</span></div><span className="material-symbols-outlined text-[18px] text-gray-400">arrow_forward</span></div><div className="mt-3"><h3 className="text-sm font-bold leading-snug text-gray-900">Info Jadwal &amp; Syarat</h3><p className="mt-1 text-[12px] leading-tight text-gray-500">Jadwal sembako, syarat &amp; kuota</p></div>
                 </Link>
 
-              </div>
-            </section>
+          </div></section>
 
             {/* Kartu Kontak Pendamping Sosial */}
             <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex flex-col gap-4">
@@ -204,32 +127,9 @@ export default function Dashboard() {
             </div>
 
           </div>
-        </div>
       </main>
 
-      {/* BOTTOM NAVIGATION BAR (BOTTOM NAV) */}
-      <nav className="fixed bottom-0 w-full z-50 pb-safe bg-white border-t border-gray-200 shadow-sm">
-        <div className="flex justify-around items-center h-20 px-5">
-          <Link aria-current="page" className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] relative text-[#1B4D3E]" to="/dashboard">
-            <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
-            <span className="text-[12px] font-bold">Beranda</span>
-            <span className="w-5 h-1 rounded-full absolute -bottom-1 bg-[#1B4D3E]"></span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] text-[#40493d] hover:text-gray-900 transition-colors" to="/cek-bansos">
-            <span className="material-symbols-outlined text-[24px]">search</span>
-            <span className="text-[12px] font-medium">Cek Bansos</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] text-[#40493d] hover:text-gray-900 transition-colors" to="/pengaduan">
-            <span className="material-symbols-outlined text-[24px]">edit_document</span>
-            <span className="text-[12px] font-medium">Pengaduan</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] text-[#40493d] hover:text-gray-900 transition-colors" to="/info">
-            <span className="material-symbols-outlined text-[24px]">info</span>
-            <span className="text-[12px] font-medium">Info</span>
-          </Link>
-        </div>
-      </nav>
-
+      <Footer />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-
 import Login from './pages/Login';
 import Register from './pages/Register';
 import LupaPin from './pages/LupaPin';
@@ -23,7 +22,7 @@ function App() {
       <Route path="/detail-laporan" element={<DetailLaporan />} />
       <Route path="/tracking" element={<DetailLaporan />} />
       <Route path="/jadwal" element={<Jadwal />} />
-      <Route path="/info" element={<Jadwal />} />
+      <Route path="/info" element={<Navigate to="/jadwal" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

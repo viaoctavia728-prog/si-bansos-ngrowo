@@ -1,7 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { getCurrentUser } from '../api';
 
 const programs = [
   {
@@ -48,6 +49,13 @@ const programs = [
 ];
 
 export default function CekBansos() {
+  const user = getCurrentUser();
+  if (!user) return <Navigate to="/login" replace />;
+  const maskedNik = `${user.nik.slice(0, 6)}******${user.nik.slice(-4)}`;
+  const maskedName = user.nama_lengkap.length > 4
+    ? `${user.nama_lengkap.slice(0, 2)}*** ${user.nama_lengkap.split(/\s+/).slice(-1)[0].slice(0, 2)}***`
+    : user.nama_lengkap;
+
   return (
     <div className="bg-surface text-on-surface flex flex-col min-h-screen bg-white" style={{ color: 'rgb(17, 24, 39)' }}>
       
@@ -67,7 +75,7 @@ export default function CekBansos() {
                 </span>
                 <div>
                   <p className="text-[11px] font-medium text-gray-500 uppercase leading-none">Data Kependudukan</p>
-                  <p className="text-[14px] font-bold text-gray-900 mt-1">NIK: 352201******0804</p>
+                  <p className="text-[14px] font-bold text-gray-900 mt-1">NIK: {maskedNik}</p>
                 </div>
               </div>
               <span className="inline-flex items-center gap-1 bg-[#1B4D3E] text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
@@ -84,7 +92,7 @@ export default function CekBansos() {
                   </div>
                   <div>
                     <p className="text-[12px] font-medium text-gray-500 leading-none">Nama Penerima Manfaat</p>
-                    <h3 className="text-[17px] font-bold text-gray-900 mt-1 leading-tight">Si*** Ah***</h3>
+                    <h3 className="text-[17px] font-bold text-gray-900 mt-1 leading-tight">{maskedName}</h3>
                   </div>
                 </div>
                 <div className="text-right">
@@ -97,7 +105,7 @@ export default function CekBansos() {
               <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
                 <div className="flex items-start gap-2 text-gray-700 text-[13px]">
                   <span className="material-symbols-outlined text-[18px] text-[#1B4D3E] mt-0.5">location_on</span>
-                  <span className="font-medium leading-snug">RT 02 / RW 01, Dusun Ngrowo, Desa Ngrowo</span>
+                  <span className="font-medium leading-snug">RT {user.rt} / RW {user.rw}, Desa Ngrowo</span>
                 </div>
                 <div className="flex items-center justify-between text-[12px] text-gray-500 pt-1">
                   <div className="flex items-center gap-1">

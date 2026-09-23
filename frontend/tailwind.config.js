@@ -12,9 +12,15 @@ export default {
         danger: '#D32F2F',
         surface: '#F8FAF8',
         ink: '#1F2937',
+        'on-surface': '#1F2937',
       },
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        body: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        'body-md': ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        headline: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        'headline-sm': ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        caption: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         civic: '0 4px 16px rgba(31, 41, 55, 0.08)',

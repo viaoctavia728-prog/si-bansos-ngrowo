@@ -7,11 +7,64 @@ export default function Pengaduan() {
   const [description, setDescription] = useState('');
   const [sent, setSent] = useState(false);
   const [nik, setNik] = useState('');
+  const [complaintType, setComplaintType] = useState('mampu');
   const [isAnonim, setIsAnonim] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [evidenceData, setEvidenceData] = useState('');
+  const [evidenceName, setEvidenceName] = useState('');
+  const [analysis, setAnalysis] = useState(null);
+  const [analysisError, setAnalysisError] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleEvidenceChange = (event) => {
+    const file = event.target.files?.[0];
+    setAnalysis(null);
+    setAnalysisError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setAnalysisError('File bukti harus berupa gambar JPG, PNG, atau WEBP.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setAnalysisError('Ukuran foto maksimal 2 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEvidenceData(reader.result);
+      setEvidenceName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeEvidence = () => {
+    setEvidenceData('');
+    setEvidenceName('');
+    setAnalysis(null);
+    setAnalysisError('');
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    if (evidenceData) {
+      setIsAnalyzing(true);
+      setAnalysisError('');
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'}/analyze-evidence`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_data: evidenceData, description }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Analisis bukti gagal.');
+        setAnalysis(result);
+      } catch (error) {
+        setAnalysisError(error.message);
+        setIsAnalyzing(false);
+        return;
+      }
+      setIsAnalyzing(false);
+    }
     setSent(true);
     setShowToast(true);
     setTimeout(() => {
@@ -62,10 +115,17 @@ export default function Pengaduan() {
                     { id: 'miskin_terlewat', title: 'Warga Miskin Terlewat', desc: 'Keluarga prasejahtera yang berhak namun belum menerima' },
                     { id: 'sanggah_saya', title: 'Sanggah Status Saya', desc: 'Perubahan desil/keberatan data ekonomi mandiri' }
                   ].map((item, idx) => (
-                    <label key={item.id} className={`flex items-center gap-3.5 p-3.5 rounded-xl border cursor-pointer transition-all ${idx === 0 ? 'border-[#1B4D3E] bg-[#1B4D3E]/5' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-                      <input type="radio" name="jenis_aduan" defaultChecked={idx === 0} value={item.id} className="sr-only" />
-                      <div className="w-5 h-5 rounded-full border-2 border-[#1B4D3E] bg-[#1B4D3E] flex items-center justify-center shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-white"></span>
+                    <label key={item.id} className={`flex items-center gap-3.5 p-3.5 rounded-xl border cursor-pointer transition-all ${complaintType === item.id ? 'border-[#1B4D3E] bg-[#1B4D3E]/5' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                      <input
+                        type="radio"
+                        name="jenis_aduan"
+                        checked={complaintType === item.id}
+                        onChange={() => setComplaintType(item.id)}
+                        value={item.id}
+                        className="sr-only peer"
+                      />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${complaintType === item.id ? 'border-[#1B4D3E] bg-[#1B4D3E]' : 'border-gray-300 bg-white'}`}>
+                        {complaintType === item.id && <span className="w-2 h-2 rounded-full bg-white"></span>}
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="font-semibold text-gray-900 text-[15px] leading-tight">{item.title}</span>
@@ -74,6 +134,41 @@ export default function Pengaduan() {
                     </label>
                   ))}
                 </div>
+              </section>
+
+              {/* UPLOAD BUKTI */}
+              <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <label className="text-[15px] font-bold text-gray-900" htmlFor="evidence">
+                    Upload Foto Bukti <span className="text-[12px] font-normal text-red-500">(Maks 2MB)</span>
+                  </label>
+                  <span className="text-[12px] text-gray-500">JPG, PNG, WEBP</span>
+                </div>
+                {evidenceData ? (
+                  <div className="flex items-center gap-3 rounded-xl border border-[#1B4D3E]/20 bg-[#F2F7F5] p-3">
+                    <img src={evidenceData} alt="Pratinjau bukti rumah" className="h-16 w-16 rounded-lg object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold text-gray-900">{evidenceName}</p>
+                      <p className="text-[12px] text-gray-500">Foto siap dianalisis AI</p>
+                    </div>
+                    <button type="button" onClick={removeEvidence} className="text-[12px] font-semibold text-red-600 hover:underline">Hapus</button>
+                  </div>
+                ) : (
+                  <label htmlFor="evidence" className="flex min-h-[112px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 text-center hover:border-[#1B4D3E]">
+                    <span className="material-symbols-outlined mb-1 rounded-full bg-[#E8F2EE] p-2 text-[22px] text-[#1B4D3E]">photo_camera</span>
+                    <span className="text-[13px] font-bold text-gray-900">Ambil Foto atau Pilih Gambar</span>
+                    <span className="mt-0.5 text-[11px] text-gray-500">Foto rumah tampak depan, bukti aset kendaraan, atau dokumen pendukung</span>
+                  </label>
+                )}
+                <input id="evidence" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleEvidenceChange} className="sr-only" />
+                {analysisError && <p className="text-[12px] font-medium text-red-600">{analysisError}</p>}
+                {analysis && (
+                  <div className="rounded-xl border border-[#1B4D3E]/20 bg-[#F2F7F5] p-3 text-[12px] text-gray-700">
+                    <p className="font-bold text-[#1B4D3E]">Estimasi awal AI: Desil {analysis.estimated_desil ?? 'belum dapat ditentukan'}</p>
+                    <p className="mt-1">Tingkat keyakinan: {analysis.confidence == null ? '-' : `${Math.round(analysis.confidence * 100)}%`}</p>
+                    <p className="mt-1 text-[11px] text-gray-500">{analysis.disclaimer}</p>
+                  </div>
+                )}
               </section>
 
               {/* PROGRAM TERKAIT */}
@@ -107,7 +202,9 @@ export default function Pengaduan() {
                   type="tel" 
                   maxLength="16" 
                   value={nik} 
-                  onChange={(e) => setNik(e.target.value)} 
+                  onChange={(e) => setNik(e.target.value.replace(/\D/g, '').slice(0, 16))} 
+                  inputMode="numeric"
+                  pattern="[0-9]{16}"
                   className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-gray-900 text-[15px] focus:border-[#1B4D3E] focus:outline-none" 
                   placeholder="Masukkan 16 digit NIK..." 
                 />
@@ -154,10 +251,11 @@ export default function Pengaduan() {
               {/* TOMBOL KIRIM */}
               <button 
                 type="submit" 
+                disabled={isAnalyzing}
                 className="w-full h-12 rounded-xl bg-[#1b4d3e] hover:bg-[#153e32] font-semibold text-white flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99]"
               >
                 <span className="material-symbols-outlined text-[20px]">send</span>
-                <span>{sent ? 'Laporan Terkirim' : 'Kirim Laporan'}</span>
+                <span>{isAnalyzing ? 'Menganalisis Bukti...' : sent ? 'Laporan Terkirim' : 'Kirim Laporan'}</span>
               </button>
             </form>
 

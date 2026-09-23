@@ -1,15 +1,34 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { apiRequest } from '../api';
 
 export default function Register() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    // Tambahkan validasi atau aksi register di sini jika diperlukan
-    navigate('/login');
+    setError('');
+    const form = new FormData(event.currentTarget);
+    if (form.get('password') !== form.get('confirm_password')) {
+      setError('Konfirmasi password/PIN tidak sama.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await apiRequest('/register', {
+        method: 'POST',
+        body: JSON.stringify(Object.fromEntries(form.entries())),
+      });
+      navigate('/login', { state: { message: 'Pendaftaran berhasil. Silakan login dengan NIK dan PIN Anda.' } });
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -24,7 +43,7 @@ export default function Register() {
                 <img 
                   alt="Lambang Resmi Desa Ngrowo" 
                   className="w-full h-full object-contain" 
-                  src="https://lh3.googleusercontent.com/aida/AEtjO1VN77BwyvkdNdW8nl_wbiFpLQ8gefe7PwcMpybrZx6R2s6IHPe2sixaNJYSEKgYUpWWQEruvxWcgSHSX6CJM4hwzIxZMT6U3g6ifloz-5TNPL6Gff2FMrwrDfAAjztby2s4CGGIEtkr7ToFbtiv6DItO_ad3cfgH2_aZccvaNHzTECbREHWrxQEdlxeOl_0rIdYX-DYQc0CxHfNehN-pJcIZ0qJeo4uOyqHjHkMacI7eqcwnjw_ycFIbAo" 
+                  src="/logo_ngrowo.png" 
                 />
               </div>
               <span className="absolute -bottom-1 -right-1 bg-[#2e7d32] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
@@ -76,6 +95,7 @@ export default function Register() {
                   <input 
                     className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
                     id="nama_lengkap" 
+                    name="nama_lengkap"
                     placeholder="Contoh: Siti Aminah" 
                     required 
                     type="text" 
@@ -95,10 +115,14 @@ export default function Register() {
                   <input 
                     className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all tracking-wider border border-transparent focus:border-[#707a6c]" 
                     id="nik" 
+                    name="nik"
+                    inputMode="numeric"
                     maxLength="16" 
+                    minLength="16"
                     placeholder="352201xxxxxxxxxx" 
+                    pattern="[0-9]{16}"
                     required 
-                    type="text" 
+                    type="tel" 
                   />
                 </div>
                 <p className="text-[14px] text-[#40493d]">16 digit angka yang tertera pada e-KTP Bojonegoro.</p>
@@ -115,10 +139,14 @@ export default function Register() {
                   <input 
                     className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all tracking-wider border border-transparent focus:border-[#707a6c]" 
                     id="no_kk" 
+                    name="no_kk"
+                    inputMode="numeric"
                     maxLength="16" 
+                    minLength="16"
                     placeholder="352201xxxxxxxxxx" 
+                    pattern="[0-9]{16}"
                     required 
-                    type="text" 
+                    type="tel" 
                   />
                 </div>
                 <p className="text-[14px] text-[#40493d]">16 digit angka di bagian paling atas lembar Kartu Keluarga.</p>
@@ -146,6 +174,7 @@ export default function Register() {
                   <input 
                     className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
                     id="no_wa" 
+                    name="no_wa"
                     placeholder="Contoh: 081234567890" 
                     required 
                     type="tel" 
@@ -163,24 +192,12 @@ export default function Register() {
                   <span className="text-[#ba1a1a] text-[14px] font-medium">(Wajib)</span>
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Dusun */}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[14px] font-semibold text-[#40493d]" htmlFor="dusun">Dusun</label>
-                    <div className="relative flex items-center">
-                      <select className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" id="dusun" required defaultValue="ngrowo_krajan">
-                        <option disabled value="">Pilih Dusun</option>
-                        <option value="ngrowo_krajan">Dusun Ngrowo Krajan</option>
-                        <option value="medang">Dusun Medang</option>
-                        <option value="glagah">Dusun Glagah</option>
-                      </select>
-                      <span className="material-symbols-outlined absolute right-3 pointer-events-none text-[#707a6c]">arrow_drop_down</span>
-                    </div>
-                  </div>
+                
                   {/* RW */}
                   <div className="flex flex-col gap-1">
                     <label className="text-[14px] font-semibold text-[#40493d]" htmlFor="rw">Rukun Warga (RW)</label>
                     <div className="relative flex items-center">
-                      <select className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" id="rw" required defaultValue="01">
+                      <select name="rw" className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" id="rw" required defaultValue="01">
                         <option disabled value="">Pilih RW</option>
                         <option value="01">RW 01</option>
                         <option value="02">RW 02</option>
@@ -193,7 +210,7 @@ export default function Register() {
                   <div className="flex flex-col gap-1">
                     <label className="text-[14px] font-semibold text-[#40493d]" htmlFor="rt">Rukun Tetangga (RT)</label>
                     <div className="relative flex items-center">
-                      <select className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" id="rt" required defaultValue="02">
+                      <select name="rt" className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" id="rt" required defaultValue="02">
                         <option disabled value="">Pilih RT</option>
                         <option value="01">RT 01</option>
                         <option value="02">RT 02</option>
@@ -215,6 +232,7 @@ export default function Register() {
                 <textarea 
                   className="w-full bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg p-3.5 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
                   id="detail_alamat" 
+                  name="detail_alamat"
                   placeholder="Jalan / Gang / No. Rumah (Contoh: Jl. Balai Desa No. 12, RT 02 / RW 01)" 
                   required 
                   rows="3"
@@ -243,6 +261,7 @@ export default function Register() {
                   <input 
                     className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
                     id="username" 
+                    name="username"
                     placeholder="Buat username (contoh: sitiaminah02)" 
                     required 
                     type="text" 
@@ -262,12 +281,13 @@ export default function Register() {
                   <input 
                     className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-12 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
                     id="password" 
+                    name="password"
                     placeholder="Minimal 6 karakter atau PIN angka" 
                     required 
                     type={showPassword ? "text" : "password"} 
                   />
                   <button 
-                    aria-label="Lihat kata sandi" 
+                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'} 
                     className="absolute right-3 w-8 h-8 flex items-center justify-center text-[#707a6c] hover:text-[#121c2a]" 
                     onClick={() => setShowPassword(!showPassword)} 
                     type="button"
@@ -290,12 +310,13 @@ export default function Register() {
                   <input 
                     className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-12 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
                     id="confirm_password" 
+                    name="confirm_password"
                     placeholder="Ulangi password/PIN yang sama" 
                     required 
                     type={showConfirmPassword ? "text" : "password"} 
                   />
                   <button 
-                    aria-label="Lihat konfirmasi kata sandi" 
+                    aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi kata sandi' : 'Lihat konfirmasi kata sandi'} 
                     className="absolute right-3 w-8 h-8 flex items-center justify-center text-[#707a6c] hover:text-[#121c2a]" 
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
                     type="button"
@@ -320,8 +341,9 @@ export default function Register() {
 
             {/* Tombol Aksi Utama */}
             <div className="flex flex-col gap-3 mt-2">
-              <button className="w-full h-[52px] bg-[#0d631b] hover:bg-[#2e7d32] text-white rounded-lg text-[18px] font-semibold shadow-md flex items-center justify-center gap-2 transition-transform active:scale-[0.99]" type="submit">
-                <span>Daftar Akun Sekarang</span>
+              {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">{error}</p>}
+              <button disabled={isSubmitting} className="w-full h-[52px] bg-[#0d631b] hover:bg-[#2e7d32] disabled:opacity-60 text-white rounded-lg text-[18px] font-semibold shadow-md flex items-center justify-center gap-2 transition-transform active:scale-[0.99]" type="submit">
+                <span>{isSubmitting ? 'Menyimpan...' : 'Daftar Akun Sekarang'}</span>
                 <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
               </button>
 
