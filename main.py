@@ -1,143 +1,181 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from database import get_db_connection, engine, get_db
-import models, schemas
+from typing import List, Optional
+import models
+import schemas
+from database import engine, get_db
+import random
+import string
+from datetime import datetime
 
-app = FastAPI(title="SI-BANSOS Desa Ngrowo API")
-
-# Buat tabel otomatis di database jika belum ada
+# Buat semua tabel MySQL secara otomatis
 models.Base.metadata.create_all(bind=engine)
 
-# Konfigurasi CORS agar Frontend bisa mengakses Backend ini
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title="SI-BANSOS NGROWO API",
+    description="Backend API Sistem Informasi Transparansi & Pengaduan Bansos Desa Ngrowo",
+    version="2.0.0"
 )
 
+def generate_nomor_tiket():
+    tanggal = datetime.now().strftime("%Y%m%d")
+    acak = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"ADU-{tanggal}-{acak}"
+
+
 @app.get("/")
-def read_root():
-    return {"message": "Selamat datang di Backend SI-BANSOS Desa Ngrowo!"}
+def root():
+    return {"message": "Selamat Datang di API SI-BANSOS Desa Ngrowo!"}
 
-@app.get("/tes-db")
-def tes_koneksi_db():
-    try:
-        connection = get_db_connection()
-        with connection.cursor() as cursor:
-            cursor.execute("SHOW TABLES;")
-            tables = cursor.fetchall()
-        connection.close()
-        return {
-            "status": "Sukses",
-            "message": "Berhasil terhubung ke database db_sibansos_ngrowo!",
-            "tabel_terdeteksi": tables
-        }
-    except Exception as e:
-        return {
-            "status": "Gagal",
-            "error": str(e)
-        }
 
-# ==================== FITUR REGISTRASI (POIN 1) ====================
-@app.post("/register", response_model=schemas.RegisterResponse, status_code=status.HTTP_201_CREATED)
-def register_warga(payload: schemas.RegisterRequest, db: Session = Depends(get_db)):
-    user_exist = db.query(models.User).filter(models.User.nik == payload.nik).first()
+# ==================== AUTENTIKASI ====================
+
+@app.post("/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
+def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
+    user_exist = db.query(models.User).filter(models.User.nik == user_data.nik).first()
     if user_exist:
-        raise HTTPException(status_code=400, detail="NIK ini sudah terdaftar!")
+        raise HTTPException(status_code=400, detail="NIK sudah terdaftar!")
 
-    user_baru = models.User(
-        nik=payload.nik,
-        nama=payload.nama,
-        password=payload.password,
-        rt=payload.rt,
-        rw=payload.rw,
-        role="warga"
+    new_user = models.User(
+        nik=user_data.nik,
+        nama_lengkap=user_data.nama_lengkap,
+        no_kk=user_data.no_kk,
+        no_hp=user_data.no_hp,
+        username=user_data.username,
+        password_hash=user_data.password,
+        rt=user_data.rt,
+        rw=user_data.rw,
+        role="user"
     )
-    db.add(user_baru)
+    db.add(new_user)
     db.commit()
-    db.refresh(user_baru)
+    db.refresh(new_user)
+    return new_user
 
-    return {
-        "status": "Sukses",
-        "message": "Pendaftaran akun warga berhasil!",
-        "data": {"id": user_baru.id, "nik": user_baru.nik, "nama": user_baru.nama}
-    }
 
-# ==================== FITUR LOGIN (POIN 2) ====================
 @app.post("/login")
-def login_warga(payload: schemas.RegisterRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.nik == payload.nik).first()
-    
-    if not user or user.password != payload.password:
-        raise HTTPException(status_code=400, detail="NIK atau password salah!")
-        
+def login(login_data: schemas.UserLogin, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(
+        models.User.nik == login_data.nik,
+        models.User.password_hash == login_data.password
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="NIK atau Password salah!")
+
     return {
-        "status": "Sukses",
-        "message": "Login berhasil!",
+        "message": "Login Berhasil!",
         "data": {
-            "id": user.id,
+            "id_user": user.id_user,
             "nik": user.nik,
-            "nama": user.nama,
-            "role": user.role
+            "nama_lengkap": user.nama_lengkap,
+            "role": user.role,
+            "rt": user.rt,
+            "rw": user.rw
         }
     }
 
-# ==================== FITUR PENGAJUAN BANSOS (POIN 3) ====================
-@app.post("/pengajuan", status_code=status.HTTP_201_CREATED)
-def ajukan_bansos(payload: schemas.PengajuanCreate, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == payload.user_id).first()
+
+# ==================== TRANSPARANSI DATA BANSOS (PUBLIK) ====================
+
+@app.get("/bansos/penerima", response_model=List[schemas.DataBansosResponse])
+def get_penerima_bansos(
+    rt: Optional[str] = None,
+    rw: Optional[str] = None,
+    jenis_bansos: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.DataBansos)
+
+    if rt:
+        query = query.filter(models.DataBansos.rt == rt)
+    if rw:
+        query = query.filter(models.DataBansos.rw == rw)
+    if jenis_bansos:
+        query = query.filter(models.DataBansos.jenis_bansos.like(f"%{jenis_bansos}%"))
+    if search:
+        query = query.filter(
+            (models.DataBansos.nama_penerima.like(f"%{search}%")) |
+            (models.DataBansos.nik_penerima.like(f"%{search}%"))
+        )
+
+    return query.all()
+
+
+@app.post("/admin/bansos", response_model=schemas.DataBansosResponse, status_code=status.HTTP_201_CREATED)
+def tambah_penerima_bansos(data: schemas.DataBansosCreate, db: Session = Depends(get_db)):
+    penerima_baru = models.DataBansos(**data.dict())
+    db.add(penerima_baru)
+    db.commit()
+    db.refresh(penerima_baru)
+    return penerima_baru
+
+
+# ==================== PENGADUAN BANSOS (WARGA) ====================
+
+@app.post("/pengaduan", response_model=schemas.PengaduanResponse, status_code=status.HTTP_201_CREATED)
+def buat_pengaduan(pengaduan_data: schemas.PengaduanCreate, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id_user == pengaduan_data.id_user).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan!")
 
-    pengajuan_baru = models.PengajuanBansos(
-        user_id=payload.user_id,
-        jenis_bansos=payload.jenis_bansos,
-        alasan=payload.alasan,
-        status="Pending"
+    tiket = generate_nomor_tiket()
+
+    new_pengaduan = models.PengaduanBansos(
+        nomor_tiket=tiket,
+        id_user=pengaduan_data.id_user,
+        nik_terlapor=pengaduan_data.nik_terlapor,
+        kategori_aduan=pengaduan_data.kategori_aduan,
+        program_terkait=pengaduan_data.program_terkait,
+        deskripsi_kejadian=pengaduan_data.deskripsi_kejadian,
+        lokasi_spesifik=pengaduan_data.lokasi_spesifik,
+        bukti_foto=pengaduan_data.bukti_foto,
+        is_anonymous=pengaduan_data.is_anonymous,
+        status_laporan="pending"
     )
-    db.add(pengajuan_baru)
+    db.add(new_pengaduan)
     db.commit()
-    db.refresh(pengajuan_baru)
+    db.refresh(new_pengaduan)
+    return new_pengaduan
 
-    return {
-        "status": "Sukses",
-        "message": "Pengajuan Bansos berhasil dikirim!",
-        "data": {
-            "id_pengajuan": pengajuan_baru.id,
-            "user_id": pengajuan_baru.user_id,
-            "jenis_bansos": pengajuan_baru.jenis_bansos,
-            "status": pengajuan_baru.status
-        }
-    }
 
-# ==================== FITUR ADMIN (POIN 4) ====================
+@app.get("/pengaduan/tracking/{nomor_tiket}", response_model=schemas.PengaduanResponse)
+def tracking_pengaduan(nomor_tiket: str, db: Session = Depends(get_db)):
+    pengaduan = db.query(models.PengaduanBansos).filter(
+        models.PengaduanBansos.nomor_tiket == nomor_tiket
+    ).first()
 
-# 1. Admin melihat semua daftar pengajuan warga
-@app.get("/admin/pengajuan")
-def lihat_semua_pengajuan(db: Session = Depends(get_db)):
-    semua_pengajuan = db.query(models.PengajuanBansos).all()
-    return {
-        "status": "Sukses",
-        "total_pengajuan": len(semua_pengajuan),
-        "data": semua_pengajuan
-    }
+    if not pengaduan:
+        raise HTTPException(status_code=404, detail="Nomor Tiket tidak ditemukan!")
 
-# 2. Admin mengubah status pengajuan (Misal: "Approved" atau "Rejected")
-@app.put("/admin/pengajuan/{id_pengajuan}")
-def update_status_pengajuan(id_pengajuan: int, status_baru: str, db: Session = Depends(get_db)):
-    pengajuan = db.query(models.PengajuanBansos).filter(models.PengajuanBansos.id == id_pengajuan).first()
-    if not pengajuan:
-        raise HTTPException(status_code=404, detail="Data pengajuan tidak ditemukan!")
-    
-    pengajuan.status = status_baru
+    return pengaduan
+
+
+# ==================== ADMIN PENGADUAN ====================
+
+@app.get("/admin/pengaduan", response_model=List[schemas.PengaduanResponse])
+def get_semua_pengaduan(db: Session = Depends(get_db)):
+    return db.query(models.PengaduanBansos).all()
+
+
+@app.put("/admin/pengaduan/{id_laporan}", response_model=schemas.PengaduanResponse)
+def update_status_pengaduan(
+    id_laporan: int,
+    data_update: schemas.PengaduanUpdateStatus,
+    db: Session = Depends(get_db)
+):
+    pengaduan = db.query(models.PengaduanBansos).filter(
+        models.PengaduanBansos.id_laporan == id_laporan
+    ).first()
+
+    if not pengaduan:
+        raise HTTPException(status_code=404, detail="Data pengaduan tidak ditemukan!")
+
+    pengaduan.status_laporan = data_update.status_laporan
+    if data_update.catatan_admin:
+        pengaduan.catatan_admin = data_update.catatan_admin
+
     db.commit()
-    db.refresh(pengajuan)
-
-    return {
-        "status": "Sukses",
-        "message": f"Status pengajuan ID {id_pengajuan} berhasil diubah menjadi '{status_baru}'!",
-        "data": pengajuan
-    }
+    db.refresh(pengaduan)
+    return pengaduan
