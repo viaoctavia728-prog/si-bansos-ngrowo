@@ -151,7 +151,7 @@ export default function Login() {
                 </div>
 
                 {/* Form */}
-                <form onSubmit={(e) => { e.preventDefault(); navigate('/dashboard'); }} className="space-y-5">
+                <form onSubmit={(e) => { e.preventDefault(); navigate('/beranda'); }} className="space-y-5">
                     
                     {/* Input NIK */}
                     <div>
@@ -229,7 +229,7 @@ export default function Login() {
                             type="submit" 
                             className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-base py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/20 transition-all duration-200 flex items-center justify-center gap-2"
                         >
-                            <span>Masuk ke Dashboard</span>
+                            <span>Masuk ke Beranda</span>
                         </button>
                     </div>
                 </form>

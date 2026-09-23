@@ -76,7 +76,7 @@ export default function Pengaduan() {
     <div className="bg-surface text-on-surface flex flex-col min-h-screen bg-white" style={{ color: 'rgb(17, 24, 39)' }}>
       
       {/* HEADER UTAMA */}
-      <Header title="Form Pengaduan" backTo="/dashboard" />
+      <Header title="Form Pengaduan" backTo="/beranda" />
 
       {/* KONTEN UTAMA */}
       <main className="flex flex-col relative w-full pt-16 pb-28 bg-surface min-h-screen" style={{ paddingTop: '64px', paddingBottom: '112px', backgroundColor: '#ffffff' }}>

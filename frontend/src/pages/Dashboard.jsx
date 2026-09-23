@@ -18,7 +18,7 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#1B4D3E]">SI-BANSOS NGROWO</span>
-              <span className="text-[18px] font-bold leading-tight text-gray-900">Dashboard Warga</span>
+              <span className="text-[18px] font-bold leading-tight text-gray-900">Beranda Warga</span>
             </div>
           </div>
           <button aria-label="Notifikasi" className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-[#121c2a] hover:bg-gray-50">

@@ -25,7 +25,7 @@ export default function Jadwal() {
     <div className="bg-surface text-on-surface flex flex-col min-h-screen bg-[#f8f9ff]">
       
       {/* HEADER UTAMA */}
-      <Header title="Jadwal" eyebrow="Desa Ngrowo, Bojonegoro" backTo="/dashboard" />
+      <Header title="Jadwal" eyebrow="Desa Ngrowo, Bojonegoro" backTo="/beranda" />
 
       {/* KONTEN UTAMA */}
       <main className="flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen">

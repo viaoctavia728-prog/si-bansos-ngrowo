@@ -60,7 +60,7 @@ export default function CekBansos() {
     <div className="bg-surface text-on-surface flex flex-col min-h-screen bg-white" style={{ color: 'rgb(17, 24, 39)' }}>
       
       {/* HEADER UTAMA */}
-      <Header title="Cek Status Bansos" backTo="/dashboard" />
+      <Header title="Cek Status Bansos" backTo="/beranda" />
 
       {/* KONTEN UTAMA */}
       <main className="flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen" style={{ paddingTop: '64px', paddingBottom: '96px', backgroundColor: '#ffffff' }}>

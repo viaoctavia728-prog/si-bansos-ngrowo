@@ -16,7 +16,8 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/lupa-pin" element={<LupaPin />} />
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/beranda" element={<Dashboard />} />
+      <Route path="/dashboard" element={<Navigate to="/beranda" replace />} />
       <Route path="/cek-bansos" element={<CekBansos />} />
       <Route path="/pengaduan" element={<Pengaduan />} />
       <Route path="/detail-laporan" element={<DetailLaporan />} />
