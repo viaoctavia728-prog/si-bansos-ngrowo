@@ -250,26 +250,6 @@ export default function Register() {
                 <h2 className="text-[20px] font-semibold text-[#121c2a]">3. Keamanan Akun Warga</h2>
               </div>
 
-              {/* Username */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[18px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="username">
-                  Username
-                  <span className="text-[#ba1a1a] text-[14px] font-medium">(Wajib)</span>
-                </label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">alternate_email</span>
-                  <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
-                    id="username" 
-                    name="username"
-                    placeholder="Buat username (contoh: sitiaminah02)" 
-                    required 
-                    type="text" 
-                  />
-                </div>
-                <p className="text-[14px] text-[#40493d]">Gunakan huruf kecil dan angka tanpa spasi.</p>
-              </div>
-
               {/* Password */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[18px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="password">

@@ -112,7 +112,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <a className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white text-[#121c2a] font-semibold text-[14px] hover:bg-gray-50 active:scale-[0.98] transition-all" href="tel:081234567890">
                   <span className="material-symbols-outlined text-[18px] text-[#1B4D3E]">call</span>
-                  <span>Telepon Pak RT 02</span>
+                  <span>WhatsApp Ketua RT</span>
                 </a>
                 <a className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white font-semibold text-[14px] active:scale-[0.98] transition-all shadow-sm bg-[#1B4D3E]" href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer">
                   <span className="material-symbols-outlined text-[18px]">chat</span>
