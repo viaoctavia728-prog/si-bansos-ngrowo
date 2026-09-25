@@ -8,6 +8,11 @@ import CekBansos from './pages/CekBansos';
 import Pengaduan from './pages/Pengaduan';
 import DetailLaporan from './pages/DetailLaporan';
 import Jadwal from './pages/Jadwal';
+import { getCurrentUser } from './api';
+
+function ProtectedRoute({ children }) {
+  return getCurrentUser() ? children : <Navigate to="/login" replace />;
+}
 
 function App() {
   return (
@@ -16,13 +21,13 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/lupa-pin" element={<LupaPin />} />
-      <Route path="/beranda" element={<Dashboard />} />
+      <Route path="/beranda" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/dashboard" element={<Navigate to="/beranda" replace />} />
-      <Route path="/cek-bansos" element={<CekBansos />} />
-      <Route path="/pengaduan" element={<Pengaduan />} />
-      <Route path="/detail-laporan" element={<DetailLaporan />} />
-      <Route path="/tracking" element={<DetailLaporan />} />
-      <Route path="/jadwal" element={<Jadwal />} />
+      <Route path="/cek-bansos" element={<ProtectedRoute><CekBansos /></ProtectedRoute>} />
+      <Route path="/pengaduan" element={<ProtectedRoute><Pengaduan /></ProtectedRoute>} />
+      <Route path="/detail-laporan" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
+      <Route path="/tracking" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
+      <Route path="/jadwal" element={<ProtectedRoute><Jadwal /></ProtectedRoute>} />
       <Route path="/info" element={<Navigate to="/jadwal" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

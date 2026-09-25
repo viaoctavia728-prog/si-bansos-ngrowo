@@ -75,7 +75,7 @@ export default function Register() {
           </div>
 
           {/* Registration Card Form Container */}
-          <form onSubmit={handleSubmit} className="bg-white rounded-xl p-5 md:p-6 shadow-md flex flex-col gap-6">
+            <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 sm:p-10 shadow-md flex flex-col gap-7">
             
             {/* SECTION 1: Identitas Kependudukan */}
             <div className="flex flex-col gap-4">

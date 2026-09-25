@@ -9,7 +9,7 @@ export default function LupaPin() {
 
   return (
     <div className="bg-[#f8f9ff] font-body-md text-[#121c2a] min-h-screen flex flex-col justify-center items-center p-5">
-      <main className="w-full max-w-md bg-white rounded-2xl border border-[#e6eeff] p-6 md:p-8 shadow-sm">
+      <main className="w-full max-w-xl bg-white rounded-2xl border border-[#e6eeff] p-6 sm:p-10 lg:p-12 shadow-sm">
         
         {/* Tombol Kembali */}
         <Link to="/login" className="text-[14px] font-semibold text-[#0d631b] hover:text-[#2e7d32] inline-flex items-center gap-1">
@@ -19,19 +19,19 @@ export default function LupaPin() {
 
         {/* Header Icon & Title */}
         <div className="py-6 text-center">
-          <div className="w-16 h-16 bg-[#acf4a4] rounded-full flex items-center justify-center mx-auto text-[#0d631b] shadow-sm mb-3">
-            <span className="material-symbols-outlined text-[32px]">key</span>
+          <div className="w-20 h-20 bg-[#acf4a4] rounded-full flex items-center justify-center mx-auto text-[#0d631b] shadow-sm mb-4">
+            <span className="material-symbols-outlined text-[38px]">key</span>
           </div>
-          <h1 className="text-[24px] font-bold text-[#121c2a]">Lupa Password / PIN?</h1>
-          <p className="mt-1 text-[14px] text-[#40493d]">
+          <h1 className="text-[28px] sm:text-[32px] font-bold text-[#121c2a]">Lupa Password / PIN?</h1>
+          <p className="mt-2 text-[16px] text-[#40493d] max-w-lg mx-auto">
             Masukkan NIK terdaftar untuk meminta bantuan reset akun ke Admin Desa Ngrowo.
           </p>
         </div>
 
         {/* Form NIK */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[14px] font-semibold text-[#121c2a]" htmlFor="nik_reset">
+            <label className="text-[16px] font-semibold text-[#121c2a]" htmlFor="nik_reset">
               Nomor Induk Kependudukan (NIK)
             </label>
             <div className="relative flex items-center">
@@ -40,7 +40,7 @@ export default function LupaPin() {
                 id="nik_reset"
                 required 
                 maxLength="16" 
-                className="h-12 w-full rounded-xl bg-[#eff4ff] text-[#121c2a] text-[16px] pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
+                className="h-14 w-full rounded-xl bg-[#eff4ff] text-[#121c2a] text-[17px] pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
                 placeholder="Masukkan 16 digit NIK" 
               />
             </div>
@@ -48,7 +48,7 @@ export default function LupaPin() {
 
           <button 
             type="submit"
-            className="h-12 w-full rounded-xl bg-[#0d631b] hover:bg-[#2e7d32] text-white font-semibold text-[16px] shadow-md transition-transform active:scale-[0.99]"
+            className="h-14 w-full rounded-xl bg-[#0d631b] hover:bg-[#2e7d32] text-white font-semibold text-[17px] shadow-md transition-transform active:scale-[0.99]"
           >
             Kirim Permintaan Reset
           </button>

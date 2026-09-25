@@ -11,7 +11,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-white font-body-md text-[#121c2a] selection:bg-[#acf4a4]">
       <header className="fixed top-0 z-50 w-full border-b border-gray-100 bg-white/95 backdrop-blur-md pt-safe">
-        <div className="mx-auto flex h-16 max-w-lg items-center justify-between gap-3 px-5">
+        <div className="mx-auto flex h-20 max-w-3xl items-center justify-between gap-4 px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#1B4D3E]/10 bg-[#E8F2EE] text-[#1B4D3E]">
               <span className="material-symbols-outlined text-[22px]">account_balance</span>
@@ -28,9 +28,9 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="mx-auto min-h-screen w-full max-w-lg bg-[#f8f9ff] px-4 pb-24 pt-24">
-        <div className="flex flex-col gap-5">
-          <section className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <main className="mx-auto min-h-screen w-full max-w-3xl bg-[#f8f9ff] px-5 pb-28 pt-28">
+        <div className="flex flex-col gap-6">
+          <section className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="min-w-0 pr-3">
               <div className="flex items-center gap-1.5">
                 <h1 className="text-xl font-bold text-gray-900">Halo, {firstName}!</h1>
@@ -42,12 +42,12 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="relative shrink-0">
-              <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-[#E8F2EE] bg-[#E8F2EE] text-xl font-bold text-[#1B4D3E]">{firstName.charAt(0).toUpperCase()}</div>
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#E8F2EE] bg-[#E8F2EE] text-2xl font-bold text-[#1B4D3E]">{firstName.charAt(0).toUpperCase()}</div>
               <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-[#1B4D3E] ring-2 ring-white"></span>
             </div>
           </section>
 
-          <section className="space-y-4 rounded-2xl border border-gray-200 border-l-4 border-l-[#1B4D3E] bg-white p-5 shadow-sm">
+          <section className="space-y-5 rounded-2xl border border-gray-200 border-l-4 border-l-[#1B4D3E] bg-white p-6 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#1B4D3E]">Program Bantuan Aktif</span>
@@ -65,7 +65,7 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-3 rounded-xl border border-[#1B4D3E]/20 bg-[#E8F2EE]/60 p-3.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1B4D3E] text-white"><span className="material-symbols-outlined text-[20px]">calendar_month</span></div><div className="min-w-0"><span className="block truncate text-xs font-bold text-[#1B4D3E]">Musyawarah Desa (Musdes) Penyaluran</span><p className="mt-0.5 truncate text-[12px] text-gray-600">Kamis depan pukul 09.00 WIB di Pendopo Balai Desa</p></div></div>
 
-          <section className="space-y-2.5 pt-1"><div className="flex items-center justify-between"><h2 className="text-sm font-bold tracking-tight text-gray-900">Layanan Utama Bansos</h2><span className="text-xs font-semibold text-gray-400">Pelayanan Terpadu</span></div><div className="grid grid-cols-2 gap-3">
+          <section className="space-y-3 pt-1"><div className="flex items-center justify-between"><h2 className="text-base font-bold tracking-tight text-gray-900">Layanan Utama Bansos</h2><span className="text-sm font-semibold text-gray-400">Pelayanan Terpadu</span></div><div className="grid grid-cols-2 gap-4">
                 
                 {/* Menu 1 */}
                 <Link to="/cek-bansos" className="group flex min-h-[148px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-[#1B4D3E] hover:shadow">
