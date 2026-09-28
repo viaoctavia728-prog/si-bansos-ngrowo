@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import Footer from '../components/Footer';
 
 export default function Dashboard() {
   return (
@@ -199,7 +200,7 @@ export default function Dashboard() {
             </div>
 
             {/* Footer Text Copyright */}
-            <div className="text-center py-2">
+            <div className="text-center py-2 mb-4">
               <p className="text-[12px] text-[#40493d]">Pemerintah Desa Ngrowo • Sistem Akuntabel, Tepat Sasaran &amp; Transparan</p>
             </div>
 
@@ -207,29 +208,9 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* BOTTOM NAVIGATION BAR (BOTTOM NAV) */}
-      <nav className="fixed bottom-0 w-full z-50 pb-safe bg-white border-t border-gray-200 shadow-sm">
-        <div className="flex justify-around items-center h-20 px-5">
-          <Link aria-current="page" className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] relative text-[#1B4D3E]" to="/dashboard">
-            <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
-            <span className="text-[12px] font-bold">Beranda</span>
-            <span className="w-5 h-1 rounded-full absolute -bottom-1 bg-[#1B4D3E]"></span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] text-[#40493d] hover:text-gray-900 transition-colors" to="/cek-bansos">
-            <span className="material-symbols-outlined text-[24px]">search</span>
-            <span className="text-[12px] font-medium">Cek Bansos</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] text-[#40493d] hover:text-gray-900 transition-colors" to="/pengaduan">
-            <span className="material-symbols-outlined text-[24px]">edit_document</span>
-            <span className="text-[12px] font-medium">Pengaduan</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[48px] text-[#40493d] hover:text-gray-900 transition-colors" to="/info">
-            <span className="material-symbols-outlined text-[24px]">info</span>
-            <span className="text-[12px] font-medium">Info</span>
-          </Link>
-        </div>
-      </nav>
+      {/* FOOTER NAVIGATION */}
+      <Footer />
 
     </div>
   );
-}
+}
