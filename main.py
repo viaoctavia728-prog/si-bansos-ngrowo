@@ -1,13 +1,18 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import base64
+import binascii
 import models
 import schemas
 from database import engine, get_db
 import random
 import string
 from datetime import datetime
+from pathlib import Path
+from uuid import uuid4
 
 # Buat semua tabel database secara otomatis
 models.Base.metadata.create_all(bind=engine)
@@ -17,6 +22,10 @@ app = FastAPI(
     description="Backend API Sistem Informasi Transparansi & Pengaduan Bansos Desa Ngrowo",
     version="2.0.0"
 )
+
+UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Enable CORS for Frontend communication
 app.add_middleware(
@@ -141,6 +150,33 @@ def tambah_penerima_bansos(data: schemas.DataBansosCreate, db: Session = Depends
 
 
 # --- PENGADUAN BANSOS ---
+@api_router.post("/pengaduan/upload-bukti")
+def upload_bukti_foto(data: schemas.BuktiFotoUpload):
+    allowed_types = {"image/jpeg": ".jpg", "image/png": ".png"}
+    extension = allowed_types.get(data.content_type)
+    if not extension:
+        raise HTTPException(status_code=400, detail="Foto harus berformat JPG atau PNG.")
+
+    if len(data.content_base64) > 2_800_000:
+        raise HTTPException(status_code=400, detail="Ukuran foto maksimal 2 MB.")
+
+    try:
+        image_bytes = base64.b64decode(data.content_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Data foto tidak valid.")
+
+    if len(image_bytes) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran foto maksimal 2 MB.")
+    if data.content_type == "image/jpeg" and not image_bytes.startswith(b"\xff\xd8\xff"):
+        raise HTTPException(status_code=400, detail="Isi file bukan foto JPG yang valid.")
+    if data.content_type == "image/png" and not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(status_code=400, detail="Isi file bukan foto PNG yang valid.")
+
+    filename = f"{uuid4().hex}{extension}"
+    (UPLOAD_DIR / filename).write_bytes(image_bytes)
+    return {"bukti_foto": f"/uploads/{filename}"}
+
+
 @api_router.post("/pengaduan", response_model=schemas.PengaduanResponse, status_code=status.HTTP_201_CREATED)
 def buat_pengaduan(pengaduan_data: schemas.PengaduanCreate, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id_user == pengaduan_data.id_user).first()

@@ -12,6 +12,7 @@ export default function Pengaduan() {
   const [program, setProgram] = useState('PKH');
   const [nikTerlapor, setNikTerlapor] = useState('');
   const [description, setDescription] = useState('');
+  const [fotoBukti, setFotoBukti] = useState(null);
   const [isAnonim, setIsAnonim] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +25,12 @@ export default function Pengaduan() {
     setIsLoading(true);
 
     try {
+      let buktiFoto = null;
+      if (fotoBukti) {
+        const hasilUpload = await pengaduanService.uploadBuktiFoto(fotoBukti);
+        buktiFoto = hasilUpload.bukti_foto;
+      }
+
       const payload = {
         id_user: currentUser?.id_user || 1,
         nik_terlapor: nikTerlapor || null,
@@ -31,7 +38,7 @@ export default function Pengaduan() {
         program_terkait: program,
         deskripsi_kejadian: description,
         lokasi_spesifik: `RT ${currentUser?.rt || '001'} / RW ${currentUser?.rw || '001'}, Kelurahan Ngrowo`,
-        bukti_foto: null,
+        bukti_foto: buktiFoto,
         is_anonymous: isAnonim,
       };
 
@@ -39,6 +46,7 @@ export default function Pengaduan() {
       setCreatedTicket(res.nomor_tiket);
       setDescription('');
       setNikTerlapor('');
+      setFotoBukti(null);
     } catch (err) {
       setErrorMsg(err.message || 'Gagal mengirim pengaduan. Silakan coba lagi.');
     } finally {
@@ -216,6 +224,38 @@ export default function Pengaduan() {
                   <span className="material-symbols-outlined text-[16px]">info</span>
                   Contoh: Memiliki aset kendaraan roda 4, rumah mewah, atau usaha toko besar.
                 </p>
+              </section>
+
+              {/* UPLOAD BUKTI FOTO */}
+              <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-[15px] font-bold text-gray-900" htmlFor="foto-bukti">
+                    Upload Foto Bukti <span className="text-gray-400 font-normal text-[13px]">(Opsional, maks. 2 MB)</span>
+                  </label>
+                  <span className="text-[12px] text-gray-500 shrink-0">JPG, PNG</span>
+                </div>
+                <label htmlFor="foto-bukti" className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center hover:bg-gray-100">
+                  <span className="material-symbols-outlined text-[26px] text-[#1B4D3E]">add_a_photo</span>
+                  <span className="text-sm font-semibold text-gray-800">{fotoBukti ? fotoBukti.name : 'Ambil Foto atau Pilih Gambar'}</span>
+                  <span className="text-xs text-gray-500">Lampirkan foto kondisi atau dokumen pendukung</span>
+                </label>
+                <input
+                  id="foto-bukti"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+                      setErrorMsg('Pilih foto JPG atau PNG dengan ukuran maksimal 2 MB.');
+                      event.target.value = '';
+                      return;
+                    }
+                    setErrorMsg('');
+                    setFotoBukti(file);
+                  }}
+                />
               </section>
 
               {/* LAPOR ANONIM */}

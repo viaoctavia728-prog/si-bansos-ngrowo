@@ -41,6 +41,11 @@ class PengaduanCreate(BaseModel):
     bukti_foto: Optional[str] = None
     is_anonymous: Optional[bool] = False
 
+class BuktiFotoUpload(BaseModel):
+    filename: str
+    content_type: str
+    content_base64: str
+
 class PengaduanUpdateStatus(BaseModel):
     status_laporan: str
     catatan_admin: Optional[str] = None

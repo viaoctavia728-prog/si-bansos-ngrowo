@@ -101,6 +101,22 @@ export const bansosService = {
 
 // ==================== PENGADUAN SERVICE ====================
 export const pengaduanService = {
+  // Unggah foto bukti dan dapatkan path untuk disimpan bersama pengaduan
+  async uploadBuktiFoto(file) {
+    const contentBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1]);
+      reader.onerror = () => reject(new Error('Foto bukti tidak dapat dibaca.'));
+      reader.readAsDataURL(file);
+    });
+    const response = await apiClient.post('/api/pengaduan/upload-bukti', {
+      filename: file.name,
+      content_type: file.type,
+      content_base64: contentBase64,
+    });
+    return response.data;
+  },
+
   // Buat pengaduan baru
   async buatPengaduan(data) {
     const response = await apiClient.post('/api/pengaduan', data);
