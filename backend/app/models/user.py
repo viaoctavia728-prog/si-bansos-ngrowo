@@ -20,7 +20,6 @@ class User(Base):
     alamat_detail = Column(String(255), nullable=True)  # <--- Penampung Alamat Lengkap
     id_wilayah = Column(Integer, ForeignKey("wilayah_ngrowo.id_wilayah"), nullable=True)
 
-    username = Column(String(50), unique=True, nullable=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), default="warga")  # <--- Default role diset 'warga'
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -24,7 +24,6 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         nama_lengkap=user_data.nama_lengkap,
         no_kk=user_data.no_kk,
         no_hp=user_data.no_hp,
-        username=user_data.username,
         password_hash=hash_password(user_data.password),  # ✅ Hash bcrypt
         rt=user_data.rt,
         rw=user_data.rw,
@@ -54,7 +53,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "username": {"type": "string", "description": "Username atau NIK"},
+                            "username": {"type": "string", "description": "Isi dengan NIK warga"},
                             "password": {"type": "string", "description": "Password akun"},
                         },
                         "required": ["username", "password"],
@@ -65,10 +64,9 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
                         "type": "object",
                         "properties": {
                             "nik": {"type": "string", "example": "3512345678901234"},
-                            "username": {"type": "string", "example": "admin"},
-                            "password": {"type": "string", "example": "admin123"},
+                            "password": {"type": "string", "example": "password123"},
                         },
-                        "required": ["password"],
+                        "required": ["nik", "password"],
                     }
                 },
             }
@@ -83,7 +81,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
     if "application/json" in content_type:
         try:
             body = await request.json()
-            identifier = body.get("nik") or body.get("username")
+            identifier = body.get("nik")
             password = body.get("password")
         except Exception:
             pass
@@ -91,7 +89,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
         # Menangani form data (otomatis dikirim dari modal Swagger UI OAuth2 Authorize)
         try:
             form = await request.form()
-            identifier = form.get("username") or form.get("nik")
+            identifier = form.get("username") or form.get("nik")  # Swagger UI bawaannya pakai field bernama 'username'
             password = form.get("password")
         except Exception:
             pass
@@ -99,18 +97,16 @@ async def login(request: Request, db: Session = Depends(get_db)):
     if not identifier or not password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username/NIK dan Password wajib diisi!",
+            detail="NIK dan Password wajib diisi!",
         )
 
-    # Cari user berdasarkan NIK atau Username
-    user = db.query(User).filter(
-        (User.nik == str(identifier).strip()) | (User.username == str(identifier).strip())
-    ).first()
+    # Cari user berdasarkan NIK
+    user = db.query(User).filter(User.nik == str(identifier).strip()).first()
 
     if not user or not verify_password(str(password), user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="NIK/Username atau Password salah!",
+            detail="NIK atau Password salah!",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -129,4 +125,3 @@ async def login(request: Request, db: Session = Depends(get_db)):
             "rw": user.rw,
         },
     }
-
