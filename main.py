@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, APIRouter
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models
@@ -8,13 +9,22 @@ import random
 import string
 from datetime import datetime
 
-# Buat semua tabel MySQL secara otomatis
+# Buat semua tabel database secara otomatis
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="SI-BANSOS NGROWO API",
     description="Backend API Sistem Informasi Transparansi & Pengaduan Bansos Desa Ngrowo",
     version="2.0.0"
+)
+
+# Enable CORS for Frontend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Mengizinkan semua origin (termasuk localhost:5173 Vite)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 def generate_nomor_tiket():
@@ -25,12 +35,14 @@ def generate_nomor_tiket():
 
 @app.get("/")
 def root():
-    return {"message": "Selamat Datang di API SI-BANSOS Desa Ngrowo!"}
+    return {"message": "Selamat Datang di API SI-BANSOS Desa Ngrowo!", "status": "online"}
 
 
-# ==================== AUTENTIKASI ====================
+# ==================== ROUTER DENGAN PREFIX & NON-PREFIX ====================
+api_router = APIRouter()
 
-@app.post("/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
+# --- AUTENTIKASI ---
+@api_router.post("/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     user_exist = db.query(models.User).filter(models.User.nik == user_data.nik).first()
     if user_exist:
@@ -41,10 +53,10 @@ def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
         nama_lengkap=user_data.nama_lengkap,
         no_kk=user_data.no_kk,
         no_hp=user_data.no_hp,
-        username=user_data.username,
+        username=user_data.username or user_data.nik,
         password_hash=user_data.password,
-        rt=user_data.rt,
-        rw=user_data.rw,
+        rt=user_data.rt or "001",
+        rw=user_data.rw or "001",
         role="user"
     )
     db.add(new_user)
@@ -53,7 +65,7 @@ def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     return new_user
 
 
-@app.post("/login")
+@api_router.post("/login")
 def login(login_data: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(
         models.User.nik == login_data.nik,
@@ -65,10 +77,13 @@ def login(login_data: schemas.UserLogin, db: Session = Depends(get_db)):
 
     return {
         "message": "Login Berhasil!",
+        "token": f"token-{user.nik}-{user.id_user}",
         "data": {
             "id_user": user.id_user,
             "nik": user.nik,
             "nama_lengkap": user.nama_lengkap,
+            "no_kk": user.no_kk,
+            "no_hp": user.no_hp,
             "role": user.role,
             "rt": user.rt,
             "rw": user.rw
@@ -76,9 +91,16 @@ def login(login_data: schemas.UserLogin, db: Session = Depends(get_db)):
     }
 
 
-# ==================== TRANSPARANSI DATA BANSOS (PUBLIK) ====================
+@api_router.get("/user/{nik}", response_model=schemas.UserResponse)
+def get_user_by_nik(nik: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.nik == nik).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Data user tidak ditemukan!")
+    return user
 
-@app.get("/bansos/penerima", response_model=List[schemas.DataBansosResponse])
+
+# --- TRANSPARANSI DATA BANSOS ---
+@api_router.get("/bansos/penerima", response_model=List[schemas.DataBansosResponse])
 def get_penerima_bansos(
     rt: Optional[str] = None,
     rw: Optional[str] = None,
@@ -103,7 +125,13 @@ def get_penerima_bansos(
     return query.all()
 
 
-@app.post("/admin/bansos", response_model=schemas.DataBansosResponse, status_code=status.HTTP_201_CREATED)
+@api_router.get("/bansos/cek/{nik}", response_model=List[schemas.DataBansosResponse])
+def cek_bansos_nik(nik: str, db: Session = Depends(get_db)):
+    hasil = db.query(models.DataBansos).filter(models.DataBansos.nik_penerima == nik).all()
+    return hasil
+
+
+@api_router.post("/admin/bansos", response_model=schemas.DataBansosResponse, status_code=status.HTTP_201_CREATED)
 def tambah_penerima_bansos(data: schemas.DataBansosCreate, db: Session = Depends(get_db)):
     penerima_baru = models.DataBansos(**data.dict())
     db.add(penerima_baru)
@@ -112,9 +140,8 @@ def tambah_penerima_bansos(data: schemas.DataBansosCreate, db: Session = Depends
     return penerima_baru
 
 
-# ==================== PENGADUAN BANSOS (WARGA) ====================
-
-@app.post("/pengaduan", response_model=schemas.PengaduanResponse, status_code=status.HTTP_201_CREATED)
+# --- PENGADUAN BANSOS ---
+@api_router.post("/pengaduan", response_model=schemas.PengaduanResponse, status_code=status.HTTP_201_CREATED)
 def buat_pengaduan(pengaduan_data: schemas.PengaduanCreate, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id_user == pengaduan_data.id_user).first()
     if not user:
@@ -140,7 +167,7 @@ def buat_pengaduan(pengaduan_data: schemas.PengaduanCreate, db: Session = Depend
     return new_pengaduan
 
 
-@app.get("/pengaduan/tracking/{nomor_tiket}", response_model=schemas.PengaduanResponse)
+@api_router.get("/pengaduan/tracking/{nomor_tiket}", response_model=schemas.PengaduanResponse)
 def tracking_pengaduan(nomor_tiket: str, db: Session = Depends(get_db)):
     pengaduan = db.query(models.PengaduanBansos).filter(
         models.PengaduanBansos.nomor_tiket == nomor_tiket
@@ -152,14 +179,55 @@ def tracking_pengaduan(nomor_tiket: str, db: Session = Depends(get_db)):
     return pengaduan
 
 
-# ==================== ADMIN PENGADUAN ====================
+@api_router.get("/pengaduan/user/{id_user}", response_model=List[schemas.PengaduanResponse])
+def get_pengaduan_by_user(id_user: int, db: Session = Depends(get_db)):
+    return db.query(models.PengaduanBansos).filter(models.PengaduanBansos.id_user == id_user).order_by(models.PengaduanBansos.created_at.desc()).all()
 
-@app.get("/admin/pengaduan", response_model=List[schemas.PengaduanResponse])
+
+# --- JADWAL BANSOS ---
+@api_router.get("/jadwal")
+def get_jadwal_bansos():
+    return [
+        {
+            "id": 1,
+            "program": "Bansos Beras CPP 10 Kg",
+            "tanggal": "15 Oktober 2026",
+            "jam": "08:30 - 14:00 WIB",
+            "lokasi": "Pendopo Balai Desa Ngrowo",
+            "status": "Akan Datang",
+            "persyaratan": ["KTP Asli Penerima", "Kartu Keluarga Asli", "Undangan Ber-Barcode dari RT"],
+            "dusun": "Dusun Krajan (RT 01, 02) & Ngrowo Timur (RT 01)"
+        },
+        {
+            "id": 2,
+            "program": "BLT Dana Desa (Triwulan IV)",
+            "tanggal": "28 Oktober 2026",
+            "jam": "09:00 - 12:00 WIB",
+            "lokasi": "Ruang Pelayanan Kantor Kelurahan Ngrowo",
+            "status": "Dijadwalkan",
+            "persyaratan": ["KTP Asli", "Fotokopi KK 1 Lembar"],
+            "dusun": "Semua Dusun Kelurahan Ngrowo"
+        },
+        {
+            "id": 3,
+            "program": "Penyaluran BPNT Sembako",
+            "tanggal": "05 November 2026",
+            "jam": "08:00 - 15:00 WIB",
+            "lokasi": "E-Warong Amanah Makmur Ngrowo",
+            "status": "Persiapan",
+            "persyaratan": ["KKS (Kartu Keluarga Sejahtera)", "KTP Elektronik"],
+            "dusun": "Seluruh Wilayah RT/RW"
+        }
+    ]
+
+
+# --- ADMIN PENGADUAN ---
+@api_router.get("/admin/pengaduan", response_model=List[schemas.PengaduanResponse])
 def get_semua_pengaduan(db: Session = Depends(get_db)):
     return db.query(models.PengaduanBansos).all()
 
 
-@app.put("/admin/pengaduan/{id_laporan}", response_model=schemas.PengaduanResponse)
+@api_router.put("/admin/pengaduan/{id_laporan}", response_model=schemas.PengaduanResponse)
 def update_status_pengaduan(
     id_laporan: int,
     data_update: schemas.PengaduanUpdateStatus,
@@ -179,3 +247,8 @@ def update_status_pengaduan(
     db.commit()
     db.refresh(pengaduan)
     return pengaduan
+
+
+# Include routes both directly and with /api prefix for maximum compatibility
+app.include_router(api_router)
+app.include_router(api_router, prefix="/api")
