@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL backend FastAPI (default http://localhost:8000)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -14,7 +14,7 @@ const apiClient = axios.create({
 // Interceptor untuk menyisipkan token autentikasi (jika ada)
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,13 +27,19 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+    }
+
     let message = 'Terjadi kesalahan pada sistem.';
     if (error.response) {
       // Backend returned an error response
       message = error.response.data?.detail || error.response.data?.message || `Error ${error.response.status}`;
     } else if (error.request) {
       // No response received (backend down / network issue)
-      message = 'Tidak dapat terhubung ke server backend (http://localhost:8000). Pastikan server backend FastAPI dan MySQL sedang berjalan.';
+      message = 'Tidak dapat terhubung ke server backend. Pastikan server backend FastAPI dan MySQL sedang berjalan.';
     } else {
       message = error.message;
     }
@@ -45,12 +51,16 @@ apiClient.interceptors.response.use(
 export const authService = {
   // Login dengan NIK dan Password
   async login(nik, password) {
-    const response = await apiClient.post('/api/login', { nik, password });
+    const payload = { nik, password };
+    const response = await apiClient.post('/api/login', payload);
+    const token = response.data?.access_token || response.data?.token;
+
     if (response.data?.data) {
       localStorage.setItem('user', JSON.stringify(response.data.data));
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-      }
+    }
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('access_token', token);
     }
     return response.data;
   },
@@ -81,6 +91,7 @@ export const authService = {
   logout() {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('access_token');
   },
 };
 
@@ -125,6 +136,23 @@ export const jadwalService = {
   // Ambil jadwal penyaluran bansos
   async getJadwal() {
     const response = await apiClient.get('/api/jadwal');
+    return response.data;
+  },
+};
+
+export const adminService = {
+  async getWarga() {
+    const response = await apiClient.get('/api/admin/warga');
+    return response.data;
+  },
+
+  async getPengaduan() {
+    const response = await apiClient.get('/api/admin/pengaduan');
+    return response.data;
+  },
+
+  async updateStatus(idLaporan, payload) {
+    const response = await apiClient.put(`/api/admin/pengaduan/${idLaporan}`, payload);
     return response.data;
   },
 };

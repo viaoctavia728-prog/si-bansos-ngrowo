@@ -249,6 +249,8 @@ def update_status_pengaduan(
     return pengaduan
 
 
-# Include routes both directly and with /api prefix for maximum compatibility
+
+# Tambahkan prefix /auth di bawah include_router kamu
 app.include_router(api_router)
 app.include_router(api_router, prefix="/api")
+app.include_router(api_router, prefix="/auth")

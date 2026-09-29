@@ -1,6 +1,6 @@
-import random
-import string
-from datetime import datetime
+import json
+import secrets
+from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import UserLogin, UserRegister
+from app.schemas.auth import UserLogin, UserRegister, UserResponse
 
 router = APIRouter()
 
@@ -19,11 +19,18 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     if user_exist:
         raise HTTPException(status_code=400, detail="NIK sudah terdaftar!")
 
+    while True:
+        username = f"warga_{secrets.token_hex(4)}"
+        if not db.query(User).filter(User.username == username).first():
+            break
+
     new_user = User(
         nik=user_data.nik,
+        username=username,
         nama_lengkap=user_data.nama_lengkap,
         no_kk=user_data.no_kk,
         no_hp=user_data.no_hp,
+        alamat_detail=user_data.alamat_detail,
         password_hash=hash_password(user_data.password),  # ✅ Hash bcrypt
         rt=user_data.rt,
         rw=user_data.rw,
@@ -38,6 +45,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         "data": {
             "id_user": new_user.id_user,
             "nik": new_user.nik,
+            "username": new_user.username,
             "nama_lengkap": new_user.nama_lengkap,
             "role": new_user.role,
         },
@@ -53,7 +61,8 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "username": {"type": "string", "description": "Isi dengan NIK warga"},
+                            "grant_type": {"type": "string", "default": "password"},
+                            "username": {"type": "string", "description": "Username akun warga atau admin"},
                             "password": {"type": "string", "description": "Password akun"},
                         },
                         "required": ["username", "password"],
@@ -78,35 +87,46 @@ async def login(request: Request, db: Session = Depends(get_db)):
     identifier = None
     password = None
 
-    if "application/json" in content_type:
-        try:
+    try:
+        if "application/json" in content_type:
             body = await request.json()
-            identifier = body.get("nik")
+            identifier = body.get("nik") or body.get("username")
             password = body.get("password")
-        except Exception:
-            pass
-    else:
-        # Menangani form data (otomatis dikirim dari modal Swagger UI OAuth2 Authorize)
-        try:
+        else:
             form = await request.form()
-            identifier = form.get("username") or form.get("nik")  # Swagger UI bawaannya pakai field bernama 'username'
+            identifier = form.get("username") or form.get("nik")
             password = form.get("password")
+    except Exception:
+        try:
+            raw_body = await request.body()
+            if raw_body:
+                if "application/x-www-form-urlencoded" in content_type:
+                    payload = dict(parse_qsl(raw_body.decode("utf-8"), keep_blank_values=True))
+                else:
+                    payload = json.loads(raw_body.decode("utf-8"))
+                identifier = payload.get("username") or payload.get("nik")
+                password = payload.get("password")
         except Exception:
             pass
 
     if not identifier or not password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="NIK dan Password wajib diisi!",
+            detail="NIK/Username dan Password wajib diisi!",
         )
 
-    # Cari user berdasarkan NIK
-    user = db.query(User).filter(User.nik == str(identifier).strip()).first()
+    identifier = str(identifier).strip()
+    user = db.query(User).filter(User.nik == identifier).first()
+    if not user:
+        user = db.query(User).filter(User.username == identifier).first()
+
+    if not user and identifier.lower() == "admin":
+        user = db.query(User).filter(User.role == "admin").first()
 
     if not user or not verify_password(str(password), user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="NIK atau Password salah!",
+            detail="NIK/Username atau Password salah!",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -114,6 +134,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
 
     return {
         "access_token": token,
+        "token": token,
         "token_type": "bearer",
         "message": "Login berhasil!",
         "data": {
@@ -125,3 +146,11 @@ async def login(request: Request, db: Session = Depends(get_db)):
             "rw": user.rw,
         },
     }
+
+
+@router.get("/user/{nik}", response_model=UserResponse)
+def get_user_by_nik(nik: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.nik == nik).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan!")
+    return user

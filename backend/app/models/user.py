@@ -11,6 +11,7 @@ class User(Base):
 
     id_user = Column(Integer, primary_key=True, index=True)
     nik = Column(String(16), unique=True, index=True, nullable=False)
+    username = Column(String(50), unique=True, index=True, nullable=True)
     nama_lengkap = Column(String(100), nullable=False)
     no_kk = Column(String(16), nullable=True)
     no_hp = Column(String(15), nullable=True)

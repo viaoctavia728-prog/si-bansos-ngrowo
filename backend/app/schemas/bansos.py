@@ -11,6 +11,7 @@ class DataBansosCreate(BaseModel):
   status_penerima: Optional[str] = "aktif"
   rt: str
   rw: str
+  dusun: Optional[str] = None
 
 
 class DataBansosResponse(DataBansosCreate):

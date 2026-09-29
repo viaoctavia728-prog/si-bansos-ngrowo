@@ -22,8 +22,12 @@ export default function CekBansos() {
 
   // Lakukan pencarian ke backend
   const handleSearch = async (nikToSearch = searchNik) => {
-    if (!nikToSearch || nikToSearch.trim() === '') {
+    const cleanNik = (nikToSearch || '').trim();
+
+    if (!cleanNik) {
       setErrorMsg('Masukkan NIK yang ingin dicari!');
+      setDataPenerima([]);
+      setSelectedPenerima(null);
       return;
     }
 
@@ -32,12 +36,10 @@ export default function CekBansos() {
     setHasSearched(true);
 
     try {
-      // 1. Coba endpoint spesifik cek NIK
-      let results = await bansosService.cekBansosByNik(nikToSearch.trim());
-      
-      // 2. Fallback ke search filter jika kosong
+      let results = await bansosService.cekBansosByNik(cleanNik);
+
       if (!results || results.length === 0) {
-        results = await bansosService.getPenerimaBansos({ search: nikToSearch.trim() });
+        results = await bansosService.getPenerimaBansos({ search: cleanNik });
       }
 
       setDataPenerima(results || []);
@@ -57,7 +59,9 @@ export default function CekBansos() {
 
   // Otomatis cari saat halaman pertama kali dimuat
   useEffect(() => {
-    handleSearch(searchNik);
+    if (searchNik && searchNik.trim()) {
+      handleSearch(searchNik);
+    }
   }, []);
 
   // Format sensor NIK untuk privasi warga publik

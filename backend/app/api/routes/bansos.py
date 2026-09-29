@@ -35,6 +35,14 @@ def get_penerima_bansos(
     return query.all()
 
 
+@router.get("/cek/{nik}", response_model=list[DataBansosResponse])
+def cek_bansos_by_nik(nik: str, db: Session = Depends(get_db)):
+    penerima = db.query(DataBansos).filter(DataBansos.nik_penerima == nik).all()
+    if not penerima:
+        return []
+    return penerima
+
+
 @router.post("", response_model=DataBansosResponse, status_code=201)
 def tambah_penerima_bansos(data: DataBansosCreate, db: Session = Depends(get_db)):
     penerima_baru = DataBansos(**data.model_dump())

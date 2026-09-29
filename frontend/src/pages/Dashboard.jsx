@@ -13,13 +13,11 @@ export default function Dashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (!user) {
-      // Jika belum login, redirect ke halaman login
       navigate('/login');
       return;
     }
     setCurrentUser(user);
 
-    // Ambil data bansos dan pengaduan milik user dari database
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -33,6 +31,8 @@ export default function Dashboard() {
         }
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
+        setBansosData([]);
+        setUserReports([]);
       } finally {
         setIsLoading(false);
       }
@@ -60,6 +60,9 @@ export default function Dashboard() {
   };
 
   const activeBansos = bansosData.length > 0 ? bansosData[0] : null;
+
+  const hasUserReports = userReports.length > 0;
+  const activeReportCount = userReports.filter((report) => report.status_laporan !== 'selesai' && report.status_laporan !== 'ditolak').length;
 
   return (
     <div className="bg-[#f8f9ff] font-body-md text-[#121c2a] min-h-screen flex flex-col justify-between selection:bg-[#acf4a4]">
@@ -119,6 +122,24 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
+
+            <section aria-label="Ringkasan akun" className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="min-w-0 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold text-emerald-900">Program bansos</p>
+                <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{isLoading ? '–' : bansosData.length}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">terdata</p>
+              </div>
+              <div className="min-w-0 rounded-xl border border-sky-100 bg-sky-50/70 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold text-sky-900">Total laporan</p>
+                <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{isLoading ? '–' : userReports.length}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">dikirim</p>
+              </div>
+              <div className="min-w-0 rounded-xl border border-amber-100 bg-amber-50/70 p-3 sm:p-4">
+                <p className="text-[10px] sm:text-xs font-semibold text-amber-900">Perlu tindak lanjut</p>
+                <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{isLoading ? '–' : activeReportCount}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">laporan</p>
+              </div>
+            </section>
 
             {/* Kartu Status Bantuan Aktif (Dynamic dari Database) */}
             {isLoading ? (
@@ -182,7 +203,7 @@ export default function Dashboard() {
             )}
 
             {/* Riwayat Pengaduan / Usulan Pengguna (Jika Ada) */}
-            {userReports.length > 0 && (
+            {hasUserReports && (
               <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -217,6 +238,20 @@ export default function Dashboard() {
                       </Link>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {!isLoading && !hasUserReports && (
+              <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-4 text-left">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-700">
+                    <span className="material-symbols-outlined text-[20px]">inventory_2</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Belum ada laporan yang dibuat</p>
+                    <p className="text-xs text-gray-600 mt-1">Anda bisa mengajukan sanggahan atau laporan baru melalui menu pengaduan.</p>
+                  </div>
                 </div>
               </div>
             )}

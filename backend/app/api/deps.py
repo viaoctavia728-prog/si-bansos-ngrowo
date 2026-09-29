@@ -5,7 +5,7 @@ from app.core.security import verify_token
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login",
-    description="Login menggunakan Username/NIK dan Password di form Authorize",
+    description="Authorize menggunakan username akun dan password. Login web warga tetap dapat memakai NIK.",
 )
 
 

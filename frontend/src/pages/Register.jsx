@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import logoBojonegoro from '../images/logo bojonegoro.jpg';
 import logoNgrowo from '../images/logo ngrowo.png';
 import { authService } from '../services/api';
 
 export default function Register() {
-  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -15,11 +14,9 @@ export default function Register() {
     nik: '',
     no_kk: '',
     no_hp: '',
-    dusun: 'Dusun Krajan',
     rw: '001',
     rt: '001',
     detail_alamat: '',
-    username: '',
     password: '',
     confirm_password: '',
   });
@@ -27,6 +24,7 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [registeredUsername, setRegisteredUsername] = useState('');
 
   const handleChange = (e) => {
     const { id, value } = e.target;
@@ -37,6 +35,7 @@ export default function Register() {
     event.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
+    setRegisteredUsername('');
 
     // Validasi input
     if (formData.nik.length !== 16) {
@@ -57,21 +56,19 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      await authService.register({
+      const result = await authService.register({
         nik: formData.nik,
         nama_lengkap: formData.nama_lengkap,
         no_kk: formData.no_kk,
         no_hp: formData.no_hp,
-        username: formData.username || formData.nik,
         password: formData.password,
         rt: formData.rt,
         rw: formData.rw,
+        alamat_detail: formData.detail_alamat,
       });
 
-      setSuccessMessage('Pendaftaran akun berhasil! Mengalihkan ke halaman login...');
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      setRegisteredUsername(result?.data?.username || '');
+      setSuccessMessage('Pendaftaran berhasil. Gunakan NIK untuk login web dan username berikut untuk Swagger Authorize.');
     } catch (err) {
       setErrorMessage(err.message || 'Pendaftaran gagal. Periksa data kembali.');
     } finally {
@@ -124,7 +121,13 @@ export default function Register() {
           {successMessage && (
             <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 flex items-start gap-2.5">
               <span className="material-symbols-outlined text-emerald-600 text-[20px] shrink-0 mt-0.5">check_circle</span>
-              <span>{successMessage}</span>
+              <div className="flex flex-col gap-2">
+                <span>{successMessage}</span>
+                {registeredUsername && (
+                  <p>Username Authorize: <code className="font-mono font-bold">{registeredUsername}</code></p>
+                )}
+                <Link className="font-semibold underline" to="/login">Lanjut ke halaman login</Link>
+              </div>
             </div>
           )}
 
@@ -259,25 +262,7 @@ export default function Register() {
                   Wilayah Domisili Desa Ngrowo
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Dusun */}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[13px] font-semibold text-[#40493d]" htmlFor="dusun">Dusun</label>
-                    <div className="relative flex items-center">
-                      <select 
-                        className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" 
-                        id="dusun" 
-                        value={formData.dusun}
-                        onChange={handleChange}
-                        required
-                      >
-                        <option value="Dusun Krajan">Dusun Krajan</option>
-                        <option value="Dusun Ngrowo Timur">Dusun Ngrowo Timur</option>
-                        <option value="Dusun Medang">Dusun Medang</option>
-                      </select>
-                      <span className="material-symbols-outlined absolute right-3 pointer-events-none text-[#707a6c]">arrow_drop_down</span>
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* RW */}
                   <div className="flex flex-col gap-1">
                     <label className="text-[13px] font-semibold text-[#40493d]" htmlFor="rw">Rukun Warga (RW)</label>
@@ -342,24 +327,6 @@ export default function Register() {
               <div className="flex items-center gap-2 pb-2">
                 <span className="material-symbols-outlined text-[#0d631b] text-[24px]">lock_reset</span>
                 <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#121c2a]">3. Keamanan Akun Warga</h2>
-              </div>
-
-              {/* Username */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="username">
-                  Username Akun
-                </label>
-                <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">alternate_email</span>
-                  <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] sm:text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
-                    id="username" 
-                    value={formData.username}
-                    onChange={handleChange}
-                    placeholder="Buat username (opsional, contoh: siti_ngrowo)" 
-                    type="text" 
-                  />
-                </div>
               </div>
 
               {/* Password */}

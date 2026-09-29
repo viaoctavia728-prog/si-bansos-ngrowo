@@ -51,3 +51,9 @@ def tracking_pengaduan(nomor_tiket: str, db: Session = Depends(get_db)):
     if not pengaduan:
         raise HTTPException(status_code=404, detail="Nomor Tiket tidak ditemukan!")
     return pengaduan
+
+
+@router.get("/user/{id_user}", response_model=list[PengaduanResponse])
+def get_pengaduan_by_user(id_user: int, db: Session = Depends(get_db)):
+    pengaduan = db.query(PengaduanBansos).filter(PengaduanBansos.id_user == id_user).all()
+    return pengaduan

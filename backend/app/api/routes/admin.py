@@ -6,9 +6,24 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin
 from app.db.session import get_db
 from app.models.pengaduan import PengaduanBansos
+from app.models.user import User
+from app.schemas.auth import UserResponse
 from app.schemas.pengaduan import PengaduanResponse, PengaduanUpdateStatus
 
 router = APIRouter()
+
+
+@router.get("/warga", response_model=List[UserResponse])
+def get_warga_terdaftar(
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    return (
+        db.query(User)
+        .filter(User.role.in_(["user", "warga"]))
+        .order_by(User.created_at.desc())
+        .all()
+    )
 
 
 @router.get("/pengaduan", response_model=List[PengaduanResponse])

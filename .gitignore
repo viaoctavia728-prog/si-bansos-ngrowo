@@ -23,6 +23,7 @@ wheels/
 venv/
 ENV/
 .env
+backend/.env.docker
 
 # Node / Frontend
 frontend/node_modules/
