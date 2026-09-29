@@ -217,12 +217,12 @@ export default function Jadwal() {
                 </a>
               </div>
               <div 
-                className="w-full h-36 bg-cover bg-center rounded-xl relative overflow-hidden flex items-end p-2.5 border border-gray-200" 
-                style={{ backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuCPbIG6my3LeeCE7RX5628o_I4ySok_hYf0h6exkFweuR0VzBfwoYtCMZ2EMG2eQFjgsAzowaasRmnhSNv5r0FiKDTkvTwlrMWmPb-_nXa3_mCpz0n0a1MmllO-U5-8LPEcokQdgZaeLv18hvs-KJguXRSW8L-1qz1ZEgSv8Dw2WNBnwEVzSLq5PWSIeIv5F2XJ1MOYIb4LZ7PiM8GGtl8mGHbQA5rxDK-zAdIwhtDnq9h0oF10j8ne')` }}
+                className="w-full h-36 bg-gradient-to-br from-emerald-800 via-teal-900 to-emerald-950 rounded-xl relative overflow-hidden flex items-end p-2.5 border border-emerald-700 shadow-inner" 
               >
-                <div className="bg-white/95 backdrop-blur-sm rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 shadow-sm border border-gray-100">
+                <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                <div className="bg-white/95 backdrop-blur-sm rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 shadow-sm border border-gray-100 relative z-10">
                   <span className="material-symbols-outlined text-[16px] text-[#1B4D3E]">pin_drop</span>
-                  <span className="text-[12px] text-gray-900 font-semibold">Pendopo Utama Desa Ngrowo</span>
+                  <span className="text-[12px] text-gray-900 font-semibold">Pendopo Utama Balai Desa Ngrowo</span>
                 </div>
               </div>
             </section>

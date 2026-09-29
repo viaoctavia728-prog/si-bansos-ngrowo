@@ -13,6 +13,7 @@
 html {
   background: #f8faf8;
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -20,6 +21,7 @@ body {
   min-width: 320px;
   background: #f8faf8;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 button, input, select, textarea {
