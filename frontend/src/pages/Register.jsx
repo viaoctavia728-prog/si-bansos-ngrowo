@@ -4,6 +4,12 @@ import logoBojonegoro from '../images/logo bojonegoro.jpg';
 import logoNgrowo from '../images/logo ngrowo.png';
 import { authService } from '../services/api';
 
+const maskIdentifier = (value) => {
+  const identifier = String(value || '');
+  if (identifier.length <= 8) return '*'.repeat(identifier.length);
+  return `${identifier.slice(0, 4)}${'*'.repeat(identifier.length - 8)}${identifier.slice(-4)}`;
+};
+
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -24,7 +30,6 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [registeredUsername, setRegisteredUsername] = useState('');
 
   const handleChange = (e) => {
     const { id, value } = e.target;
@@ -35,7 +40,6 @@ export default function Register() {
     event.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
-    setRegisteredUsername('');
 
     // Validasi input
     if (formData.nik.length !== 16) {
@@ -67,7 +71,6 @@ export default function Register() {
         alamat_detail: formData.detail_alamat,
       });
 
-      setRegisteredUsername(result?.data?.username || '');
       setSuccessMessage('Pendaftaran berhasil. Gunakan NIK untuk login web dan username berikut untuk Swagger Authorize.');
     } catch (err) {
       setErrorMessage(err.message || 'Pendaftaran gagal. Periksa data kembali.');
@@ -75,6 +78,76 @@ export default function Register() {
       setIsLoading(false);
     }
   };
+
+  if (successMessage) {
+    return (
+      <div className="min-h-screen bg-[#f3f5fa] px-3 py-6 text-[#121c2a] sm:flex sm:items-center sm:justify-center sm:px-5 sm:py-10">
+        <main className="mx-auto w-full max-w-md">
+          <section aria-labelledby="registration-success-title" aria-live="polite" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-800">
+              <span className="material-symbols-outlined text-[30px]">check_circle</span>
+            </div>
+            <p className="mx-auto mt-4 w-fit rounded-full bg-green-100 px-3 py-1 text-[10px] font-bold uppercase text-green-800">
+              Pendaftaran akun berhasil
+            </p>
+            <h1 id="registration-success-title" className="mt-3 text-center text-xl font-bold leading-tight sm:text-2xl">
+              Selamat, akun warga Anda berhasil didaftarkan.
+            </h1>
+            <p className="mt-2 text-center text-sm leading-relaxed text-slate-600">
+              Data akun sudah tersimpan. Masuk menggunakan NIK dan kata sandi yang Anda buat.
+            </p>
+
+            <div className="mt-5 rounded-lg bg-blue-50 p-3.5 sm:p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                <span className="material-symbols-outlined text-[18px] text-emerald-700">badge</span>
+                Ringkasan akun
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-2">
+                <div className="min-w-0 rounded-md bg-white p-3">
+                  <dt className="text-[10px] text-slate-500">Nama lengkap</dt>
+                  <dd className="mt-1 break-words text-xs font-semibold">{formData.nama_lengkap}</dd>
+                </div>
+                <div className="min-w-0 rounded-md bg-white p-3">
+                  <dt className="text-[10px] text-slate-500">NIK</dt>
+                  <dd className="mt-1 break-all font-mono text-xs font-semibold">{maskIdentifier(formData.nik)}</dd>
+                </div>
+                <div className="min-w-0 rounded-md bg-white p-3">
+                  <dt className="text-[10px] text-slate-500">Nomor KK</dt>
+                  <dd className="mt-1 break-all font-mono text-xs font-semibold">{maskIdentifier(formData.no_kk)}</dd>
+                </div>
+                <div className="min-w-0 rounded-md bg-white p-3">
+                  <dt className="text-[10px] text-slate-500">Wilayah domisili</dt>
+                  <dd className="mt-1 break-words text-xs font-semibold">RT {formData.rt} / RW {formData.rw}, Desa Ngrowo</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-900">
+              <span className="material-symbols-outlined mt-0.5 text-[17px]">lock</span>
+              <p>Nomor identitas ditampilkan sebagian untuk menjaga privasi. Simpan NIK dan kata sandi Anda untuk masuk.</p>
+            </div>
+
+            <Link to="/login" className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-green-800 px-4 py-3 text-center text-sm font-bold text-white transition-colors hover:bg-green-900">
+              Kembali ke halaman masuk
+              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+            </Link>
+          </section>
+
+          <aside className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined rounded-full bg-blue-100 p-1.5 text-[20px] text-blue-800">support_agent</span>
+              <div>
+                <h2 className="font-semibold">Butuh bantuan?</h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                  Hubungi kantor desa atau Ketua RT setempat untuk bantuan aktivasi akun.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#f8f9ff] font-body-md text-[#121c2a] min-h-screen flex flex-col justify-center items-center p-3 sm:p-5">
@@ -110,27 +183,6 @@ export default function Register() {
             </p>
           </header>
 
-          {/* Feedback Banners */}
-          {errorMessage && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2.5">
-              <span className="material-symbols-outlined text-red-600 text-[20px] shrink-0 mt-0.5">error</span>
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 flex items-start gap-2.5">
-              <span className="material-symbols-outlined text-emerald-600 text-[20px] shrink-0 mt-0.5">check_circle</span>
-              <div className="flex flex-col gap-2">
-                <span>{successMessage}</span>
-                {registeredUsername && (
-                  <p>Username Authorize: <code className="font-mono font-bold">{registeredUsername}</code></p>
-                )}
-                <Link className="font-semibold underline" to="/login">Lanjut ke halaman login</Link>
-              </div>
-            </div>
-          )}
-
           {/* Notice Callout (Civic Notice) */}
           <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
             <div className="flex items-start gap-3">
@@ -147,7 +199,11 @@ export default function Register() {
           </div>
 
           {/* Registration Card Form Container */}
-          <form onSubmit={handleSubmit} className="bg-white rounded-xl p-5 md:p-6 shadow-md flex flex-col gap-6">
+          <form
+            onSubmit={handleSubmit}
+            onInvalid={() => setErrorMessage('Lengkapi semua kolom wajib dengan format yang benar.')}
+            className="bg-white rounded-xl p-5 md:p-6 shadow-md flex flex-col gap-6"
+          >
             
             {/* SECTION 1: Identitas Kependudukan */}
             <div className="flex flex-col gap-4">
@@ -424,6 +480,13 @@ export default function Register() {
                   </>
                 )}
               </button>
+
+              {errorMessage && (
+                <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <span className="material-symbols-outlined shrink-0 text-[20px]">error</span>
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
               {/* Tautan Masuk (Balik ke Login) */}
               <div className="text-center py-2">
