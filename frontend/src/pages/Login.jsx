@@ -31,13 +31,6 @@ export default function Login() {
     const [currentSlide, setCurrentSlide] = useState(0);
     const [showLanding, setShowLanding] = useState(true);
 
-    useEffect(() => {
-        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-        if (token) {
-            navigate('/dashboard', { replace: true });
-        }
-    }, [navigate]);
-
     // Form state & feedback
     const [nik, setNik] = useState('');
     const [password, setPassword] = useState('');
@@ -53,8 +46,7 @@ export default function Login() {
         try {
             const res = await authService.login(nik, password);
             if (res?.data) {
-                const role = res.data.role;
-                navigate(role === 'admin' ? '/admin' : '/dashboard');
+                navigate('/dashboard');
             }
         } catch (err) {
             setErrorMessage(err.message || 'Login gagal. Periksa kembali NIK dan Password.');
@@ -343,11 +335,6 @@ export default function Login() {
                         </button>
                     </div>
 
-                    {/* Demo Account Hint */}
-                    <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 text-[11px] sm:text-xs text-emerald-800 flex flex-wrap items-center gap-2">
-                        <span className="font-bold shrink-0">💡 Akun Demo:</span>
-                        <span>NIK web: <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">3524000000000001</code> | Username Authorize: <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">wargademo</code> | Password: <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">admin123</code></span>
-                    </div>
                 </form>
 
                 {/* Bottom Actions */}

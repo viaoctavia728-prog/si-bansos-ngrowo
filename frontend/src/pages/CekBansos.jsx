@@ -8,6 +8,7 @@ const ALL_MASTER_PROGRAMS = [
   { name: 'PKH', fullName: 'Program Keluarga Harapan', icon: 'diversity_1', defaultPeriod: 'Tahap 4 • Triwulan IV 2026' },
   { name: 'BPNT', fullName: 'Bantuan Pangan Non-Tunai (Sembako)', icon: 'shopping_bag', defaultPeriod: 'Penyaluran Tiap Bulan' },
   { name: 'BLT Desa', fullName: 'Bantuan Langsung Tunai Dana Desa', icon: 'payments', defaultPeriod: 'Rp 300.000 / Bulan' },
+  { name: 'BST', fullName: 'Bantuan Sosial Tunai', icon: 'account_balance_wallet', defaultPeriod: 'Sesuai periode penyaluran' },
   { name: 'Bansos Beras CPP', fullName: 'Cadangan Pangan Pemerintah 10 Kg', icon: 'inventory_2', defaultPeriod: 'Alokasi Bulanan Balai Desa' },
 ];
 

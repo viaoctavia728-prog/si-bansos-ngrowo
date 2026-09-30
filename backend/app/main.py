@@ -2,9 +2,11 @@ from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import get_current_user
 from app.api.routes import admin, auth, bansos, pengaduan, wilayah
+from app.core.storage import UPLOAD_DIR
 from app.db.init_db import create_tables
 
 # Buat semua tabel jika belum ada
@@ -46,6 +48,7 @@ app.include_router(auth.router, tags=["Auth Alias"])
 
 app.include_router(bansos.router, prefix="/bansos", tags=["Bansos"])
 app.include_router(bansos.router, prefix="/api/bansos", tags=["Bansos API"])
+app.include_router(bansos.public_router, tags=["Bansos Publik"])
 
 app.include_router(pengaduan.router, prefix="/pengaduan", tags=["Pengaduan"])
 app.include_router(pengaduan.router, prefix="/api/pengaduan", tags=["Pengaduan API"])
@@ -55,6 +58,9 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin API"])
 
 app.include_router(wilayah.router, prefix="/wilayah", tags=["Wilayah"])
 app.include_router(wilayah.router, prefix="/api/wilayah", tags=["Wilayah API"])
+
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/")

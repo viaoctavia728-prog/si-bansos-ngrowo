@@ -99,7 +99,7 @@ export const authService = {
 export const bansosService = {
   // Cek status bansos penerima berdasarkan NIK
   async cekBansosByNik(nik) {
-    const response = await apiClient.get(`/api/bansos/cek/${nik}`);
+    const response = await apiClient.get(`/cek-bansos/${nik}`);
     return response.data;
   },
 
@@ -112,6 +112,15 @@ export const bansosService = {
 
 // ==================== PENGADUAN SERVICE ====================
 export const pengaduanService = {
+  async uploadBukti(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/api/pengaduan/upload-bukti', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.bukti_foto;
+  },
+
   // Buat pengaduan baru
   async buatPengaduan(data) {
     const response = await apiClient.post('/api/pengaduan', data);
