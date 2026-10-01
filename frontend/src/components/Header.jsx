@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom';
+import { authService, getAssetUrl } from '../services/api';
 
 export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo, action }) {
+  const user = authService.getCurrentUser();
+  const initials = user?.nama_lengkap?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'W';
+
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="content-width flex h-16 items-center justify-between gap-3">
@@ -11,7 +15,11 @@ export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo
             <h1 className="truncate text-[18px] font-bold text-gray-900">{title}</h1>
           </div>
         </div>
-        {action || <span className="material-symbols-outlined text-[#1b4d3e]">account_circle</span>}
+        {action || (
+          <Link to="/profil" aria-label="Buka profil warga" title="Buka profil warga" className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-emerald-200 bg-emerald-800 text-xs font-bold text-white">
+            {user?.foto_profil ? <img src={getAssetUrl(user.foto_profil)} alt="" className="h-full w-full object-cover" /> : initials}
+          </Link>
+        )}
       </div>
     </header>
   );

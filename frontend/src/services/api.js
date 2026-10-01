@@ -2,6 +2,7 @@ import axios from 'axios';
 
 // Base URL backend FastAPI (default http://localhost:8000)
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+export const getAssetUrl = (path) => path?.startsWith('http') ? path : `${API_BASE_URL}${path || ''}`;
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -89,6 +90,40 @@ export const authService = {
     return response.data;
   },
 
+  async getProfile() {
+    const response = await apiClient.get('/auth/me');
+    const profile = response.data;
+    localStorage.setItem('user', JSON.stringify(profile));
+    return profile;
+  },
+
+  async updateProfile(profileData) {
+    const response = await apiClient.patch('/auth/me', profileData);
+    localStorage.setItem('user', JSON.stringify(response.data));
+    return response.data;
+  },
+
+  async updateProfilePhoto(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/auth/me/photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    localStorage.setItem('user', JSON.stringify(response.data));
+    return response.data;
+  },
+
+  async removeProfilePhoto() {
+    const response = await apiClient.delete('/auth/me/photo');
+    localStorage.setItem('user', JSON.stringify(response.data));
+    return response.data;
+  },
+
+  async registerFcmToken(token) {
+    const response = await apiClient.post('/notifications/fcm/token', { token });
+    return response.data;
+  },
+
   // Logout session
   logout() {
     localStorage.removeItem('user');
@@ -146,14 +181,8 @@ export const pengaduanService = {
 export const jadwalService = {
   // Ambil jadwal penyaluran bansos
   async getJadwal() {
-    try {
-      const response = await apiClient.get('/jadwal');
-      return response.data;
-    } catch (error) {
-      if (error.status !== 404) throw error;
-      const response = await apiClient.get('/api/jadwal');
-      return response.data;
-    }
+    const response = await apiClient.get('/api/jadwal');
+    return response.data;
   },
 };
 
@@ -163,13 +192,28 @@ export const adminService = {
     return response.data;
   },
 
-  async getPengaduan() {
-    const response = await apiClient.get('/admin/pengaduan');
+  async getPengaduan(params = {}) {
+    const response = await apiClient.get('/admin/pengaduan', { params });
     return response.data;
   },
 
   async updateStatus(idLaporan, payload) {
     const response = await apiClient.put(`/admin/pengaduan/${idLaporan}`, payload);
+    return response.data;
+  },
+
+  async getAuditLogs() {
+    const response = await apiClient.get('/admin/audit-logs');
+    return response.data;
+  },
+
+  async sendNotification(payload) {
+    const response = await apiClient.post('/notifications/fcm/send', payload);
+    return response.data;
+  },
+
+  async sendNotificationToToken(payload) {
+    const response = await apiClient.post('/notifications/fcm/send-to-token', payload);
     return response.data;
   },
 };

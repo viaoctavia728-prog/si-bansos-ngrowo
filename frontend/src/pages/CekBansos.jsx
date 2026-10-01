@@ -130,22 +130,9 @@ export default function CekBansos() {
                   onClick={() => { setSearchNik('3524011111110001'); handleSearch('3524011111110001'); }} 
                   className="bg-gray-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-0.5 rounded font-mono transition-colors"
                 >
-                  Siti (PKH)
+                  35240111111100**
                 </button>
-                <button 
-                  type="button"
-                  onClick={() => { setSearchNik('3524012222220002'); handleSearch('3524012222220002'); }} 
-                  className="bg-gray-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-0.5 rounded font-mono transition-colors"
-                >
-                  Budi (BPNT)
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => { setSearchNik('3524013333330003'); handleSearch('3524013333330003'); }} 
-                  className="bg-gray-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-0.5 rounded font-mono transition-colors"
-                >
-                  Karto (BLT)
-                </button>
+                
               </div>
             </div>
 

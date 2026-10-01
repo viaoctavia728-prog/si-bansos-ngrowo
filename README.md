@@ -37,3 +37,14 @@ The seeded demo accounts are for local testing only:
 Change or remove these credentials before any public deployment. The warga
 registration form generates a username automatically; it shows the generated
 username after successful registration. Web login continues to use NIK.
+
+## Push notifications (optional)
+
+Create a Firebase project and enable Firebase Cloud Messaging. Copy
+`frontend/.env.example` to `frontend/.env`, then fill in the Firebase Web App
+configuration and the Web Push certificate key (VAPID). For the API, set
+`FIREBASE_PROJECT_ID` and either `GOOGLE_APPLICATION_CREDENTIALS` (path to a
+service-account JSON file available to the backend) or
+`FIREBASE_SERVICE_ACCOUNT_JSON` in the root `.env`. Never commit service-account
+credentials. Warga can enable notifications from their dashboard; admins can
+send a message from the Admin > Notifikasi tab.

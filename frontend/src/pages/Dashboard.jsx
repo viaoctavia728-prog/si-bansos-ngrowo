@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import logoNgrowo from '../images/logo ngrowo.png';
-import { authService, bansosService, pengaduanService } from '../services/api';
+import { authService, bansosService, getAssetUrl, pengaduanService } from '../services/api';
+import { enablePushNotifications, isFcmConfigured, listenForPushMessages } from '../services/firebase';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -9,6 +10,9 @@ export default function Dashboard() {
   const [bansosData, setBansosData] = useState([]);
   const [userReports, setUserReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [now, setNow] = useState(() => new Date());
+  const [pushEnabling, setPushEnabling] = useState(false);
+  const [pushMessage, setPushMessage] = useState('');
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -21,14 +25,18 @@ export default function Dashboard() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        if (user.nik) {
-          const bansosRes = await bansosService.cekBansosByNik(user.nik);
-          setBansosData(bansosRes || []);
-        }
-        if (user.id_user) {
-          const reportsRes = await pengaduanService.getByUser(user.id_user);
-          setUserReports(reportsRes || []);
-        }
+        const profile = await authService.getProfile();
+        setCurrentUser(profile);
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+      }
+      try {
+        const [bansosRes, reportsRes] = await Promise.all([
+          user.nik ? bansosService.cekBansosByNik(user.nik) : Promise.resolve([]),
+          user.id_user ? pengaduanService.getByUser(user.id_user) : Promise.resolve([]),
+        ]);
+        setBansosData(Array.isArray(bansosRes) ? bansosRes : []);
+        setUserReports(Array.isArray(reportsRes) ? reportsRes : []);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setBansosData([]);
@@ -41,12 +49,43 @@ export default function Dashboard() {
     fetchData();
   }, [navigate]);
 
-  const handleLogout = () => {
-    if (window.confirm('Apakah Anda yakin ingin keluar dari akun?')) {
-      authService.logout();
-      navigate('/login');
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let unsubscribe = () => {};
+    listenForPushMessages((notification) => {
+      setPushMessage(`${notification.title}${notification.body ? `: ${notification.body}` : ''}`);
+    }).then((stopListening) => {
+      if (active) unsubscribe = stopListening;
+      else stopListening();
+    }).catch(() => {});
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const handleEnablePush = async () => {
+    try {
+      setPushEnabling(true);
+      setPushMessage('');
+      await enablePushNotifications();
+      setPushMessage('Notifikasi berhasil diaktifkan pada perangkat ini.');
+    } catch (err) {
+      setPushMessage(err.message || 'Notifikasi belum dapat diaktifkan.');
+    } finally {
+      setPushEnabling(false);
     }
   };
+
+  const isProfileComplete = Boolean(
+    currentUser?.nama_lengkap && currentUser?.no_kk && currentUser?.no_hp &&
+    currentUser?.rt && currentUser?.rw && currentUser?.alamat_detail,
+  );
 
   // Ambil inisial nama
   const getInitials = (name) => {
@@ -69,7 +108,7 @@ export default function Dashboard() {
       
       {/* HEADER / NAVBAR ATAS */}
       <header className="fixed top-0 w-full z-50 pt-safe bg-white border-b border-gray-200 shadow-sm">
-        <div className="h-16 px-4 sm:px-6 max-w-4xl mx-auto flex items-center justify-between gap-2">
+        <div className="h-16 px-4 sm:px-6 max-w-2xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden shadow-xs flex items-center justify-center bg-emerald-50 border border-emerald-100 p-0.5">
               <img src={logoNgrowo} alt="Logo Kelurahan Ngrowo" className="w-full h-full object-contain rounded-lg" />
@@ -85,43 +124,69 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2">
-            <button 
-              onClick={handleLogout}
-              title="Keluar / Logout"
-              className="h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-200 text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">logout</span>
-              <span className="hidden sm:inline">Keluar</span>
+            <button type="button" onClick={() => navigate('/profil?section=notifications')} title="Pengaturan notifikasi" aria-label="Pengaturan notifikasi" className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-emerald-50">
+              <span className="material-symbols-outlined text-[20px]">notifications_none</span>
+              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
             </button>
-            <div className="w-9 h-9 rounded-full border-2 border-emerald-200 overflow-hidden flex items-center justify-center bg-emerald-700 text-white font-bold text-xs flex-shrink-0 shadow-xs">
-              {getInitials(currentUser?.nama_lengkap)}
-            </div>
+            <Link to="/profil" title="Buka profil warga" aria-label="Buka profil warga" className="w-9 h-9 rounded-full border-2 border-emerald-200 overflow-hidden flex items-center justify-center bg-emerald-700 text-white font-bold text-xs flex-shrink-0 shadow-xs">
+              {currentUser?.foto_profil ? <img src={getAssetUrl(currentUser.foto_profil)} alt="" className="h-full w-full object-cover" /> : getInitials(currentUser?.nama_lengkap)}
+            </Link>
           </div>
         </div>
       </header>
 
       {/* KONTEN UTAMA */}
       <main className="flex flex-col relative w-full pt-16 pb-28 bg-white min-h-screen">
-        <div className="flex flex-col w-full max-w-4xl mx-auto">
+        <div className="flex flex-col w-full max-w-2xl mx-auto">
           <div className="px-4 sm:px-6 pt-4 flex flex-col gap-5">
             
             {/* Greetings & Status Warga */}
             <div className="flex items-center justify-between pt-1">
-              <div className="flex flex-col gap-1.5">
-                <div className="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full text-xs font-semibold border bg-[#F0FDF4] border-[#DCFCE7] text-[#166534]">
+              <div className="flex flex-col gap-2">
+                <div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[#DCFCE7] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-semibold text-[#166534] sm:text-xs">
                   <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
                   <span>
                     Warga Terverifikasi • RT {currentUser?.rt || '001'} / RW {currentUser?.rw || '001'}
                   </span>
+                  </div>
+                  <p className="shrink-0 text-[9px] font-medium text-gray-700 sm:text-[10px]" aria-live="polite">
+                    {now.toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })} · {now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
+                  </p>
                 </div>
-                <h1 className="text-2xl sm:text-[28px] font-extrabold tracking-tight text-[#121c2a]">
-                  Halo, {currentUser?.nama_lengkap || 'Warga Ngrowo'}! 👋
+                <h1 className="text-xl font-extrabold text-[#121c2a] sm:text-2xl">
+                  Halo, {currentUser?.nama_lengkap || 'Warga Ngrowo'}!
                 </h1>
                 <p className="text-xs sm:text-[14px] text-[#40493d]">
                   NIK: <code className="font-mono bg-gray-100 px-1.5 py-0.5 rounded font-bold text-gray-800">{currentUser?.nik}</code> • Berikut ringkasan bantuan sosial dan pengaduan Anda.
                 </p>
               </div>
             </div>
+
+            <section className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                    <span className="material-symbols-outlined text-[18px]">badge</span>
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xs font-bold text-gray-900 sm:text-sm">Profil Warga</h2>
+                    <p className="mt-0.5 text-[10px] leading-snug text-gray-600 sm:text-xs">{isProfileComplete ? 'Data profil Anda sudah lengkap.' : 'Lengkapi data agar layanan warga dapat memverifikasi informasi Anda.'}</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => navigate('/profil')} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md bg-emerald-800 px-2.5 text-[10px] font-semibold text-white hover:bg-emerald-900 sm:text-xs">
+                  <span className="material-symbols-outlined text-[15px]">edit</span>
+                  {isProfileComplete ? 'Lihat Profil' : 'Lengkapi Profil'}
+                </button>
+              </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-gray-100 pt-2">
+                <button type="button" onClick={handleEnablePush} disabled={!isFcmConfigured || pushEnabling} className="inline-flex min-h-6 items-center gap-1 text-[10px] font-medium text-gray-600 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">
+                  <span className="material-symbols-outlined text-[13px]">notifications_none</span>
+                  {pushEnabling ? 'Mengaktifkan...' : 'Aktifkan Notifikasi'}
+                </button>
+                <p role="status" className="text-[9px] text-gray-500">{pushMessage || (isFcmConfigured ? 'Pemberitahuan jadwal dan status laporan.' : 'Konfigurasi Firebase belum diisi.')}</p>
+              </div>
+            </section>
 
             <section aria-label="Ringkasan akun" className="grid grid-cols-3 gap-2 sm:gap-3">
               <div className="min-w-0 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 sm:p-4">
@@ -396,9 +461,9 @@ export default function Dashboard() {
             <span className="material-symbols-outlined text-[22px]">edit_document</span>
             <span className="text-[11px] font-medium">Pengaduan</span>
           </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-[#40493d] hover:text-emerald-800 transition-colors" to="/jadwal">
-            <span className="material-symbols-outlined text-[22px]">calendar_month</span>
-            <span className="text-[11px] font-medium">Jadwal</span>
+          <Link className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] text-[#40493d] hover:text-emerald-800 transition-colors" to="/info">
+            <span className="material-symbols-outlined text-[22px]">info</span>
+            <span className="text-[11px] font-medium">Info</span>
           </Link>
         </div>
       </nav>

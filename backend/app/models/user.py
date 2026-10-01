@@ -19,6 +19,7 @@ class User(Base):
     rt = Column(String(10), nullable=True)
     rw = Column(String(10), nullable=True)
     alamat_detail = Column(String(255), nullable=True)  # <--- Penampung Alamat Lengkap
+    foto_profil = Column(String(255), nullable=True)
     id_wilayah = Column(Integer, ForeignKey("wilayah_ngrowo.id_wilayah"), nullable=True)
 
     password_hash = Column(String(255), nullable=False)

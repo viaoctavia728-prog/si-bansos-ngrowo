@@ -1,16 +1,21 @@
 import json
 import secrets
+from pathlib import Path
 from urllib.parse import parse_qsl
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
+from app.core.storage import MAX_UPLOAD_BYTES, UPLOAD_DIR
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import UserLogin, UserRegister, UserResponse
+from app.schemas.auth import UserLogin, UserProfileUpdate, UserRegister, UserResponse
 
 router = APIRouter()
+PROFILE_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 
 @router.post("/register")
@@ -144,8 +149,84 @@ async def login(request: Request, db: Session = Depends(get_db)):
             "role": user.role,
             "rt": user.rt,
             "rw": user.rw,
+            "foto_profil": user.foto_profil,
         },
     }
+
+
+@router.get("/me", response_model=UserResponse)
+def get_current_profile(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id_user == current_user.get("id_user")).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Profil pengguna tidak ditemukan!")
+    return user
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_current_profile(
+    profile: UserProfileUpdate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id_user == current_user.get("id_user")).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Profil pengguna tidak ditemukan!")
+    for field, value in profile.model_dump(exclude_unset=True).items():
+        setattr(user, field, value.strip() if isinstance(value, str) else value)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/me/photo", response_model=UserResponse)
+async def upload_current_profile_photo(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id_user == current_user.get("id_user")).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Profil pengguna tidak ditemukan!")
+    extension = PROFILE_IMAGE_TYPES.get(file.content_type or "")
+    if not extension:
+        raise HTTPException(status_code=400, detail="Foto harus berformat JPG, PNG, atau WEBP.")
+    contents = await file.read(MAX_UPLOAD_BYTES + 1)
+    if not contents:
+        raise HTTPException(status_code=400, detail="File foto tidak boleh kosong.")
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Ukuran foto maksimal 2 MB.")
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"profile_{user.id_user}_{uuid4().hex}{extension}"
+    (UPLOAD_DIR / filename).write_bytes(contents)
+    previous_photo = user.foto_profil
+    user.foto_profil = f"/uploads/{filename}"
+    db.commit()
+    db.refresh(user)
+    if previous_photo:
+        previous_path = UPLOAD_DIR / Path(previous_photo).name
+        if previous_path.name.startswith(f"profile_{user.id_user}_") and previous_path.is_file():
+            previous_path.unlink(missing_ok=True)
+    return user
+
+
+@router.delete("/me/photo", response_model=UserResponse)
+def delete_current_profile_photo(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id_user == current_user.get("id_user")).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Profil pengguna tidak ditemukan!")
+    previous_photo = user.foto_profil
+    user.foto_profil = None
+    db.commit()
+    db.refresh(user)
+    if previous_photo:
+        previous_path = UPLOAD_DIR / Path(previous_photo).name
+        if previous_path.name.startswith(f"profile_{user.id_user}_") and previous_path.is_file():
+            previous_path.unlink(missing_ok=True)
+    return user
 
 
 @router.get("/user/{nik}", response_model=UserResponse)

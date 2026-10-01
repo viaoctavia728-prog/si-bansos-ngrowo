@@ -42,6 +42,12 @@ def ensure_username_column():
         with engine.begin() as connection:
             connection.execute(text("CREATE UNIQUE INDEX uq_users_username ON users (username)"))
 
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "foto_profil" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN foto_profil VARCHAR(255) NULL"))
+
 
 def seed_default_admin():
     db: Session = SessionLocal()

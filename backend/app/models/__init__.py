@@ -3,6 +3,7 @@ from app.models.pengaduan import PengaduanBansos
 from app.models.bansos import DataBansos
 from app.models.wilayah import WilayahNgrowo
 from app.models.audit_log import AuditLog
+from app.models.fcm_device_token import FcmDeviceToken
 
 __all__ = [
     "User",
@@ -10,4 +11,5 @@ __all__ = [
     "DataBansos",
     "WilayahNgrowo",
     "AuditLog",
+    "FcmDeviceToken",
 ]

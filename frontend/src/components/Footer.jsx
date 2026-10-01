@@ -4,7 +4,7 @@ const navItems = [
   { path: '/dashboard', icon: 'home', label: 'Beranda' },
   { path: '/cek-bansos', icon: 'search', label: 'Cek Bansos' },
   { path: '/pengaduan', icon: 'edit_document', label: 'Pengaduan' },
-  { path: '/jadwal', icon: 'info', label: 'Info' },
+  { path: '/info', icon: 'info', label: 'Info' },
 ];
 
 export default function Footer() {
@@ -40,4 +40,4 @@ export default function Footer() {
       </div>
     </nav>
   );
-}
+}

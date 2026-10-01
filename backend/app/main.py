@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import get_current_user
-from app.api.routes import admin, auth, bansos, pengaduan, wilayah
+from app.api.routes import admin, auth, bansos, notifications, pengaduan, wilayah
+from app.core.config import get_settings
 from app.core.storage import UPLOAD_DIR
 from app.db.init_db import create_tables
 
@@ -21,20 +22,7 @@ app = FastAPI(
 # CORS Middleware agar frontend React/Vite dapat terhubung
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://localhost:80",
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "http://127.0.0.1",
-        "http://127.0.0.1:80",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:4173",
-        "http://frontend",
-        "http://backend",
-    ],
+    allow_origins=[origin.strip() for origin in get_settings().cors_origins.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,6 +43,8 @@ app.include_router(pengaduan.router, prefix="/api/pengaduan", tags=["Pengaduan A
 
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin API"])
+app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications API"])
 
 app.include_router(wilayah.router, prefix="/wilayah", tags=["Wilayah"])
 app.include_router(wilayah.router, prefix="/api/wilayah", tags=["Wilayah API"])
@@ -89,9 +79,14 @@ def get_jadwal():
         "data": {
             "judul": "Jadwal Penyaluran Bansos Desa Ngrowo",
             "tahap": "Tahap II - 2026",
-            "tanggal": "Sabtu, 18 November 2026",
+            "tanggal": "2026-11-18",
             "waktu": "08.00 - 12.00 WIB",
             "lokasi": "Balai Desa Ngrowo",
             "program": "Beras CPP 10 Kg / KPM",
+            "total_kpm": 222,
+            "sesi": [
+                {"rt": "001", "jumlah_kpm": 124, "waktu": "08.00 - 10.00 WIB"},
+                {"rt": "002", "jumlah_kpm": 98, "waktu": "10.00 - 12.00 WIB"},
+            ],
         },
     }
