@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import logoNgrowo from '../images/logo ngrowo.png';
-import { authService, bansosService, getAssetUrl, pengaduanService } from '../services/api';
+import { authService } from '../services/auth';
+import { getAssetUrl } from '../services/apiClient';
+import { bansosService, pengaduanService } from '../services/api';
 import { enablePushNotifications, isFcmConfigured, listenForPushMessages } from '../services/firebase';
 
 export default function Dashboard() {

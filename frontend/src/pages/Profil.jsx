@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authService, bansosService, getAssetUrl } from '../services/api';
+import { authService } from '../services/auth';
+import { getAssetUrl } from '../services/apiClient';
+import { bansosService } from '../services/api';
 import { enablePushNotifications, isFcmConfigured } from '../services/firebase';
 
 const PROFILE_FIELDS = [

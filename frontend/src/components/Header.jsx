@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { authService, getAssetUrl } from '../services/api';
+import { authService } from '../services/auth';
+import { getAssetUrl } from '../services/apiClient';
 
 export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo, action }) {
   const user = authService.getCurrentUser();

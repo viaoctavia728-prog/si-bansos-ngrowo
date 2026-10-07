@@ -1,6 +1,6 @@
 import { getApp, getApps, initializeApp } from '@firebase/app';
 import { getMessaging, getToken, isSupported, onMessage } from '@firebase/messaging';
-import { authService } from './api';
+import { authService } from './auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import logoNgrowo from '../images/logo ngrowo.png';
-import { authService } from '../services/api';
+import logoNgrowo from '../../images/logo ngrowo.png';
+import { adminAuthService } from '../../services/admin/adminAuth';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -17,16 +17,12 @@ export default function AdminLogin() {
     setIsLoading(true);
 
     try {
-      const response = await authService.login(username.trim(), password);
-      if (response?.data?.role === 'admin') {
-        navigate('/admin', { replace: true });
-        return;
-      }
-
-      authService.logout();
-      setErrorMessage('Akun ini bukan akun petugas. Silakan gunakan Portal Warga.');
+      await adminAuthService.login(username.trim(), password);
+      navigate('/admin', { replace: true });
     } catch (error) {
-      setErrorMessage(error.message || 'Login admin gagal. Periksa username dan password.');
+      setErrorMessage(error.status === 401
+        ? 'Username atau password salah. Pastikan akun yang digunakan memang akun admin.'
+        : error.message || 'Login admin gagal. Gunakan akun petugas yang terdaftar.');
     } finally {
       setIsLoading(false);
     }
@@ -68,6 +64,12 @@ export default function AdminLogin() {
               className="mt-1.5 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
+
+          {import.meta.env.DEV && (
+            <p className="text-xs text-slate-500">
+              Demo lokal: username <strong>admin</strong>, password <strong>admin</strong>.
+            </p>
+          )}
 
           <label className="block text-sm font-semibold text-slate-700">
             Password

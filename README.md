@@ -34,7 +34,10 @@ The seeded demo accounts are for local testing only:
 - Admin: username `admin`, password `admin`
 - Warga: username `wargademo`, password `admin123`
 
-Change or remove these credentials before any public deployment. The warga
+The local demo admin credentials are available on the admin login form in
+development mode. Other staff accounts must already exist with the `admin`
+role; a warga username cannot sign in to the admin portal. Change or remove
+these credentials before any public deployment. The warga
 registration form generates a username automatically; it shows the generated
 username after successful registration. Warga sign in from the main portal
 using their NIK. Admins use the separate portal at `/admin/login` (for example,

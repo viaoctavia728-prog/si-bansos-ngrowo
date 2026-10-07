@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { bansosService, authService } from '../services/api';
+import { bansosService } from '../services/api';
+import { authService } from '../services/auth';
 
 const ALL_MASTER_PROGRAMS = [
   { name: 'PKH', fullName: 'Program Keluarga Harapan', icon: 'diversity_1', defaultPeriod: 'Tahap 4 • Triwulan IV 2026' },

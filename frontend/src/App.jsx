@@ -10,11 +10,10 @@ import Pengaduan from './pages/Pengaduan';
 import DetailLaporan from './pages/DetailLaporan';
 import Jadwal from './pages/Jadwal';
 import Info from './pages/Info';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminLogin from './pages/AdminLogin';
 import Profil from './pages/Profil';
+import AdminPortal from './admin/AdminPortal';
 
-function getCurrentUser() {
+function getCitizenUser() {
   try {
     const raw = localStorage.getItem('user');
     return raw ? JSON.parse(raw) : null;
@@ -23,30 +22,20 @@ function getCurrentUser() {
   }
 }
 
-function isAuthenticated() {
-  return Boolean(localStorage.getItem('token') || localStorage.getItem('access_token'));
-}
-
-function isAdminAuthenticated() {
-  const user = getCurrentUser();
-  return isAuthenticated() && user?.role === 'admin';
+function isCitizenAuthenticated() {
+  const user = getCitizenUser();
+  const token = localStorage.getItem('citizen_access_token')
+    || localStorage.getItem('token')
+    || localStorage.getItem('access_token');
+  return Boolean(token && (user?.role === 'user' || user?.role === 'warga'));
 }
 
 function ProtectedRoute({ children }) {
-  if (!isAuthenticated()) return <Navigate to="/login" replace />;
-  return getCurrentUser()?.role === 'admin' ? <Navigate to="/admin" replace /> : children;
-}
-
-function ProtectedAdminRoute({ children }) {
-  return isAdminAuthenticated() ? children : <Navigate to="/admin/login" replace />;
+  return isCitizenAuthenticated() ? children : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }) {
-  return isAuthenticated() ? <Navigate to={getCurrentUser()?.role === 'admin' ? '/admin' : '/dashboard'} replace /> : children;
-}
-
-function AdminLoginRoute() {
-  return isAdminAuthenticated() ? <Navigate to="/admin" replace /> : <AdminLogin />;
+  return isCitizenAuthenticated() ? <Navigate to="/dashboard" replace /> : children;
 }
 
 function App() {
@@ -56,10 +45,9 @@ function App() {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/lupa-pin" element={<PublicRoute><LupaPin /></PublicRoute>} />
-      <Route path="/admin/login" element={<AdminLoginRoute />} />
+      <Route path="/admin/*" element={<AdminPortal />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
       <Route path="/cek-bansos" element={<ProtectedRoute><CekBansos /></ProtectedRoute>} />
       <Route path="/pengaduan" element={<ProtectedRoute><Pengaduan /></ProtectedRoute>} />
       <Route path="/detail-laporan" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />

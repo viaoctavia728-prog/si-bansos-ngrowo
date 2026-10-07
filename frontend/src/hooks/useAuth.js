@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import apiService from '../services/api';
+import { useState } from 'react';
+import { authService } from '../services/auth';
 
 export function useAuth() {
   const [user, setUser] = useState(() => {
@@ -10,7 +10,7 @@ export function useAuth() {
       return null;
     }
   });
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
+  const [token, setToken] = useState(() => localStorage.getItem('citizen_access_token') || localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -18,15 +18,10 @@ export function useAuth() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiService.login(nik, password);
-      if (res.access_token) {
-        localStorage.setItem('token', res.access_token);
-        setToken(res.access_token);
-      }
-      if (res.data) {
-        localStorage.setItem('user', JSON.stringify(res.data));
-        setUser(res.data);
-      }
+      const res = await authService.login(nik, password);
+      const accessToken = res.access_token || res.token;
+      setToken(accessToken);
+      setUser(res.data);
       return res;
     } catch (err) {
       setError(err.message);
@@ -37,8 +32,7 @@ export function useAuth() {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    authService.logout();
     setUser(null);
     setToken(null);
   };

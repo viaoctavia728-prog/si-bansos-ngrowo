@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import apiService from '../services/api';
+import { bansosService } from '../services/api';
 
 export function useBansos(initialFilters = {}) {
   const [data, setData] = useState([]);
@@ -12,7 +12,7 @@ export function useBansos(initialFilters = {}) {
     setError(null);
     try {
       const activeFilters = customFilters !== undefined ? customFilters : filters;
-      const res = await apiService.getPenerimaBansos(activeFilters);
+      const res = await bansosService.getPenerimaBansos(activeFilters);
       setData(res);
       return res;
     } catch (err) {

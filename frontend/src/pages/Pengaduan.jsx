@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { pengaduanService, authService } from '../services/api';
+import { pengaduanService } from '../services/api';
+import { authService } from '../services/auth';
 
 export default function Pengaduan() {
   const navigate = useNavigate();

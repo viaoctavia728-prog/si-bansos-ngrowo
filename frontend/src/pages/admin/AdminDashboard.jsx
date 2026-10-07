@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { adminService, authService } from '../services/api';
-import logoNgrowo from '../images/logo ngrowo.png';
+import { adminService } from '../../services/admin/adminApi';
+import { adminAuthService } from '../../services/admin/adminAuth';
+import logoNgrowo from '../../images/logo ngrowo.png';
 
 const STATUS_OPTIONS = ['pending', 'proses', 'selesai', 'ditolak'];
 
@@ -30,7 +31,7 @@ export default function AdminDashboard() {
   const [notificationFeedback, setNotificationFeedback] = useState('');
 
   useEffect(() => {
-    const user = authService.getCurrentUser();
+    const user = adminAuthService.getCurrentUser();
     if (!user || user.role !== 'admin') {
       navigate('/admin/login', { replace: true });
       return;
@@ -160,7 +161,7 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    authService.logout();
+    adminAuthService.logout();
     navigate('/admin/login', { replace: true });
   };
 
