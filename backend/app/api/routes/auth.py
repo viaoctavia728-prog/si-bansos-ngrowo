@@ -3,12 +3,14 @@ import secrets
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import UserLogin, UserRegister, UserResponse
+from app.schemas.auth import UserRegister, UserResponse
 
 router = APIRouter()
 
@@ -37,7 +39,11 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         role="user",
     )
     db.add(new_user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="NIK atau username sudah terdaftar!") from exc
     db.refresh(new_user)
 
     return {
@@ -149,8 +155,14 @@ async def login(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/user/{nik}", response_model=UserResponse)
-def get_user_by_nik(nik: str, db: Session = Depends(get_db)):
+def get_user_by_nik(
+    nik: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     user = db.query(User).filter(User.nik == nik).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan!")
+    if user.id_user != current_user.get("id_user") and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Data user hanya dapat dilihat oleh pemilik akun atau admin.")
     return user

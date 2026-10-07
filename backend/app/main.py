@@ -89,7 +89,7 @@ def get_jadwal():
         "data": {
             "judul": "Jadwal Penyaluran Bansos Desa Ngrowo",
             "tahap": "Tahap II - 2026",
-            "tanggal": "Sabtu, 18 November 2026",
+            "tanggal": "Rabu, 18 November 2026",
             "waktu": "08.00 - 12.00 WIB",
             "lokasi": "Balai Desa Ngrowo",
             "program": "Beras CPP 10 Kg / KPM",
