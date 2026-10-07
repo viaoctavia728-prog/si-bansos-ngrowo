@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/warga", response_model=List[UserResponse])
 def get_warga_terdaftar(
     db: Session = Depends(get_db),
-    current_admin=Depends(get_current_admin),
+    _current_admin=Depends(get_current_admin),
 ):
     return (
         db.query(User)
@@ -32,7 +32,7 @@ def get_semua_pengaduan(
     rt: str | None = Query(default=None),
     rw: str | None = Query(default=None),
     db: Session = Depends(get_db),
-    current_admin=Depends(get_current_admin),
+    _current_admin=Depends(get_current_admin),
 ):
     query = db.query(PengaduanBansos).join(User, PengaduanBansos.id_user == User.id_user)
     if rt:
@@ -56,7 +56,7 @@ def update_status_pengaduan(
     id_laporan: int,
     data_update: PengaduanUpdateStatus,
     db: Session = Depends(get_db),
-    current_admin=Depends(get_current_admin),
+    _current_admin=Depends(get_current_admin),
 ):
     pengaduan = db.query(PengaduanBansos).filter(PengaduanBansos.id_laporan == id_laporan).first()
     if not pengaduan:

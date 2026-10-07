@@ -5,6 +5,7 @@ from urllib.parse import parse_qsl
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -42,7 +43,11 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         role="user",
     )
     db.add(new_user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="NIK atau username sudah terdaftar!") from exc
     db.refresh(new_user)
 
     return {
@@ -230,8 +235,14 @@ def delete_current_profile_photo(
 
 
 @router.get("/user/{nik}", response_model=UserResponse)
-def get_user_by_nik(nik: str, db: Session = Depends(get_db)):
+def get_user_by_nik(
+    nik: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     user = db.query(User).filter(User.nik == nik).first()
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan!")
+    if user.id_user != current_user.get("id_user") and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Data user hanya dapat dilihat oleh pemilik akun atau admin.")
     return user

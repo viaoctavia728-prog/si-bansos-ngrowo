@@ -1,8 +1,10 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_admin
 from app.db.session import get_db
 from app.models.bansos import DataBansos
 from app.schemas.bansos import DataBansosCreate, DataBansosResponse
@@ -46,9 +48,17 @@ def cek_bansos_by_nik(nik: str, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=DataBansosResponse, status_code=201)
-def tambah_penerima_bansos(data: DataBansosCreate, db: Session = Depends(get_db)):
+def tambah_penerima_bansos(
+    data: DataBansosCreate,
+    db: Session = Depends(get_db),
+    _current_admin=Depends(get_current_admin),
+):
     penerima_baru = DataBansos(**data.model_dump())
     db.add(penerima_baru)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Data penerima bansos bertentangan dengan data yang sudah ada.") from exc
     db.refresh(penerima_baru)
     return penerima_baru
