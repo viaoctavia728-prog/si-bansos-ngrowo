@@ -28,7 +28,6 @@ export default function Pengaduan() {
     try {
       const buktiFotoUrl = buktiFoto ? await pengaduanService.uploadBukti(buktiFoto) : null;
       const payload = {
-        id_user: currentUser?.id_user || 1,
         nik_terlapor: nikTerlapor || null,
         kategori_aduan: jenisAduan,
         program_terkait: program,

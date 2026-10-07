@@ -22,7 +22,7 @@ class BuktiFotoUpload(BaseModel):
 
 
 class PengaduanUpdateStatus(BaseModel):
-  status_laporan: Literal["pending", "proses", "selesai"]
+  status_laporan: Literal["pending", "proses", "selesai", "ditolak"]
   catatan_admin: Optional[str] = Field(default=None, max_length=5000)
 
 

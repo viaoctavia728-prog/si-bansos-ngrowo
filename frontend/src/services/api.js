@@ -150,10 +150,27 @@ export const bansosService = {
 // ==================== PENGADUAN SERVICE ====================
 export const pengaduanService = {
   async uploadBukti(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await apiClient.post('/api/pengaduan/upload-bukti', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const contentBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result !== 'string') {
+          reject(new Error('Gagal membaca file bukti.'));
+          return;
+        }
+        const separatorIndex = reader.result.indexOf(',');
+        if (separatorIndex < 0) {
+          reject(new Error('Format file bukti tidak valid.'));
+          return;
+        }
+        resolve(reader.result.slice(separatorIndex + 1));
+      };
+      reader.onerror = () => reject(reader.error || new Error('Gagal membaca file bukti.'));
+      reader.readAsDataURL(file);
+    });
+    const response = await apiClient.post('/api/pengaduan/upload-bukti', {
+      filename: file.name,
+      content_type: file.type,
+      content_base64: contentBase64,
     });
     return response.data.bukti_foto;
   },
