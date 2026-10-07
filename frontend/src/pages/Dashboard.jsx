@@ -190,21 +190,21 @@ export default function Dashboard() {
               </div>
             </section>
 
-            <section aria-label="Ringkasan akun" className="grid grid-cols-3 gap-2 sm:gap-3">
+            <section aria-label="Ringkasan bansos dan pengaduan saya" className="grid grid-cols-3 gap-2 sm:gap-3">
               <div className="min-w-0 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 sm:p-4">
-                <p className="text-[10px] sm:text-xs font-semibold text-emerald-900">Program bansos</p>
+                <p className="text-[10px] sm:text-xs font-semibold text-emerald-900">Bansos saya</p>
                 <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{isLoading ? '–' : bansosData.length}</p>
-                <p className="text-[10px] sm:text-xs text-gray-600">terdata</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">program terdata</p>
               </div>
               <div className="min-w-0 rounded-xl border border-sky-100 bg-sky-50/70 p-3 sm:p-4">
-                <p className="text-[10px] sm:text-xs font-semibold text-sky-900">Total laporan</p>
+                <p className="text-[10px] sm:text-xs font-semibold text-sky-900">Pengaduan saya</p>
                 <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{isLoading ? '–' : userReports.length}</p>
-                <p className="text-[10px] sm:text-xs text-gray-600">dikirim</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">pernah dikirim</p>
               </div>
               <div className="min-w-0 rounded-xl border border-amber-100 bg-amber-50/70 p-3 sm:p-4">
-                <p className="text-[10px] sm:text-xs font-semibold text-amber-900">Perlu tindak lanjut</p>
+                <p className="text-[10px] sm:text-xs font-semibold text-amber-900">Belum selesai</p>
                 <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900">{isLoading ? '–' : activeReportCount}</p>
-                <p className="text-[10px] sm:text-xs text-gray-600">laporan</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">menunggu / diproses</p>
               </div>
             </section>
 
