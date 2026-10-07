@@ -56,7 +56,7 @@ def update_status_pengaduan(
     id_laporan: int,
     data_update: PengaduanUpdateStatus,
     db: Session = Depends(get_db),
-    _current_admin=Depends(get_current_admin),
+    current_admin=Depends(get_current_admin),
 ):
     pengaduan = db.query(PengaduanBansos).filter(PengaduanBansos.id_laporan == id_laporan).first()
     if not pengaduan:
