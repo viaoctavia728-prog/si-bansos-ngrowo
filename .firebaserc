@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "si-bansos-ngrowo-notif"
+  },
+  "targets": {
+    "si-bansos-ngrowo-notif": {
+      "hosting": {
+        "si-bansos-ngrowo-notif-6166d": [
+          "si-bansos-ngrowo-notif-6166d"
+        ]
+      }
+    }
+  }
+}

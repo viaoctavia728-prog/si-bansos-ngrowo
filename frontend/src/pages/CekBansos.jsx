@@ -8,6 +8,7 @@ const ALL_MASTER_PROGRAMS = [
   { name: 'PKH', fullName: 'Program Keluarga Harapan', icon: 'diversity_1', defaultPeriod: 'Tahap 4 • Triwulan IV 2026' },
   { name: 'BPNT', fullName: 'Bantuan Pangan Non-Tunai (Sembako)', icon: 'shopping_bag', defaultPeriod: 'Penyaluran Tiap Bulan' },
   { name: 'BLT Desa', fullName: 'Bantuan Langsung Tunai Dana Desa', icon: 'payments', defaultPeriod: 'Rp 300.000 / Bulan' },
+  { name: 'BST', fullName: 'Bantuan Sosial Tunai', icon: 'account_balance_wallet', defaultPeriod: 'Sesuai periode penyaluran' },
   { name: 'Bansos Beras CPP', fullName: 'Cadangan Pangan Pemerintah 10 Kg', icon: 'inventory_2', defaultPeriod: 'Alokasi Bulanan Balai Desa' },
 ];
 
@@ -22,8 +23,12 @@ export default function CekBansos() {
 
   // Lakukan pencarian ke backend
   const handleSearch = async (nikToSearch = searchNik) => {
-    if (!nikToSearch || nikToSearch.trim() === '') {
+    const cleanNik = (nikToSearch || '').trim();
+
+    if (!cleanNik) {
       setErrorMsg('Masukkan NIK yang ingin dicari!');
+      setDataPenerima([]);
+      setSelectedPenerima(null);
       return;
     }
 
@@ -32,12 +37,10 @@ export default function CekBansos() {
     setHasSearched(true);
 
     try {
-      // 1. Coba endpoint spesifik cek NIK
-      let results = await bansosService.cekBansosByNik(nikToSearch.trim());
-      
-      // 2. Fallback ke search filter jika kosong
+      let results = await bansosService.cekBansosByNik(cleanNik);
+
       if (!results || results.length === 0) {
-        results = await bansosService.getPenerimaBansos({ search: nikToSearch.trim() });
+        results = await bansosService.getPenerimaBansos({ search: cleanNik });
       }
 
       setDataPenerima(results || []);
@@ -57,7 +60,9 @@ export default function CekBansos() {
 
   // Otomatis cari saat halaman pertama kali dimuat
   useEffect(() => {
-    handleSearch(searchNik);
+    if (searchNik && searchNik.trim()) {
+      handleSearch(searchNik);
+    }
   }, []);
 
   // Format sensor NIK untuk privasi warga publik
@@ -125,22 +130,9 @@ export default function CekBansos() {
                   onClick={() => { setSearchNik('3524011111110001'); handleSearch('3524011111110001'); }} 
                   className="bg-gray-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-0.5 rounded font-mono transition-colors"
                 >
-                  Siti (PKH)
+                  35240111111100**
                 </button>
-                <button 
-                  type="button"
-                  onClick={() => { setSearchNik('3524012222220002'); handleSearch('3524012222220002'); }} 
-                  className="bg-gray-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-0.5 rounded font-mono transition-colors"
-                >
-                  Budi (BPNT)
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => { setSearchNik('3524013333330003'); handleSearch('3524013333330003'); }} 
-                  className="bg-gray-100 hover:bg-emerald-100 hover:text-emerald-800 px-2 py-0.5 rounded font-mono transition-colors"
-                >
-                  Karto (BLT)
-                </button>
+                
               </div>
             </div>
 
