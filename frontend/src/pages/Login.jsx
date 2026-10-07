@@ -45,8 +45,14 @@ export default function Login() {
 
         try {
             const res = await authService.login(nik, password);
-            if (res?.data) {
+            if (res?.data?.role === 'admin') {
+                authService.logout();
+                setErrorMessage('Portal ini khusus warga. Petugas silakan masuk melalui Portal Admin.');
+            } else if (res?.data?.role === 'user' || res?.data?.role === 'warga') {
                 navigate('/dashboard');
+            } else {
+                authService.logout();
+                setErrorMessage('Akun tidak memiliki akses ke portal warga.');
             }
         } catch (err) {
             setErrorMessage(err.message || 'Login gagal. Periksa kembali NIK dan Password.');
@@ -223,7 +229,7 @@ export default function Login() {
                         <img src={logoNgrowo} alt="Logo Kelurahan Ngrowo" className="w-9 h-10 sm:w-11 sm:h-12 object-contain rounded-lg" />
                     </div>
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Login SI-BANSOS 👋</h2>
-                    <p className="text-gray-500 text-xs sm:text-sm">Masuk menggunakan NIK warga atau username admin dan password.</p>
+                    <p className="text-gray-500 text-xs sm:text-sm">Masuk menggunakan NIK dan password akun warga.</p>
                 </div>
 
                 {/* Error Banner */}
@@ -239,11 +245,11 @@ export default function Login() {
                 {/* Form */}
                 <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
 
-                    {/* Input NIK atau username */}
+                    {/* Input NIK warga */}
                     <div>
                         <label htmlFor="nik" className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 flex items-center justify-between">
-                            <span>NIK / Username <span className="text-red-500">*</span></span>
-                            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">Warga atau admin</span>
+                            <span>NIK Warga (16 digit) <span className="text-red-500">*</span></span>
+                            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">Sesuai KTP</span>
                         </label>
                         <div className="relative group">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-emerald-600 transition-colors">
@@ -252,14 +258,16 @@ export default function Login() {
                                 </svg>
                             </div>
                             <input
-                                type="text"
-                                autoComplete="username"
-                                maxLength="50"
+                                type="tel"
+                                inputMode="numeric"
+                                pattern="[0-9]{16}"
+                                maxLength="16"
                                 id="nik"
                                 name="nik"
                                 value={nik}
                                 onChange={(e) => setNik(e.target.value)}
-                                placeholder="Masukkan NIK atau username admin"
+                                minLength={16}
+                                placeholder="Contoh: 3524011111110001"
                                 className="w-full pl-11 pr-4 py-3 sm:py-3.5 text-sm sm:text-base font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white transition-all placeholder-gray-400"
                                 required
                             />
@@ -343,6 +351,9 @@ export default function Login() {
                             Daftar Akun Bansos
                         </Link>
                     </p>
+                    <Link to="/admin/login" className="text-xs font-semibold text-slate-500 hover:text-emerald-700">
+                        Portal khusus petugas
+                    </Link>
                 </div>
             </div>
         </div>

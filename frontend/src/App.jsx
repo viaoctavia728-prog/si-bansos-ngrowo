@@ -11,6 +11,7 @@ import DetailLaporan from './pages/DetailLaporan';
 import Jadwal from './pages/Jadwal';
 import Info from './pages/Info';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminLogin from './pages/AdminLogin';
 import Profil from './pages/Profil';
 
 function getCurrentUser() {
@@ -37,11 +38,15 @@ function ProtectedRoute({ children }) {
 }
 
 function ProtectedAdminRoute({ children }) {
-  return isAdminAuthenticated() ? children : <Navigate to="/dashboard" replace />;
+  return isAdminAuthenticated() ? children : <Navigate to="/admin/login" replace />;
 }
 
 function PublicRoute({ children }) {
   return isAuthenticated() ? <Navigate to={getCurrentUser()?.role === 'admin' ? '/admin' : '/dashboard'} replace /> : children;
+}
+
+function AdminLoginRoute() {
+  return isAdminAuthenticated() ? <Navigate to="/admin" replace /> : <AdminLogin />;
 }
 
 function App() {
@@ -51,6 +56,7 @@ function App() {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/lupa-pin" element={<PublicRoute><LupaPin /></PublicRoute>} />
+      <Route path="/admin/login" element={<AdminLoginRoute />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />

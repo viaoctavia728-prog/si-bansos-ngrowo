@@ -36,7 +36,10 @@ The seeded demo accounts are for local testing only:
 
 Change or remove these credentials before any public deployment. The warga
 registration form generates a username automatically; it shows the generated
-username after successful registration. Web login continues to use NIK.
+username after successful registration. Warga sign in from the main portal
+using their NIK. Admins use the separate portal at `/admin/login` (for example,
+`http://localhost/admin/login` with Docker or `http://localhost:5173/admin/login`
+with the Vite development server).
 
 ## Push notifications (optional)
 

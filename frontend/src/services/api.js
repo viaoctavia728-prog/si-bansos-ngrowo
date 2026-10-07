@@ -52,9 +52,9 @@ apiClient.interceptors.response.use(
 
 // ==================== AUTH SERVICE ====================
 export const authService = {
-  // Login dengan NIK dan Password
-  async login(nik, password) {
-    const payload = { nik, password };
+  // Login dengan NIK warga atau username admin
+  async login(identifier, password) {
+    const payload = { nik: identifier, password };
     const response = await apiClient.post('/login', payload);
     const token = response.data?.access_token || response.data?.token;
 

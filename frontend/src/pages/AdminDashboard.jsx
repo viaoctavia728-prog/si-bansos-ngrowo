@@ -32,7 +32,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const user = authService.getCurrentUser();
     if (!user || user.role !== 'admin') {
-      navigate('/login', { replace: true });
+      navigate('/admin/login', { replace: true });
       return;
     }
     setCurrentUser(user);
@@ -161,7 +161,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     authService.logout();
-    navigate('/login', { replace: true });
+    navigate('/admin/login', { replace: true });
   };
 
   return (
