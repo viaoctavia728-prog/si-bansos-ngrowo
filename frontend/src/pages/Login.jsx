@@ -222,7 +222,7 @@ export default function Login() {
                         <div className="w-px h-6 bg-emerald-200"></div>
                         <img src={logoNgrowo} alt="Logo Kelurahan Ngrowo" className="w-9 h-10 sm:w-11 sm:h-12 object-contain rounded-lg" />
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Login SI-BANSOS 👋</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Login SI-BANSOS </h2>
                     <p className="text-gray-500 text-xs sm:text-sm">Masukkan NIK dan PIN terdaftar untuk cek status bantuan.</p>
                 </div>
 

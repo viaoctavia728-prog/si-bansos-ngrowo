@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import get_current_user
-from app.api.routes import admin, auth, bansos, notifications, pengaduan, wilayah
+from app.api.routes import admin, auth, bansos, house_validation, notifications, pengaduan, wilayah
 from app.core.config import get_settings
 from app.core.storage import UPLOAD_DIR
 from app.db.init_db import create_tables
@@ -48,6 +48,7 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 
 app.include_router(wilayah.router, prefix="/wilayah", tags=["Wilayah"])
 app.include_router(wilayah.router, prefix="/api/wilayah", tags=["Wilayah API"])
+app.include_router(house_validation.router, tags=["Validasi Rumah"])
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

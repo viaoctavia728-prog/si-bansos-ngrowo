@@ -204,8 +204,26 @@ export const jadwalService = {
 };
 
 export const adminService = {
+  async validateHousePhoto(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/validate-house', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
   async getWarga() {
     const response = await apiClient.get('/admin/warga');
+    return response.data;
+  },
+
+  async importEligibleResidents(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/admin/eligible-residents/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 

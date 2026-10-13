@@ -22,12 +22,19 @@ export default function AdminDashboard() {
   const [wargaLoading, setWargaLoading] = useState(false);
   const [wargaError, setWargaError] = useState('');
   const [wargaSearch, setWargaSearch] = useState('');
+  const [residentCsv, setResidentCsv] = useState(null);
+  const [residentImporting, setResidentImporting] = useState(false);
+  const [residentImportFeedback, setResidentImportFeedback] = useState('');
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditError, setAuditError] = useState('');
   const [auditLoading, setAuditLoading] = useState(false);
   const [notificationForm, setNotificationForm] = useState({ title: '', body: '' });
   const [notificationSending, setNotificationSending] = useState(false);
   const [notificationFeedback, setNotificationFeedback] = useState('');
+  const [houseValidationFile, setHouseValidationFile] = useState(null);
+  const [houseValidationLoading, setHouseValidationLoading] = useState(false);
+  const [houseValidationResult, setHouseValidationResult] = useState(null);
+  const [houseValidationFeedback, setHouseValidationFeedback] = useState('');
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -83,6 +90,27 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleHouseValidationSubmit = async (event) => {
+    event.preventDefault();
+    if (!houseValidationFile) {
+      setHouseValidationFeedback('Pilih foto rumah terlebih dahulu.');
+      return;
+    }
+
+    try {
+      setHouseValidationLoading(true);
+      setHouseValidationFeedback('');
+      const result = await adminService.validateHousePhoto(houseValidationFile);
+      setHouseValidationResult(result);
+      setHouseValidationFeedback(`Validasi tingkat kondisi: ${result.condition_level} (${Math.round((result.confidence || 0) * 100)}% keyakinan).`);
+    } catch (err) {
+      setHouseValidationResult(null);
+      setHouseValidationFeedback(err.message || 'Gagal menilai foto rumah.');
+    } finally {
+      setHouseValidationLoading(false);
+    }
+  };
+
   const loadWarga = async () => {
     try {
       setWargaLoading(true);
@@ -93,6 +121,29 @@ export default function AdminDashboard() {
       setWargaError(err.message || 'Gagal memuat daftar warga terdaftar.');
     } finally {
       setWargaLoading(false);
+    }
+  };
+
+  const handleResidentImport = async (event) => {
+    event.preventDefault();
+    if (!residentCsv) {
+      setResidentImportFeedback('Pilih file CSV terlebih dahulu.');
+      return;
+    }
+
+    const form = event.currentTarget;
+    try {
+      setResidentImporting(true);
+      setResidentImportFeedback('');
+      const result = await adminService.importEligibleResidents(residentCsv);
+      setResidentImportFeedback(`Impor selesai: ${result.added} ditambahkan, ${result.updated} diperbarui, ${result.already_registered} sudah terdaftar.`);
+      setResidentCsv(null);
+      form.reset();
+      await loadAuditLogs();
+    } catch (err) {
+      setResidentImportFeedback(err.message || 'Impor CSV gagal. Periksa format file.');
+    } finally {
+      setResidentImporting(false);
     }
   };
 
@@ -267,6 +318,39 @@ export default function AdminDashboard() {
                   )}
                 </section>
               </div>
+
+              <section className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-100 px-4 py-4">
+                  <h2 className="text-sm font-bold text-slate-900">Validasi kondisi rumah dengan AI</h2>
+                  <p className="mt-1 text-xs text-slate-500">Upload foto rumah untuk mendapat penilaian awal dari model Gemini.</p>
+                </div>
+                <form onSubmit={handleHouseValidationSubmit} className="space-y-4 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) => setHouseValidationFile(event.target.files?.[0] || null)}
+                      className="block w-full rounded-lg border border-slate-300 bg-white text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-emerald-800"
+                    />
+                    <button type="submit" disabled={houseValidationLoading || !houseValidationFile} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-emerald-800 px-3 text-xs font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">
+                      {houseValidationLoading ? 'Memvalidasi...' : 'Validasi foto'}
+                    </button>
+                  </div>
+                  {houseValidationFeedback && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-slate-700">{houseValidationFeedback}</p>}
+                  {houseValidationResult && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="font-bold text-slate-800">Ringkasan hasil</span>
+                        <span className="rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800 capitalize">{houseValidationResult.condition_level}</span>
+                      </div>
+                      <p><strong>Keyakinan:</strong> {Math.round((houseValidationResult.confidence || 0) * 100)}%</p>
+                      <p className="mt-1"><strong>Indikator:</strong> {(houseValidationResult.visible_indicators || []).join(', ') || 'Tidak ada indikator visual yang teridentifikasi.'}</p>
+                      <p className="mt-1"><strong>Catatan:</strong> {houseValidationResult.explanation || 'Belum ada penjelasan yang diberikan.'}</p>
+                      <p className="mt-1"><strong>Keterbatasan:</strong> {(houseValidationResult.limitations || []).join(', ') || 'Tidak ada keterbatasan yang dijelaskan.'}</p>
+                    </div>
+                  )}
+                </form>
+              </section>
 
               <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <div className="border-b border-slate-100 px-4 py-4"><h2 className="text-sm font-bold text-slate-900">Akses cepat</h2><p className="mt-1 text-xs text-slate-500">Buka pekerjaan admin yang sering digunakan.</p></div>
@@ -460,6 +544,33 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </div>
+
+            <form onSubmit={handleResidentImport} className="border-b border-slate-200 bg-emerald-50/40 p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-slate-900">Daftar warga yang boleh mendaftar</h3>
+                  <p className="mt-1 text-xs text-slate-600">Unggah CSV UTF-8 dengan kolom <code>nik,nama_lengkap</code>. Perbedaan huruf besar-kecil dan spasi nama akan diabaikan.</p>
+                  <a href="/template-daftar-warga.csv" download className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 hover:underline">
+                    <span className="material-symbols-outlined text-[16px]">download</span>Unduh template CSV
+                  </a>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label className="block">
+                    <span className="sr-only">Pilih file daftar warga CSV</span>
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(event) => { setResidentCsv(event.target.files?.[0] || null); setResidentImportFeedback(''); }}
+                      className="block min-h-10 max-w-full rounded-lg border border-slate-300 bg-white text-xs text-slate-600 file:mr-3 file:min-h-10 file:border-0 file:bg-slate-100 file:px-3 file:text-xs file:font-semibold file:text-slate-700"
+                    />
+                  </label>
+                  <button type="submit" disabled={residentImporting || !residentCsv} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-800 px-3 text-xs font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50">
+                    <span className="material-symbols-outlined text-[17px]">upload_file</span>{residentImporting ? 'Mengimpor...' : 'Impor CSV'}
+                  </button>
+                </div>
+              </div>
+              {residentImportFeedback && <p role="status" className="mt-3 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-slate-700">{residentImportFeedback}</p>}
+            </form>
 
             {wargaError && <div className="m-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{wargaError}</div>}
             {wargaLoading ? (
