@@ -103,6 +103,7 @@ export default function AdminDashboard() {
       pending: items.filter((item) => item.status_laporan === 'pending').length,
       proses: items.filter((item) => item.status_laporan === 'proses').length,
       selesai: items.filter((item) => item.status_laporan === 'selesai').length,
+      ditolak: items.filter((item) => item.status_laporan === 'ditolak').length,
     };
   }, [items]);
 
@@ -116,10 +117,15 @@ export default function AdminDashboard() {
         item.nik_terlapor,
         item.id_user,
         item.deskripsi_kejadian,
+        getPersonNameById(item.id_user),
       ].join(' ').toLowerCase();
       return matchesStatus && (!query || searchableText.includes(query));
     });
   }, [items, searchTerm, statusFilter]);
+
+  const recentReports = useMemo(() => {
+    return [...items].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 5);
+  }, [items]);
 
   const filteredWarga = useMemo(() => {
     const query = wargaSearch.trim().toLowerCase();
@@ -135,6 +141,18 @@ export default function AdminDashboard() {
 
   const rtOptions = [...new Set(warga.map((person) => person.rt).filter(Boolean))].sort();
   const rwOptions = [...new Set(warga.map((person) => person.rw).filter(Boolean))].sort();
+  const personById = useMemo(() => {
+    return warga.reduce((acc, person) => {
+      acc[person.id_user] = person;
+      return acc;
+    }, {});
+  }, [warga]);
+
+  const getPersonNameById = (userId) => {
+    const person = personById[userId];
+    return person?.nama_lengkap || '';
+  };
+
   const navigationItems = [
     { key: 'overview', label: 'Ringkasan', icon: 'space_dashboard' },
     { key: 'reports', label: 'Pengaduan', icon: 'assignment' },
@@ -230,7 +248,7 @@ export default function AdminDashboard() {
               </section>
 
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
-                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
                     <div><h2 className="text-sm font-bold text-slate-900">Tindak lanjut pengaduan</h2><p className="mt-1 text-xs text-slate-500">Ringkasan status dari semua laporan yang dimuat.</p></div>
                     <button type="button" onClick={() => setActiveView('reports')} className="text-xs font-semibold text-emerald-800 hover:underline">Buka daftar</button>
@@ -240,6 +258,7 @@ export default function AdminDashboard() {
                       { label: 'Menunggu tinjauan', value: stats.pending, color: 'bg-amber-500', text: 'text-amber-800' },
                       { label: 'Sedang diproses', value: stats.proses, color: 'bg-sky-600', text: 'text-sky-800' },
                       { label: 'Selesai', value: stats.selesai, color: 'bg-emerald-600', text: 'text-emerald-800' },
+                      { label: 'Ditolak', value: stats.ditolak, color: 'bg-rose-500', text: 'text-rose-800' },
                     ].map((row) => (
                       <div key={row.label} className="py-4">
                         <div className="mb-2 flex items-center justify-between gap-3 text-xs"><span className="font-medium text-slate-600">{row.label}</span><span className={`font-bold ${row.text}`}>{row.value} laporan</span></div>
@@ -250,33 +269,46 @@ export default function AdminDashboard() {
                   <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 text-xs text-slate-500">Warga terdaftar <strong className="ml-1 text-slate-800">{warga.length}</strong></div>
                 </section>
 
-                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
                     <div><h2 className="text-sm font-bold text-slate-900">Laporan terbaru</h2><p className="mt-1 text-xs text-slate-500">Pengaduan terakhir masuk ke sistem.</p></div>
                     <button type="button" onClick={() => setActiveView('reports')} aria-label="Buka semua pengaduan" className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-800 hover:bg-emerald-50"><span className="material-symbols-outlined">arrow_forward</span></button>
                   </div>
-                  {loading ? <p className="p-4 text-xs text-slate-500">Memuat laporan...</p> : items.length === 0 ? (
+                  {loading ? <p className="p-4 text-xs text-slate-500">Memuat laporan...</p> : recentReports.length === 0 ? (
                     <div className="p-6 text-center"><span className="material-symbols-outlined text-3xl text-slate-300">inbox</span><p className="mt-2 text-xs font-semibold text-slate-700">Belum ada pengaduan</p><p className="mt-1 text-[11px] text-slate-500">Laporan warga akan tampil di sini.</p></div>
                   ) : (
                     <div className="divide-y divide-slate-100">
-                      {items.slice(0, 5).map((item) => <button type="button" key={item.id_laporan} onClick={() => { setDetailsId(item.id_laporan); setActiveView('reports'); }} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800"><span className="material-symbols-outlined text-[19px]">description</span></span>
-                        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-slate-800">{item.kategori_aduan || 'Pengaduan warga'}</span><span className="mt-1 block font-mono text-[10px] text-slate-500">{item.nomor_tiket}</span></span>
-                        <StatusBadge status={item.status_laporan} />
-                      </button>)}
+                      {recentReports.map((item) => (
+                        <button type="button" key={item.id_laporan} onClick={() => { setDetailsId(item.id_laporan); setActiveView('reports'); }} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800"><span className="material-symbols-outlined text-[19px]">description</span></span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-semibold text-slate-800">{item.kategori_aduan || 'Pengaduan warga'}</span>
+                            <span className="mt-1 block font-mono text-[10px] text-slate-500">{item.nomor_tiket}</span>
+                          </span>
+                          <StatusBadge status={item.status_laporan} />
+                        </button>
+                      ))}
                     </div>
                   )}
                 </section>
               </div>
 
-              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-100 px-4 py-4"><h2 className="text-sm font-bold text-slate-900">Akses cepat</h2><p className="mt-1 text-xs text-slate-500">Buka pekerjaan admin yang sering digunakan.</p></div>
                 <div className="grid divide-y divide-slate-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
                   {[
                     { key: 'warga', icon: 'groups', title: 'Data warga', detail: `${warga.length} akun terdaftar` },
                     { key: 'audit', icon: 'history', title: 'Audit aktivitas', detail: `${auditLogs.length} aktivitas tercatat` },
                     { key: 'notifications', icon: 'notifications_active', title: 'Kirim informasi', detail: 'Broadcast ke perangkat warga' },
-                  ].map((item) => <button key={item.key} type="button" onClick={() => setActiveView(item.key)} className="flex min-h-[76px] items-center gap-3 px-4 text-left hover:bg-emerald-50/40"><span className="material-symbols-outlined flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-emerald-800">{item.icon}</span><span><span className="block text-xs font-bold text-slate-800">{item.title}</span><span className="mt-1 block text-[10px] text-slate-500">{item.detail}</span></span></button>)}
+                  ].map((item) => (
+                    <button key={item.key} type="button" onClick={() => setActiveView(item.key)} className="flex min-h-[76px] items-center gap-3 px-4 text-left hover:bg-emerald-50/40">
+                      <span className="material-symbols-outlined flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-emerald-800">{item.icon}</span>
+                      <span>
+                        <span className="block text-xs font-bold text-slate-800">{item.title}</span>
+                        <span className="mt-1 block text-[10px] text-slate-500">{item.detail}</span>
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </section>
             </div>

@@ -29,23 +29,23 @@ export default function AdminLogin() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f7f4] px-4 py-10">
-      <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg sm:p-8">
+    <main className="flex min-h-screen items-center justify-center bg-[#F8F9FA] px-4 py-10">
+      <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-blue-100/60 sm:p-8">
         <div className="text-center">
           <img
             src={logoNgrowo}
             alt="Logo Kelurahan Ngrowo"
-            className="mx-auto h-16 w-16 rounded-2xl border border-emerald-100 bg-emerald-50 object-contain p-2"
+            className="mx-auto h-16 w-16 rounded-2xl border border-[#EAF5EB] bg-[#F8F9FF] object-contain p-2"
           />
-          <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Area terbatas</p>
-          <h1 className="mt-2 text-2xl font-extrabold text-slate-900">Portal Admin</h1>
+          <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-[#2E7D32]">Area terbatas</p>
+          <h1 className="mt-2 text-2xl font-extrabold text-[#212529]">Portal Admin</h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">
             Masuk dengan akun petugas untuk mengelola layanan SI-BANSOS Ngrowo.
           </p>
         </div>
 
         {errorMessage && (
-          <p role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <p role="alert" className="mt-6 rounded-xl border border-[#DC3545]/20 bg-[#DC3545]/5 p-3 text-sm text-[#DC3545]">
             {errorMessage}
           </p>
         )}
@@ -61,7 +61,7 @@ export default function AdminLogin() {
               onChange={(event) => setUsername(event.target.value)}
               placeholder="Masukkan username admin"
               required
-              className="mt-1.5 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+              className="mt-1.5 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/10"
             />
           </label>
 

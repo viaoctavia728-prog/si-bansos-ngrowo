@@ -3,15 +3,23 @@
 @tailwind utilities;
 
 :root {
+  --primary-green: #2E7D32;
+  --secondary-blue: #1565C0;
+  --bg-light: #F8F9FA;
+  --bg-soft: #F8F9FF;
+  --text-dark: #212529;
+  --success-green: #28A745;
+  --danger-red: #DC3545;
+
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  color: #1f2937;
-  background: #f8faf8;
+  color: var(--text-dark);
+  background: var(--bg-light);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
 html {
-  background: #f8faf8;
+  background: var(--bg-light);
   scroll-behavior: smooth;
   overflow-x: hidden;
 }
@@ -19,7 +27,8 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background: #f8faf8;
+  background: var(--bg-light);
+  color: var(--text-dark);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
