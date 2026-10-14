@@ -14,7 +14,8 @@ class UserRegister(BaseModel):
     rw: Optional[str] = None
 
 class UserLogin(BaseModel):
-    nik: str
+    nik: Optional[str] = None
+    username: Optional[str] = None
     password: str
 
 class UserResponse(BaseModel):
@@ -25,6 +26,8 @@ class UserResponse(BaseModel):
     role: str
     rt: Optional[str] = None
     rw: Optional[str] = None
+    is_ngrowo_resident: Optional[bool] = False
+    is_verified: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -40,11 +43,16 @@ class PengaduanCreate(BaseModel):
     lokasi_spesifik: Optional[str] = None
     bukti_foto: Optional[str] = None
     is_anonymous: Optional[bool] = False
+    estimated_desil: Optional[int] = None
 
 class BuktiFotoUpload(BaseModel):
     filename: str
     content_type: str
     content_base64: str
+
+class EvidenceAnalysisRequest(BaseModel):
+    image_data: str
+    description: str = ""
 
 class PengaduanUpdateStatus(BaseModel):
     status_laporan: str
@@ -63,6 +71,7 @@ class PengaduanResponse(BaseModel):
     is_anonymous: bool
     status_laporan: str
     catatan_admin: Optional[str] = None
+    estimated_desil: Optional[int] = None
     created_at: datetime
 
     class Config:

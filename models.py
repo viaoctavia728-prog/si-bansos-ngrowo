@@ -17,6 +17,8 @@ class User(Base):
     role = Column(String(20), default="user")  # 'user' atau 'admin'
     rt = Column(String(10), nullable=True)
     rw = Column(String(10), nullable=True)
+    is_ngrowo_resident = Column(Boolean, default=False)  # Apakah warga Ngrowo terverifikasi
+    is_verified = Column(Boolean, default=False)  # Sudah diverifikasi admin
     created_at = Column(DateTime, default=datetime.utcnow)
 
     pengaduan = relationship("PengaduanBansos", back_populates="pelapor")
@@ -38,6 +40,7 @@ class PengaduanBansos(Base):
     is_anonymous = Column(Boolean, default=False)
     status_laporan = Column(String(20), default="pending")
     catatan_admin = Column(Text, nullable=True)
+    estimated_desil = Column(Integer, nullable=True)  # Hasil estimasi LLM (1-10)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     pelapor = relationship("User", back_populates="pengaduan")
