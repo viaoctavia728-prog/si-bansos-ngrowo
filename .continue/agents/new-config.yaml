@@ -1,0 +1,15 @@
+name: KiyaraRouter Setup
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Kiyara DeepSeek V4.1 Flash
+    provider: openai
+    model: deepseek-ai/deepseek-v4.1-flash
+    apiKey: sk-kiyara-ebce33ccf5a80bee4c86f36554cceab2d7d915d9fbfe985a20ff6234147608f9
+    apiBase: https://kiyararouter.web.id/v1
+    roles:
+      - chat
+      - edit
+      - apply
+      - autocomplete
