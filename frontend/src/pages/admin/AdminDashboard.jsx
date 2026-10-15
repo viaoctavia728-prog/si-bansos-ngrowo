@@ -107,21 +107,33 @@ export default function AdminDashboard() {
     };
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    return items.filter((item) => {
-      const matchesStatus = statusFilter === 'all' || item.status_laporan === statusFilter;
-      const searchableText = [
-        item.nomor_tiket,
-        item.kategori_aduan,
-        item.nik_terlapor,
-        item.id_user,
-        item.deskripsi_kejadian,
-        getPersonNameById(item.id_user),
-      ].join(' ').toLowerCase();
-      return matchesStatus && (!query || searchableText.includes(query));
-    });
-  }, [items, searchTerm, statusFilter]);
+  const personById = useMemo(() => {
+      return warga.reduce((acc, person) => {
+        acc[person.id_user] = person;
+        return acc;
+      }, {});
+    }, [warga]);
+
+    const getPersonNameById = (userId) => {
+      const person = personById[userId];
+      return person?.nama_lengkap || '';
+    };
+
+    const filteredItems = useMemo(() => {
+      const query = searchTerm.trim().toLowerCase();
+      return items.filter((item) => {
+        const matchesStatus = statusFilter === 'all' || item.status_laporan === statusFilter;
+        const searchableText = [
+          item.nomor_tiket,
+          item.kategori_aduan,
+          item.nik_terlapor,
+          item.id_user,
+          item.deskripsi_kejadian,
+          getPersonNameById(item.id_user),
+        ].join(' ').toLowerCase();
+        return matchesStatus && (!query || searchableText.includes(query));
+      });
+    }, [items, searchTerm, statusFilter, personById]);
 
   const recentReports = useMemo(() => {
     return [...items].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 5);
@@ -140,18 +152,7 @@ export default function AdminDashboard() {
   }, [warga, wargaSearch]);
 
   const rtOptions = [...new Set(warga.map((person) => person.rt).filter(Boolean))].sort();
-  const rwOptions = [...new Set(warga.map((person) => person.rw).filter(Boolean))].sort();
-  const personById = useMemo(() => {
-    return warga.reduce((acc, person) => {
-      acc[person.id_user] = person;
-      return acc;
-    }, {});
-  }, [warga]);
-
-  const getPersonNameById = (userId) => {
-    const person = personById[userId];
-    return person?.nama_lengkap || '';
-  };
+    const rwOptions = [...new Set(warga.map((person) => person.rw).filter(Boolean))].sort();
 
   const navigationItems = [
     { key: 'overview', label: 'Ringkasan', icon: 'space_dashboard' },
