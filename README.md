@@ -40,11 +40,20 @@ username after successful registration. Web login continues to use NIK.
 
 ## Push notifications (optional)
 
-Create a Firebase project and enable Firebase Cloud Messaging. Copy
-`frontend/.env.example` to `frontend/.env`, then fill in the Firebase Web App
-configuration and the Web Push certificate key (VAPID). For the API, set
-`FIREBASE_PROJECT_ID` and either `GOOGLE_APPLICATION_CREDENTIALS` (path to a
-service-account JSON file available to the backend) or
-`FIREBASE_SERVICE_ACCOUNT_JSON` in the root `.env`. Never commit service-account
-credentials. Warga can enable notifications from their dashboard; admins can
-send a message from the Admin > Notifikasi tab.
+Create a Firebase project and enable Firebase Cloud Messaging. In the root
+`.env`, fill in `FIREBASE_PROJECT_ID` and the `VITE_FIREBASE_*` values from the
+Firebase Web App configuration. Set `VITE_FIREBASE_VAPID_KEY` to the Web Push
+certificate key from Firebase project settings.
+
+For the backend, download a Firebase service-account JSON file and save it as
+`secrets/firebase-service-account.json`. Compose mounts the `secrets` folder
+read-only and points `GOOGLE_APPLICATION_CREDENTIALS` to that file. Never commit
+the JSON file. Rebuild the frontend and recreate the backend after configuring:
+
+```powershell
+docker compose up -d --build frontend
+docker compose up -d --force-recreate backend
+```
+
+Warga can enable notifications from their dashboard; admins can send a message
+from the Admin > Notifikasi tab.
