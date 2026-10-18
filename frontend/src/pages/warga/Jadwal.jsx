@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import { jadwalService } from '../services/api';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import { jadwalService } from '../../services/api';
 
 const MAPS_LINK = 'https://maps.app.goo.gl/9Qpe14ofwcBaBLRu8';
 const WEEK_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];

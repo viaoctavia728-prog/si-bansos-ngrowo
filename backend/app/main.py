@@ -72,21 +72,23 @@ def get_current_user_profile(current_user: dict = Depends(get_current_user)):
     return {"data": current_user}
 
 
+from app.db.session import get_db
+from app.api.deps import get_current_admin
+
+@app.get("/jadwal")
+def get_jadwal_alias():
+    return admin.get_jadwal_bansos()
+
+
+@app.post("/jadwal")
+def post_jadwal_alias(
+    data: admin.JadwalBansosCreate,
+    db=Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    return admin.create_jadwal_bansos(data, db, current_admin)
+
+
 @app.get("/api/jadwal")
 def get_jadwal():
-    return {
-        "status": "ok",
-        "data": {
-            "judul": "Jadwal Penyaluran Bansos Desa Ngrowo",
-            "tahap": "Tahap II - 2026",
-            "tanggal": "2026-11-18",
-            "waktu": "08.00 - 12.00 WIB",
-            "lokasi": "Balai Desa Ngrowo",
-            "program": "Beras CPP 10 Kg / KPM",
-            "total_kpm": 222,
-            "sesi": [
-                {"rt": "001", "jumlah_kpm": 124, "waktu": "08.00 - 10.00 WIB"},
-                {"rt": "002", "jumlah_kpm": 98, "waktu": "10.00 - 12.00 WIB"},
-            ],
-        },
-    }
+    return admin.get_jadwal_bansos()

@@ -325,14 +325,28 @@ def analyze_evidence(data: schemas.EvidenceAnalysisRequest):
     }
 
 
-# --- JADWAL BANSOS ---
-@api_router.get("/jadwal")
-def get_jadwal_bansos():
+# --- JADWAL BANSOS (DINAMIS BERDASARKAN WAKTU SAAT INI) ---
+BULAN_ID = [
+    "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+]
+
+in_memory_jadwal = []
+
+def generate_default_dynamic_jadwal():
+    now = datetime.now()
+    curr_month_name = BULAN_ID[now.month]
+    curr_year = now.year
+    next_month_idx = now.month + 1 if now.month < 12 else 1
+    next_month_year = curr_year if now.month < 12 else curr_year + 1
+    next_month_name = BULAN_ID[next_month_idx]
+
     return [
         {
             "id": 1,
             "program": "Bansos Beras CPP 10 Kg",
-            "tanggal": "15 Oktober 2026",
+            "tanggal": f"15 {curr_month_name} {curr_year}",
+            "iso_date": f"{curr_year}-{now.month:02d}-15",
             "jam": "08:30 - 14:00 WIB",
             "lokasi": "Pendopo Balai Desa Ngrowo",
             "status": "Akan Datang",
@@ -341,8 +355,9 @@ def get_jadwal_bansos():
         },
         {
             "id": 2,
-            "program": "BLT Dana Desa (Triwulan IV)",
-            "tanggal": "28 Oktober 2026",
+            "program": f"BLT Dana Desa ({curr_month_name} {curr_year})",
+            "tanggal": f"24 {curr_month_name} {curr_year}",
+            "iso_date": f"{curr_year}-{now.month:02d}-24",
             "jam": "09:00 - 12:00 WIB",
             "lokasi": "Ruang Pelayanan Kantor Kelurahan Ngrowo",
             "status": "Dijadwalkan",
@@ -352,7 +367,8 @@ def get_jadwal_bansos():
         {
             "id": 3,
             "program": "Penyaluran BPNT Sembako",
-            "tanggal": "05 November 2026",
+            "tanggal": f"05 {next_month_name} {next_month_year}",
+            "iso_date": f"{next_month_year}-{next_month_idx:02d}-05",
             "jam": "08:00 - 15:00 WIB",
             "lokasi": "E-Warong Amanah Makmur Ngrowo",
             "status": "Persiapan",
@@ -360,6 +376,159 @@ def get_jadwal_bansos():
             "dusun": "Seluruh Wilayah RT/RW"
         }
     ]
+
+
+@api_router.get("/jadwal")
+def get_jadwal_bansos():
+    base = generate_default_dynamic_jadwal()
+    if in_memory_jadwal:
+        return in_memory_jadwal + base
+    return base
+
+
+@api_router.post("/admin/jadwal")
+@api_router.post("/jadwal")
+def create_jadwal_bansos(data: schemas.JadwalBansosItem, db: Session = Depends(get_db)):
+    new_id = len(in_memory_jadwal) + 10
+    item = data.dict()
+    item["id"] = new_id
+    if isinstance(item.get("persyaratan"), str):
+        item["persyaratan"] = [p.strip() for p in item["persyaratan"].split(",") if p.strip()]
+    in_memory_jadwal.insert(0, item)
+
+    audit = models.AuditLog(
+        id_user=1,
+        aktivitas=f"Admin menambahkan jadwal bansos baru: {data.program} pada {data.tanggal}"
+    )
+    db.add(audit)
+    db.commit()
+    return item
+
+
+# --- NOTIFIKASI BROADCAST & IN-APP NOTIFICATION WARGA ---
+@api_router.post("/notifications/fcm/send")
+@api_router.post("/notifications/send")
+def send_fcm_notification(payload: schemas.NotificationCreate, db: Session = Depends(get_db)):
+    # 1. Simpan ke database NotificationHistory
+    notif = models.NotificationHistory(
+        title=payload.title,
+        body=payload.body,
+        created_at=datetime.utcnow()
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+
+    # 2. Catat ke Audit Log
+    audit = models.AuditLog(
+        id_user=1,
+        aktivitas=f"Admin menyiarkan notifikasi warga: '{payload.title}' ({payload.body[:45]}...)"
+    )
+    db.add(audit)
+    db.commit()
+    return {
+        "status": "sent",
+        "sent": 1,
+        "failed": 0,
+        "in_app": True,
+        "id_notification": notif.id_notification,
+        "message": f"Notifikasi '{payload.title}' berhasil disiarkan dan tersimpan di database warga."
+    }
+
+
+@api_router.post("/notifications/fcm/send-to-token")
+def send_fcm_to_token(payload: schemas.NotificationCreate, db: Session = Depends(get_db)):
+    notif = models.NotificationHistory(
+        title=payload.title,
+        body=payload.body,
+        created_at=datetime.utcnow()
+    )
+    db.add(notif)
+    db.commit()
+
+    audit = models.AuditLog(
+        id_user=1,
+        aktivitas=f"Admin mengirim notifikasi langsung ke perangkat: '{payload.title}'"
+    )
+    db.add(audit)
+    db.commit()
+    return {"status": "success", "message": "Notifikasi terkirim dan tersimpan."}
+
+
+@api_router.get("/notifications")
+@api_router.get("/notifications/warga")
+def get_warga_notifications(limit: int = 50, db: Session = Depends(get_db)):
+    notifs = db.query(models.NotificationHistory).order_by(models.NotificationHistory.created_at.desc()).limit(limit).all()
+    return [
+        {
+            "id_notification": n.id_notification,
+            "title": n.title,
+            "body": n.body,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "read_at": n.read_at.isoformat() if n.read_at else None,
+            "is_read": n.read_at is not None,
+        }
+        for n in notifs
+    ]
+
+
+@api_router.patch("/notifications/{id_notification}/read")
+@api_router.post("/notifications/{id_notification}/read")
+def mark_notification_read(id_notification: int, db: Session = Depends(get_db)):
+    notif = db.query(models.NotificationHistory).filter(models.NotificationHistory.id_notification == id_notification).first()
+    if notif:
+        notif.read_at = datetime.utcnow()
+        db.commit()
+    return {"status": "success"}
+
+
+# --- UPDATE PROFIL PENGGUNA / ADMIN ---
+@api_router.put("/admin/profile/{id_user}", response_model=schemas.UserResponse)
+@api_router.put("/user/profile/{id_user}", response_model=schemas.UserResponse)
+@api_router.put("/user/{id_user}", response_model=schemas.UserResponse)
+def update_user_profile(id_user: int, data: schemas.UserProfileUpdate, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id_user == id_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan!")
+
+    if data.nama_lengkap is not None:
+        user.nama_lengkap = data.nama_lengkap
+    if data.no_kk is not None:
+        user.no_kk = data.no_kk
+    if data.no_hp is not None:
+        user.no_hp = data.no_hp
+    if data.username is not None:
+        user.username = data.username
+    if data.rt is not None:
+        user.rt = data.rt
+    if data.rw is not None:
+        user.rw = data.rw
+    if data.password:
+        user.password_hash = data.password
+    if data.role is not None:
+        user.role = data.role
+
+    db.commit()
+    db.refresh(user)
+
+    audit = models.AuditLog(
+        id_user=user.id_user,
+        aktivitas=f"Admin memperbarui profil biodata: {user.nama_lengkap} (NIK: {user.nik})"
+    )
+    db.add(audit)
+    db.commit()
+    return user
+
+
+@api_router.get("/auth/me")
+@api_router.get("/me")
+def get_me_profile(db: Session = Depends(get_db)):
+    admin_user = db.query(models.User).filter(models.User.role == "admin").first()
+    if admin_user:
+        return admin_user
+    user = db.query(models.User).first()
+    return user
+
 
 
 # --- ADMIN: KELOLA WARGA ---
@@ -413,6 +582,11 @@ def get_pending_warga(db: Session = Depends(get_db)):
 
 
 @api_router.put("/admin/approve-warga/{id_user}")
+@api_router.post("/admin/approve-warga/{id_user}")
+@api_router.put("/admin/verifikasi-warga/{id_user}")
+@api_router.post("/admin/verifikasi-warga/{id_user}")
+@api_router.put("/verifikasi-warga/{id_user}")
+@api_router.post("/verifikasi-warga/{id_user}")
 def approve_warga(id_user: int, db: Session = Depends(get_db)):
     """Admin menyetujui warga yang baru mendaftar (misal setelah registrasi di kantor desa)."""
     user = db.query(models.User).filter(models.User.id_user == id_user).first()
@@ -436,6 +610,10 @@ def approve_warga(id_user: int, db: Session = Depends(get_db)):
 
 
 @api_router.put("/admin/reject-warga/{id_user}")
+@api_router.post("/admin/reject-warga/{id_user}")
+@api_router.delete("/admin/reject-warga/{id_user}")
+@api_router.put("/admin/tolak-warga/{id_user}")
+@api_router.post("/admin/tolak-warga/{id_user}")
 def reject_warga(id_user: int, db: Session = Depends(get_db)):
     """Admin menolak pendaftaran warga non-Ngrowo."""
     user = db.query(models.User).filter(models.User.id_user == id_user).first()
@@ -480,6 +658,11 @@ def update_status_pengaduan(
     if data_update.catatan_admin:
         pengaduan.catatan_admin = data_update.catatan_admin
 
+    audit = models.AuditLog(
+        id_user=pengaduan.id_user,
+        aktivitas=f"Admin mengubah status laporan {pengaduan.nomor_tiket} menjadi '{data_update.status_laporan}'" + (f" (Catatan: {data_update.catatan_admin})" if data_update.catatan_admin else "")
+    )
+    db.add(audit)
     db.commit()
     db.refresh(pengaduan)
     return pengaduan

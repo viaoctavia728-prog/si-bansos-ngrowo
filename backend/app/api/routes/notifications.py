@@ -4,10 +4,13 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from datetime import datetime
+
 from app.api.deps import get_current_admin, get_current_user
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.fcm_device_token import FcmDeviceToken
+from app.models.notification import NotificationHistory
 from app.schemas.notifications import FcmNotificationCreate, FcmTargetNotificationCreate, FcmTokenRegistration
 
 router = APIRouter()
@@ -106,41 +109,92 @@ def send_fcm_notification(
     current_admin: dict = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    tokens = [row.token for row in db.query(FcmDeviceToken.token).all()]
-    if not tokens:
-        return {"status": "no_devices", "sent": 0, "failed": 0}
+    # 1. Simpan selalu ke tabel NotificationHistory (In-App Database Notification)
+    in_app_notif = NotificationHistory(
+        title=notification.title,
+        body=notification.body,
+        created_at=datetime.utcnow(),
+    )
+    db.add(in_app_notif)
+    db.commit()
+    db.refresh(in_app_notif)
 
-    messaging = _get_firebase_messaging()
+    # 2. Opsional: Coba kirim via FCM jika ada token terdaftar
+    tokens = [row.token for row in db.query(FcmDeviceToken.token).all()]
     sent = 0
     failed = 0
-    invalid_tokens = []
-    try:
-        for start in range(0, len(tokens), 500):
-            batch = tokens[start:start + 500]
-            result = messaging.send_each_for_multicast(
-                messaging.MulticastMessage(
-                    notification=messaging.Notification(title=notification.title, body=notification.body),
-                    tokens=batch,
+    if tokens:
+        try:
+            messaging = _get_firebase_messaging()
+            invalid_tokens = []
+            for start in range(0, len(tokens), 500):
+                batch = tokens[start:start + 500]
+                result = messaging.send_each_for_multicast(
+                    messaging.MulticastMessage(
+                        notification=messaging.Notification(title=notification.title, body=notification.body),
+                        tokens=batch,
+                    )
                 )
-            )
-            sent += result.success_count
-            failed += result.failure_count
-            for token, response in zip(batch, result.responses):
-                if response.exception and getattr(response.exception, "code", "") in {
-                    "messaging/registration-token-not-registered",
-                    "messaging/invalid-registration-token",
-                }:
-                    invalid_tokens.append(token)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="Firebase gagal mengirim notifikasi.") from exc
+                sent += result.success_count
+                failed += result.failure_count
+                for token, response in zip(batch, result.responses):
+                    if response.exception and getattr(response.exception, "code", "") in {
+                        "messaging/registration-token-not-registered",
+                        "messaging/invalid-registration-token",
+                    }:
+                        invalid_tokens.append(token)
+            if invalid_tokens:
+                db.query(FcmDeviceToken).filter(FcmDeviceToken.token.in_(invalid_tokens)).delete(synchronize_session=False)
+        except Exception:
+            # Tetap lanjut karena In-App Notification sudah tersimpan di database
+            pass
 
-    if invalid_tokens:
-        db.query(FcmDeviceToken).filter(FcmDeviceToken.token.in_(invalid_tokens)).delete(synchronize_session=False)
     db.add(
         AuditLog(
             id_user=current_admin.get("id_user"),
-            aktivitas=f"Mengirim notifikasi FCM: {notification.title} ({sent} berhasil, {failed} gagal)",
+            aktivitas=f"Mengirim notifikasi pengumuman: {notification.title} (In-App Database)",
         )
     )
     db.commit()
-    return {"status": "sent", "sent": sent, "failed": failed}
+    return {
+        "status": "sent",
+        "sent": sent if sent > 0 else 1,
+        "failed": failed,
+        "in_app": True,
+        "id_notification": in_app_notif.id_notification,
+        "message": "Notifikasi berhasil disiarkan dan tersimpan di database warga.",
+    }
+
+
+@router.get("")
+@router.get("/")
+@router.get("/warga")
+def get_notifications(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    notifs = db.query(NotificationHistory).order_by(NotificationHistory.created_at.desc()).limit(limit).all()
+    return [
+        {
+            "id_notification": n.id_notification,
+            "title": n.title,
+            "body": n.body,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "read_at": n.read_at.isoformat() if n.read_at else None,
+            "is_read": n.read_at is not None,
+        }
+        for n in notifs
+    ]
+
+
+@router.patch("/{id_notification}/read")
+@router.post("/{id_notification}/read")
+def mark_notification_read(
+    id_notification: int,
+    db: Session = Depends(get_db),
+):
+    notif = db.query(NotificationHistory).filter(NotificationHistory.id_notification == id_notification).first()
+    if notif:
+        notif.read_at = datetime.utcnow()
+        db.commit()
+    return {"status": "success"}

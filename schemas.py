@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 
 # ==================== SCHEMAS USER ====================
@@ -107,3 +107,32 @@ class WilayahResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ==================== SCHEMAS PROFILE UPDATE & NOTIFIKASI ====================
+class UserProfileUpdate(BaseModel):
+    nama_lengkap: Optional[str] = None
+    no_kk: Optional[str] = None
+    no_hp: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    rt: Optional[str] = None
+    rw: Optional[str] = None
+    role: Optional[str] = None
+
+
+class NotificationCreate(BaseModel):
+    title: str
+    body: str
+    target_token: Optional[str] = None
+
+
+class JadwalBansosItem(BaseModel):
+    id: Optional[int] = None
+    program: str
+    tanggal: str
+    jam: str
+    lokasi: str
+    status: Optional[str] = "Dijadwalkan"
+    persyaratan: Optional[Union[List[str], str]] = []
+    dusun: Optional[str] = None

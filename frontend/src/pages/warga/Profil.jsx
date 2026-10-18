@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authService } from '../services/auth';
-import { getAssetUrl } from '../services/apiClient';
-import { bansosService } from '../services/api';
-import { enablePushNotifications, isFcmConfigured } from '../services/firebase';
+import { authService } from '../../services/auth';
+import { getAssetUrl } from '../../services/apiClient';
+import { bansosService } from '../../services/api';
+import { enablePushNotifications, isFcmConfigured } from '../../services/firebase';
 
 const PROFILE_FIELDS = [
   ['nama_lengkap', 'Nama lengkap'],
@@ -206,16 +206,41 @@ export default function Profil() {
         <ProfileGroup title="Data Kependudukan & Bansos">
           <DisclosureRow icon="badge" title="Biodata Lengkap Warga" subtitle="NIK, nama, nomor KK, telepon, dan alamat" open={activeSection === 'biodata'} onClick={() => setActiveSection(activeSection === 'biodata' ? '' : 'biodata')}>
             {activeSection === 'biodata' && (
-              <form onSubmit={saveProfile} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {PROFILE_FIELDS.map(([field, label]) => (
-                  <label key={field} className={field === 'alamat_detail' ? 'sm:col-span-2' : ''}>
-                    <span className="mb-1 block text-xs font-semibold text-gray-700">{label}</span>
-                    <input required value={form[field] || ''} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100" />
-                  </label>
-                ))}
-                <button type="submit" disabled={saving || loading} className="min-h-10 rounded-lg bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-60 sm:col-span-2">
-                  {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
+              <form onSubmit={saveProfile} className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {PROFILE_FIELDS.map(([field, label]) => (
+                    <label key={field} className={field === 'alamat_detail' ? 'sm:col-span-2' : ''}>
+                      <span className="mb-1 block text-xs font-bold text-gray-700">{label}</span>
+                      <input
+                        required
+                        type={field.includes('no_') || field === 'rt' || field === 'rw' ? 'text' : 'text'}
+                        value={form[field] || ''}
+                        onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
+                        className="h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-xs sm:text-sm font-medium text-gray-800 transition focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                        placeholder={`Masukkan ${label.toLowerCase()}...`}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm(profileToForm(profile))}
+                    className="px-3 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || loading}
+                    className="inline-flex items-center gap-1.5 min-h-10 rounded-xl bg-emerald-800 px-5 text-xs sm:text-sm font-bold text-white hover:bg-emerald-900 transition-colors shadow-xs disabled:opacity-60"
+                  >
+                    <span className={`material-symbols-outlined text-[17px] ${saving ? 'animate-spin' : ''}`}>
+                      {saving ? 'progress_activity' : 'save'}
+                    </span>
+                    {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                  </button>
+                </div>
               </form>
             )}
           </DisclosureRow>
@@ -241,8 +266,43 @@ export default function Profil() {
           <DisclosureRow icon="password" title="Ubah PIN / Sandi Warga" subtitle="Minta bantuan perubahan PIN ke petugas" open={activeSection === 'pin'} onClick={() => setActiveSection(activeSection === 'pin' ? '' : 'pin')}>
             {activeSection === 'pin' && <a href="https://wa.me/6285807078899?text=Halo%20Admin%20Ngrowo%2C%20saya%20memerlukan%20bantuan%20perubahan%20PIN." target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-emerald-800 px-3 text-xs font-semibold text-white"><span className="material-symbols-outlined text-[16px]">chat</span>Hubungi Admin melalui WhatsApp</a>}
           </DisclosureRow>
-          <DisclosureRow icon="notifications_active" title="Notifikasi Layanan Bansos" subtitle={pushMessage || (isFcmConfigured ? 'Aktifkan pemberitahuan jadwal dan status laporan' : 'Konfigurasi Firebase belum diisi')} open={activeSection === 'notifications'} onClick={() => setActiveSection(activeSection === 'notifications' ? '' : 'notifications')}>
-            {activeSection === 'notifications' && <button type="button" disabled={!isFcmConfigured || pushLoading} onClick={enableNotifications} className="min-h-9 rounded-lg bg-emerald-800 px-3 text-xs font-semibold text-white disabled:opacity-50">{pushLoading ? 'Mengaktifkan...' : 'Aktifkan Notifikasi'}</button>}
+          <DisclosureRow
+            icon="notifications_active"
+            title="Notifikasi Layanan Bansos"
+            subtitle="In-App Notifikasi real-time aktif otomatis tanpa perlu izin browser"
+            open={activeSection === 'notifications'}
+            onClick={() => setActiveSection(activeSection === 'notifications' ? '' : 'notifications')}
+          >
+            {activeSection === 'notifications' && (
+              <div className="space-y-3 text-xs">
+                <div className="flex items-start gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-emerald-950">
+                  <span className="material-symbols-outlined text-[20px] text-emerald-700 shrink-0">check_circle</span>
+                  <div className="leading-relaxed">
+                    <p className="font-bold text-emerald-900">In-App Notifikasi Aktif Otomatis</p>
+                    <p className="text-[11px] text-emerald-800 mt-0.5">
+                      Pesan broadcast, informasi jadwal penyaluran bansos, dan status pengaduan langsung muncul di beranda dan lonceng notifikasi secara real-time.
+                    </p>
+                  </div>
+                </div>
+                {isFcmConfigured && (
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-800">Push Notification Web Browser (Opsional)</p>
+                      <p className="text-[11px] text-gray-500">Terima notifikasi luar browser saat aplikasi tertutup</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pushLoading}
+                      onClick={enableNotifications}
+                      className="rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
+                    >
+                      {pushLoading ? 'Mengaktifkan...' : 'Aktifkan'}
+                    </button>
+                  </div>
+                )}
+                {pushMessage && <p className="text-[11px] text-emerald-700 font-medium">{pushMessage}</p>}
+              </div>
+            )}
           </DisclosureRow>
         </ProfileGroup>
 

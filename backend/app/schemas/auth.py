@@ -61,6 +61,8 @@ class UserResponse(BaseModel):
     foto_profil: Optional[str] = None
     username: Optional[str] = None
     role: str
+    is_ngrowo_resident: Optional[bool] = False
+    is_verified: Optional[bool] = False
     created_at: Optional[datetime] = None
 
     class Config:

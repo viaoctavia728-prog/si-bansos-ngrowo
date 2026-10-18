@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import logoNgrowo from '../images/logo ngrowo.png';
-import { authService } from '../services/auth';
-import { getAssetUrl } from '../services/apiClient';
-import { bansosService, pengaduanService } from '../services/api';
-import { enablePushNotifications, isFcmConfigured, listenForPushMessages } from '../services/firebase';
+import logoNgrowo from '../../images/logo ngrowo.png';
+import { authService } from '../../services/auth';
+import { getAssetUrl } from '../../services/apiClient';
+import { bansosService, pengaduanService, notificationService } from '../../services/api';
+import { enablePushNotifications, isFcmConfigured, listenForPushMessages } from '../../services/firebase';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -15,6 +15,18 @@ export default function Dashboard() {
   const [now, setNow] = useState(() => new Date());
   const [pushEnabling, setPushEnabling] = useState(false);
   const [pushMessage, setPushMessage] = useState('');
+
+  // In-App Database Notifications state
+  const [notifications, setNotifications] = useState([]);
+  const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
+  const [latestPopupNotif, setLatestPopupNotif] = useState(null);
+  const [dismissedNotifIds, setDismissedNotifIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('dismissed_in_app_notifs') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -53,7 +65,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30000);
-    return () => window.clearInterval(timer);
+    const handleProfileUpdate = (event) => {
+      if (event?.detail) {
+        setCurrentUser(event.detail);
+      } else {
+        const u = authService.getCurrentUser();
+        if (u) setCurrentUser(u);
+      }
+    };
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -70,6 +94,53 @@ export default function Dashboard() {
       unsubscribe();
     };
   }, []);
+
+  // In-App Notification Polling & Fetch
+  const fetchNotifications = async () => {
+    try {
+      const list = await notificationService.getNotifications();
+      if (Array.isArray(list)) {
+        setNotifications(list);
+        const dismissed = JSON.parse(localStorage.getItem('dismissed_in_app_notifs') || '[]');
+        const newUnread = list.find((n) => !n.is_read && !dismissed.includes(n.id_notification));
+        if (newUnread) {
+          setLatestPopupNotif(newUnread);
+        }
+      }
+    } catch {
+      // keep silent on polling error
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = window.setInterval(fetchNotifications, 8000); // Polling real-time setiap 8 detik
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const handleDismissPopup = async (idNotification) => {
+    try {
+      await notificationService.markAsRead(idNotification);
+    } catch {}
+    const updated = [...dismissedNotifIds, idNotification];
+    setDismissedNotifIds(updated);
+    localStorage.setItem('dismissed_in_app_notifs', JSON.stringify(updated));
+    setLatestPopupNotif(null);
+    fetchNotifications();
+  };
+
+  const handleMarkAsRead = async (idNotification) => {
+    try {
+      await notificationService.markAsRead(idNotification);
+    } catch {}
+    setNotifications((prev) =>
+      prev.map((n) => (n.id_notification === idNotification ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
+    );
+    if (latestPopupNotif?.id_notification === idNotification) {
+      setLatestPopupNotif(null);
+    }
+    fetchNotifications();
+  };
 
   const handleEnablePush = async () => {
     try {
@@ -104,6 +175,7 @@ export default function Dashboard() {
 
   const hasUserReports = userReports.length > 0;
   const activeReportCount = userReports.filter((report) => report.status_laporan !== 'selesai' && report.status_laporan !== 'ditolak').length;
+  const unreadCount = notifications.filter((n) => !n.is_read && !n.read_at).length;
 
   return (
     <div className="bg-[#f8f9ff] font-body-md text-[#121c2a] min-h-screen flex flex-col justify-between selection:bg-[#acf4a4]">
@@ -126,9 +198,21 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => navigate('/profil?section=notifications')} title="Pengaturan notifikasi" aria-label="Pengaturan notifikasi" className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-emerald-50">
-              <span className="material-symbols-outlined text-[20px]">notifications_none</span>
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-500" />
+            <button
+              type="button"
+              onClick={() => setIsNotifModalOpen(true)}
+              title="Pengumuman & Notifikasi Warga"
+              aria-label="Pengumuman & Notifikasi Warga"
+              className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-emerald-50 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[21px]">
+                {unreadCount > 0 ? 'notifications_active' : 'notifications_none'}
+              </span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-black text-white ring-2 ring-white animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
             </button>
             <Link to="/profil" title="Buka profil warga" aria-label="Buka profil warga" className="w-9 h-9 rounded-full border-2 border-emerald-200 overflow-hidden flex items-center justify-center bg-emerald-700 text-white font-bold text-xs flex-shrink-0 shadow-xs">
               {currentUser?.foto_profil ? <img src={getAssetUrl(currentUser.foto_profil)} alt="" className="h-full w-full object-cover" /> : getInitials(currentUser?.nama_lengkap)}
@@ -142,6 +226,69 @@ export default function Dashboard() {
         <div className="flex flex-col w-full max-w-2xl mx-auto">
           <div className="px-4 sm:px-6 pt-4 flex flex-col gap-5">
             
+            {/* Pop-up / Banner Pengumuman Real-time dari Admin */}
+            {latestPopupNotif && (
+              <aside
+                role="region"
+                aria-label="Pengumuman Penting"
+                className="relative overflow-hidden rounded-2xl border-2 border-emerald-500 bg-gradient-to-r from-emerald-900 via-emerald-800 to-[#1B4D3E] p-4 text-white shadow-lg animate-in fade-in slide-in-from-top-4 duration-300"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-yellow-300 backdrop-blur-xs">
+                      <span className="material-symbols-outlined text-[24px]">campaign</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center rounded-md bg-yellow-400 px-2 py-0.5 text-[10px] font-black tracking-wide text-gray-900 uppercase">
+                          Pengumuman Baru
+                        </span>
+                        <span className="text-[10px] text-emerald-100">
+                          {latestPopupNotif.created_at
+                            ? new Date(latestPopupNotif.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'
+                            : 'Baru Saja'}
+                        </span>
+                      </div>
+                      <h2 className="mt-1 text-sm sm:text-base font-bold text-white leading-snug">
+                        {latestPopupNotif.title}
+                      </h2>
+                      <p className="mt-1 text-xs text-emerald-100/90 leading-relaxed whitespace-pre-line line-clamp-3">
+                        {latestPopupNotif.body}
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNotifModalOpen(true);
+                            handleMarkAsRead(latestPopupNotif.id_notification);
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-emerald-900 hover:bg-emerald-50 active:scale-95 transition-all shadow-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">visibility</span>
+                          Baca Selengkapnya
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDismissPopup(latestPopupNotif.id_notification)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-950/40 border border-emerald-400/30 px-2.5 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-950/60 transition-colors"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDismissPopup(latestPopupNotif.id_notification)}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+                    title="Tutup banner pengumuman"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                  </button>
+                </div>
+              </aside>
+            )}
+
             {/* Greetings & Status Warga */}
             <div className="flex items-center justify-between pt-1">
               <div className="flex flex-col gap-2">
@@ -181,12 +328,34 @@ export default function Dashboard() {
                   {isProfileComplete ? 'Lihat Profil' : 'Lengkapi Profil'}
                 </button>
               </div>
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-gray-100 pt-2">
-                <button type="button" onClick={handleEnablePush} disabled={!isFcmConfigured || pushEnabling} className="inline-flex min-h-6 items-center gap-1 text-[10px] font-medium text-gray-600 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">
-                  <span className="material-symbols-outlined text-[13px]">notifications_none</span>
-                  {pushEnabling ? 'Mengaktifkan...' : 'Aktifkan Notifikasi'}
-                </button>
-                <p role="status" className="text-[9px] text-gray-500">{pushMessage || (isFcmConfigured ? 'Pemberitahuan jadwal dan status laporan.' : 'Konfigurasi Firebase belum diisi.')}</p>
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t border-gray-100 pt-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                  <span className="text-[10px] font-medium text-emerald-800">
+                    Sistem Pengumuman Real-time Aktif ({notifications.length} info)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNotifModalOpen(true)}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">notifications</span>
+                    Lihat Pengumuman
+                  </button>
+                  {isFcmConfigured && (
+                    <button
+                      type="button"
+                      onClick={handleEnablePush}
+                      disabled={pushEnabling}
+                      className="text-[9px] text-gray-500 hover:text-emerald-700 underline"
+                      title="Sinkronkan notifikasi browser web push jika diinginkan"
+                    >
+                      {pushEnabling ? 'Mengaktifkan...' : 'Push Browser'}
+                    </button>
+                  )}
+                </div>
               </div>
             </section>
 
@@ -469,6 +638,121 @@ export default function Dashboard() {
           </Link>
         </div>
       </nav>
+
+      {/* MODAL / DRAWER PENGUMUMAN & NOTIFIKASI WARGA */}
+      {isNotifModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-notif-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 border border-gray-100">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-emerald-900 bg-[#1B4D3E] px-5 py-4 text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white">
+                  <span className="material-symbols-outlined text-[20px]">campaign</span>
+                </div>
+                <div>
+                  <h3 id="modal-notif-title" className="text-base font-bold text-white">Pengumuman &amp; Notifikasi</h3>
+                  <p className="text-[11px] text-emerald-100/90">Pesan dan informasi resmi Pemerintah Desa Ngrowo</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNotifModalOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                title="Tutup"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {notifications.length === 0 ? (
+                <div className="py-12 text-center flex flex-col items-center justify-center">
+                  <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                    <span className="material-symbols-outlined text-[28px]">notifications_off</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-gray-800">Belum Ada Pengumuman</h4>
+                  <p className="text-xs text-gray-500 mt-1 max-w-xs">
+                    Pengumuman bansos, jadwal pembagian, dan informasi desa akan langsung muncul di sini secara otomatis.
+                  </p>
+                </div>
+              ) : (
+                notifications.map((item) => {
+                  const isRead = !!item.read_at || !!item.is_read;
+                  return (
+                    <div
+                      key={item.id_notification}
+                      className={`p-3.5 rounded-xl transition-colors border ${
+                        !isRead
+                          ? 'bg-emerald-50/70 border-emerald-200 shadow-2xs'
+                          : 'bg-white border-gray-100 hover:bg-gray-50/70'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {!isRead && (
+                            <span className="flex h-2 w-2 rounded-full bg-emerald-600"></span>
+                          )}
+                          <span className="text-[10px] font-semibold text-emerald-800 uppercase tracking-wide">
+                            Pemberitahuan Desa
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-600">
+                          {item.created_at
+                            ? new Date(item.created_at).toLocaleString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Baru saja'}
+                        </span>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-gray-900 mt-1">{item.title}</h4>
+                      <p className="text-xs text-gray-600 mt-1 leading-relaxed whitespace-pre-line">
+                        {item.body}
+                      </p>
+
+                      {!isRead && (
+                        <div className="mt-2.5 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleMarkAsRead(item.id_notification)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 bg-white px-2.5 py-1 rounded-md border border-emerald-200 shadow-2xs hover:bg-emerald-50"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">done</span>
+                            Tandai Sudah Dibaca
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-100 bg-gray-50/90 px-5 py-3 flex items-center justify-between">
+              <span className="text-[11px] text-gray-600">
+                Total {notifications.length} info ({unreadCount} belum dibaca)
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsNotifModalOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-[#1B4D3E] text-xs font-semibold text-white hover:bg-[#153e32]"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

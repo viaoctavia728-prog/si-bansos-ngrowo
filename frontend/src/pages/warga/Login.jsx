@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import logoBojonegoro from '../images/logo bojonegoro.jpg';
-import logoNgrowo from '../images/logo ngrowo.png';
-import { authService } from '../services/auth';
+import logoBojonegoro from '../../images/logo bojonegoro.jpg';
+import logoNgrowo from '../../images/logo ngrowo.png';
+import { authService } from '../../services/auth';
 
 const SLIDES = [
     {

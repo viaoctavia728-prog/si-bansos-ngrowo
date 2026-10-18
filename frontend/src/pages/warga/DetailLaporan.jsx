@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import { pengaduanService } from '../services/api';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import { pengaduanService } from '../../services/api';
 
 export default function DetailLaporan() {
   const [searchParams] = useSearchParams();

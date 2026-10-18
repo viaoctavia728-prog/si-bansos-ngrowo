@@ -1,0 +1,6 @@
+{ 
+  "provider": "openai-compatible", 
+  "baseUrl": "https://kiyararouter.web.id/v1", 
+  "apiKey": sk-kiyara-ebce33ccf5a80bee4c86f36554cceab2d7d915d9fbfe985a20ff6234147608f9, 
+  "model": "deepseek-ai/deepseek-v4.1-flash" 
+} 

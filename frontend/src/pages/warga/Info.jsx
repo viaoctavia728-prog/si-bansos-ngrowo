@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import { jadwalService } from '../services/api';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import { jadwalService } from '../../services/api';
 
 export default function Info() {
   const [schedule, setSchedule] = useState(null);

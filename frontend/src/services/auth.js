@@ -46,9 +46,27 @@ export const authService = {
   },
 
   async updateProfile(profileData) {
-    const response = await citizenApiClient.patch('/auth/me', profileData);
-    localStorage.setItem('user', JSON.stringify(response.data));
-    return response.data;
+    try {
+      const response = await citizenApiClient.patch('/auth/me', profileData);
+      localStorage.setItem('user', JSON.stringify(response.data));
+      window.dispatchEvent(new CustomEvent('user-profile-updated', { detail: response.data }));
+      return response.data;
+    } catch (err) {
+      const currentUser = authService.getCurrentUser();
+      const idUser = currentUser?.id_user;
+      if (idUser) {
+        try {
+          const fallback = await citizenApiClient.put(`/user/${idUser}`, profileData);
+          const merged = { ...currentUser, ...fallback.data, ...profileData };
+          localStorage.setItem('user', JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent('user-profile-updated', { detail: merged }));
+          return merged;
+        } catch {
+          // keep original error
+        }
+      }
+      throw err;
+    }
   },
 
   async updateProfilePhoto(file) {
@@ -58,12 +76,14 @@ export const authService = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     localStorage.setItem('user', JSON.stringify(response.data));
+    window.dispatchEvent(new CustomEvent('user-profile-updated', { detail: response.data }));
     return response.data;
   },
 
   async removeProfilePhoto() {
     const response = await citizenApiClient.delete('/auth/me/photo');
     localStorage.setItem('user', JSON.stringify(response.data));
+    window.dispatchEvent(new CustomEvent('user-profile-updated', { detail: response.data }));
     return response.data;
   },
 

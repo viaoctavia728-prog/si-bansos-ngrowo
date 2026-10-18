@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -24,6 +22,8 @@ class User(Base):
 
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), default="warga")  # <--- Default role diset 'warga'
+    is_ngrowo_resident = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relasi ke tabel Pengaduan & Wilayah

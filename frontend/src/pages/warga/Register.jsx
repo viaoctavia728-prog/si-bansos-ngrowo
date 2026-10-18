@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import logoBojonegoro from '../images/logo bojonegoro.jpg';
-import logoNgrowo from '../images/logo ngrowo.png';
-import { authService } from '../services/auth';
+import logoBojonegoro from '../../images/logo bojonegoro.jpg';
+import logoNgrowo from '../../images/logo ngrowo.png';
+import { authService } from '../../services/auth';
 
 const maskIdentityNumber = (value) => `${value.slice(0, 4)}${'*'.repeat(Math.max(value.length - 8, 0))}${value.slice(-4)}`;
 

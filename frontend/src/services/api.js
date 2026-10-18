@@ -62,4 +62,27 @@ export const jadwalService = {
   },
 };
 
+export const notificationService = {
+  async getNotifications() {
+    try {
+      const response = await citizenApiClient.get('/notifications');
+      return response.data;
+    } catch {
+      const fallback = await citizenApiClient.get('/api/notifications');
+      return fallback.data;
+    }
+  },
+
+  async markAsRead(idNotification) {
+    try {
+      const response = await citizenApiClient.patch(`/notifications/${idNotification}/read`);
+      return response.data;
+    } catch {
+      const fallback = await citizenApiClient.post(`/notifications/${idNotification}/read`);
+      return fallback.data;
+    }
+  },
+};
+
+
 export default citizenApiClient;

@@ -81,3 +81,15 @@ class AuditLog(Base):
     id_user = Column(Integer, nullable=True)
     aktivitas = Column(String(255), nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+# 6. Tabel Riwayat Notifikasi / Pengumuman Warga (In-App Database Notification)
+class NotificationHistory(Base):
+    __tablename__ = "notification_history"
+
+    id_notification = Column(Integer, primary_key=True, index=True)
+    id_user = Column(Integer, ForeignKey("users.id_user"), nullable=True, index=True)
+    title = Column(String(120), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    read_at = Column(DateTime, nullable=True)

@@ -1,16 +1,19 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import LupaPin from './pages/LupaPin';
-import Dashboard from './pages/Dashboard';
-import CekBansos from './pages/CekBansos';
-import Pengaduan from './pages/Pengaduan';
-import DetailLaporan from './pages/DetailLaporan';
-import Jadwal from './pages/Jadwal';
-import Info from './pages/Info';
-import Profil from './pages/Profil';
-import AdminPortal from './admin/AdminPortal';
+// Halaman Khusus Warga (Modular)
+import Login from './pages/warga/Login';
+import Register from './pages/warga/Register';
+import LupaPin from './pages/warga/LupaPin';
+import Dashboard from './pages/warga/Dashboard';
+import CekBansos from './pages/warga/CekBansos';
+import Pengaduan from './pages/warga/Pengaduan';
+import DetailLaporan from './pages/warga/DetailLaporan';
+import Jadwal from './pages/warga/Jadwal';
+import Info from './pages/warga/Info';
+import Profil from './pages/warga/Profil';
+
+// Halaman & Portal Admin (Modular)
+import AdminPortal from './pages/admin/AdminPortal';
 
 function getCitizenUser() {
   try {
