@@ -47,6 +47,7 @@ class UserProfileUpdate(BaseModel):
     rt: Optional[str] = Field(default=None, max_length=10)
     rw: Optional[str] = Field(default=None, max_length=10)
     alamat_detail: Optional[str] = Field(default=None, max_length=255)
+    notifikasi_otomatis: Optional[bool] = None
 
 
 class UserResponse(BaseModel):
@@ -61,6 +62,7 @@ class UserResponse(BaseModel):
     foto_profil: Optional[str] = None
     username: Optional[str] = None
     role: str
+    notifikasi_otomatis: bool = True
     created_at: Optional[datetime] = None
 
     class Config:

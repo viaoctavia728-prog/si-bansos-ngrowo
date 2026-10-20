@@ -8,6 +8,7 @@ from app.api.deps import get_current_admin, get_current_user
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.fcm_device_token import FcmDeviceToken
+from app.models.user import User
 from app.schemas.notifications import FcmNotificationCreate, FcmTargetNotificationCreate, FcmTokenRegistration
 
 router = APIRouter()
@@ -144,3 +145,72 @@ def send_fcm_notification(
     )
     db.commit()
     return {"status": "sent", "sent": sent, "failed": failed}
+
+
+def send_automatic_notification_to_user(db: Session, id_user: int, title: str, body: str) -> bool:
+    """Mengirim notifikasi otomatis ke pengguna jika notifikasi_otomatis diaktifkan."""
+    user = db.query(User).filter(User.id_user == id_user).first()
+    if not user or not getattr(user, "notifikasi_otomatis", True):
+        # Pengguna menonaktifkan notifikasi otomatis pada profilnya
+        return False
+
+    tokens = [row.token for row in db.query(FcmDeviceToken.token).filter(FcmDeviceToken.id_user == id_user).all()]
+    if not tokens:
+        return False
+
+    try:
+        messaging = _get_firebase_messaging()
+    except Exception:
+        return False
+
+    sent_any = False
+    for token in tokens:
+        try:
+            message = messaging.Message(
+                notification=messaging.Notification(title=title, body=body),
+                token=token,
+            )
+            messaging.send(message)
+            sent_any = True
+        except Exception:
+            pass
+    return sent_any
+
+
+def send_automatic_notification_to_admins(
+    db: Session, title: str, body: str, exclude_user_id: int | None = None
+) -> int:
+    """Mengirim notifikasi otomatis ke semua admin yang mengaktifkan notifikasi_otomatis."""
+    query = db.query(User.id_user).filter(
+        User.role == "admin",
+        User.notifikasi_otomatis == True,
+    )
+    if exclude_user_id:
+        query = query.filter(User.id_user != exclude_user_id)
+    admin_ids = [row.id_user for row in query.all()]
+    if not admin_ids:
+        return 0
+
+    tokens = [
+        row.token for row in db.query(FcmDeviceToken.token).filter(FcmDeviceToken.id_user.in_(admin_ids)).all()
+    ]
+    if not tokens:
+        return 0
+
+    try:
+        messaging = _get_firebase_messaging()
+    except Exception:
+        return 0
+
+    sent_count = 0
+    for token in tokens:
+        try:
+            message = messaging.Message(
+                notification=messaging.Notification(title=title, body=body),
+                token=token,
+            )
+            messaging.send(message)
+            sent_count += 1
+        except Exception:
+            pass
+    return sent_count

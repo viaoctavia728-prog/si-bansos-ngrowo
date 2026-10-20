@@ -29,8 +29,16 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         .with_for_update()
         .first()
     )
-    if not eligible_resident or eligible_resident.nama_normalized != normalize_name(user_data.nama_lengkap):
+    input_normalized = normalize_name(user_data.nama_lengkap)
+    is_name_match = eligible_resident and (
+        eligible_resident.nama_normalized == input_normalized
+        or normalize_name(eligible_resident.nama_normalized or "") == input_normalized
+        or normalize_name(eligible_resident.nama_lengkap) == input_normalized
+    )
+    if not eligible_resident or not is_name_match:
         raise HTTPException(status_code=403, detail="NIK dan nama tidak terdaftar atau tidak sesuai data warga.")
+    if eligible_resident.nama_normalized != input_normalized:
+        eligible_resident.nama_normalized = input_normalized
     if eligible_resident.registered_user_id is not None:
         raise HTTPException(status_code=409, detail="NIK ini sudah digunakan untuk registrasi.")
 
@@ -170,6 +178,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
             "rt": user.rt,
             "rw": user.rw,
             "foto_profil": user.foto_profil,
+            "notifikasi_otomatis": getattr(user, "notifikasi_otomatis", True),
         },
     }
 

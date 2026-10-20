@@ -4,9 +4,11 @@ import time
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
+from app.core.normalization import normalize_name
 from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
+from app.models.eligible_resident import EligibleResident
 from app.models.user import User
 import app.models  # noqa: F401 - load models before create_all
 
@@ -19,6 +21,7 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
             seed_default_admin()
             seed_demo_warga()
             seed_missing_usernames()
+            normalize_eligible_residents_table()
             return
         except Exception:
             if attempt == max_retries:
@@ -47,6 +50,12 @@ def ensure_username_column():
     if "foto_profil" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE users ADD COLUMN foto_profil VARCHAR(255) NULL"))
+
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "notifikasi_otomatis" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN notifikasi_otomatis BOOLEAN NOT NULL DEFAULT 1"))
 
 
 def seed_default_admin():
@@ -121,4 +130,23 @@ def seed_missing_usernames():
         db.commit()
     finally:
         db.close()
+
+
+def normalize_eligible_residents_table():
+    db: Session = SessionLocal()
+    try:
+        residents = db.query(EligibleResident).all()
+        updated = 0
+        for r in residents:
+            expected = normalize_name(r.nama_lengkap)
+            if r.nama_normalized != expected:
+                r.nama_normalized = expected
+                updated += 1
+        if updated > 0:
+            db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
 

@@ -6,7 +6,7 @@ from app.core.gemini import (
     GeminiNotConfiguredError,
     assess_house_photo,
 )
-from app.core.storage import MAX_UPLOAD_BYTES
+from app.core.storage import MAX_HOUSE_IMAGE_BYTES
 from app.schemas.house_validation import HouseConditionAssessment
 
 router = APIRouter()
@@ -27,11 +27,14 @@ def validate_house(
     if signature_check is None:
         raise HTTPException(status_code=400, detail="Foto harus berformat JPG, PNG, atau WEBP.")
 
-    contents = file.file.read(MAX_UPLOAD_BYTES + 1)
+    contents = file.file.read(MAX_HOUSE_IMAGE_BYTES + 1)
     if not contents:
-        raise HTTPException(status_code=400, detail="File foto tidak boleh kosong.")
-    if len(contents) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Ukuran foto maksimal 2 MB.")
+        raise HTTPException(status_code=400, detail="File foto rumah tidak boleh kosong.")
+    if len(contents) > MAX_HOUSE_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Ukuran file foto rumah melebihi batas 2 MB. Harap unggah foto maksimal 2 MB agar sistem tidak berat saat diproses.",
+        )
     if not signature_check(contents):
         raise HTTPException(status_code=400, detail="Isi file tidak sesuai dengan format foto.")
 

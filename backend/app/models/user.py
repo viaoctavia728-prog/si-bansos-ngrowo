@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -24,6 +24,7 @@ class User(Base):
 
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), default="warga")  # <--- Default role diset 'warga'
+    notifikasi_otomatis = Column(Boolean, default=True, nullable=False)  # Opsi aktif/nonaktif notifikasi otomatis (auto)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relasi ke tabel Pengaduan & Wilayah

@@ -184,4 +184,16 @@ def update_status_pengaduan(
 
     db.commit()
     db.refresh(pengaduan)
+    try:
+        from app.api.routes.notifications import send_automatic_notification_to_user
+
+        catatan = f" Catatan petugas: {data_update.catatan_admin}" if data_update.catatan_admin else ""
+        send_automatic_notification_to_user(
+            db=db,
+            id_user=pengaduan.id_user,
+            title="Pembaruan Status Pengaduan Bansos",
+            body=f"Laporan {pengaduan.nomor_tiket} kini berstatus '{pengaduan.status_laporan}'.{catatan}",
+        )
+    except Exception:
+        pass
     return pengaduan
