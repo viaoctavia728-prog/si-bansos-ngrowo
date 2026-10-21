@@ -44,13 +44,11 @@ app.include_router(pengaduan.router, prefix="/api/pengaduan", tags=["Pengaduan A
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin API"])
 app.include_router(house_validation.router, prefix="/admin", tags=["House Validation AI"])
-app.include_router(house_validation.router, prefix="/api/admin", tags=["House Validation AI"])
 app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications API"])
 
 app.include_router(wilayah.router, prefix="/wilayah", tags=["Wilayah"])
 app.include_router(wilayah.router, prefix="/api/wilayah", tags=["Wilayah API"])
-app.include_router(house_validation.router, tags=["Validasi Rumah"])
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
