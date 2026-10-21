@@ -23,6 +23,11 @@ class DataBansosResponse(DataBansosCreate):
     from_attributes = True
 
 
+class DataBansosPublicResponse(DataBansosResponse):
+  nik_penerima: str
+  no_kk: Optional[str] = None
+
+
 # Schema Khusus Cek Bansos Publik Warga (Input NIK di Frontend)
 class CekBansosRequest(BaseModel):
   nik: str = Field(min_length=16, max_length=16, pattern=r"^\d{16}$")

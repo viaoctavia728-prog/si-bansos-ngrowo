@@ -12,7 +12,7 @@ const firebaseConfig = {
 };
 
 const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-export const isFcmConfigured = Object.values(firebaseConfig).every(Boolean);
+export const isFcmConfigured = Object.values(firebaseConfig).every(Boolean) && Boolean(vapidKey);
 
 function getFirebaseApp() {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);

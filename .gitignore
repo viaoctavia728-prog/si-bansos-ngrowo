@@ -24,6 +24,8 @@ venv/
 ENV/
 .env
 backend/.env.docker
+secrets/*.json
+!secrets/.gitkeep
 
 # Node / Frontend
 node_modules/

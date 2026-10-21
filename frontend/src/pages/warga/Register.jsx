@@ -248,7 +248,7 @@ export default function Register() {
               <div>
                 <h4 className="text-[15px] sm:text-[16px] font-semibold text-[#121c2a]">Pendaftaran Khusus Warga Desa Ngrowo</h4>
                 <p className="text-[13px] sm:text-[14px] text-[#40493d] mt-0.5 leading-relaxed">
-                  NIK dan No. KK akan divalidasi langsung secara otomatis dengan database kependudukan Desa Ngrowo dan Data Terpadu Kesejahteraan Sosial (DTKS).
+                  NIK dan nama harus cocok dengan daftar warga yang telah diverifikasi admin Desa Ngrowo. Sistem ini tidak terhubung langsung ke Dukcapil atau DTKS.
                 </p>
               </div>
             </div>

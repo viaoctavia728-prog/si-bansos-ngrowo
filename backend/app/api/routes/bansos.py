@@ -7,13 +7,31 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin
 from app.db.session import get_db
 from app.models.bansos import DataBansos
-from app.schemas.bansos import DataBansosCreate, DataBansosResponse
+from app.schemas.bansos import DataBansosCreate, DataBansosPublicResponse, DataBansosResponse
 
 router = APIRouter()
 public_router = APIRouter()
 
 
-@router.get("/penerima", response_model=list[DataBansosResponse])
+def mask_identity_number(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    if len(value) == 16 and value.isdigit():
+        return f"{value[:6]}******{value[-4:]}"
+    return "*" * len(value)
+
+
+def mask_bansos_response(penerima: DataBansos) -> DataBansosPublicResponse:
+    response = DataBansosPublicResponse.model_validate(penerima)
+    return response.model_copy(
+        update={
+            "nik_penerima": mask_identity_number(response.nik_penerima),
+            "no_kk": mask_identity_number(response.no_kk),
+        }
+    )
+
+
+@router.get("/penerima", response_model=list[DataBansosPublicResponse])
 def get_penerima_bansos(
     rt: Optional[str] = None,
     rw: Optional[str] = None,
@@ -35,16 +53,16 @@ def get_penerima_bansos(
             | (DataBansos.nik_penerima.like(f"%{search}%"))
         )
 
-    return query.all()
+    return [mask_bansos_response(penerima) for penerima in query.all()]
 
 
-@public_router.get("/cek-bansos/{nik}", response_model=list[DataBansosResponse])
-@router.get("/cek/{nik}", response_model=list[DataBansosResponse])
+@public_router.get("/cek-bansos/{nik}", response_model=list[DataBansosPublicResponse])
+@router.get("/cek/{nik}", response_model=list[DataBansosPublicResponse])
 def cek_bansos_by_nik(nik: str, db: Session = Depends(get_db)):
     penerima = db.query(DataBansos).filter(DataBansos.nik_penerima == nik).all()
     if not penerima:
         return []
-    return penerima
+    return [mask_bansos_response(item) for item in penerima]
 
 
 @router.post("", response_model=DataBansosResponse, status_code=201)

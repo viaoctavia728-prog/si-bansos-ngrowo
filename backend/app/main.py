@@ -50,6 +50,7 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 
 app.include_router(wilayah.router, prefix="/wilayah", tags=["Wilayah"])
 app.include_router(wilayah.router, prefix="/api/wilayah", tags=["Wilayah API"])
+app.include_router(house_validation.router, tags=["Validasi Rumah"])
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
