@@ -1,30 +1,57 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { jadwalService } from '../../services/api';
+import { jadwalService, notificationService } from '../../services/api';
 
 const MAPS_LINK = 'https://maps.app.goo.gl/9Qpe14ofwcBaBLRu8';
 const WEEK_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+const MONTHS = {
+  januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06',
+  juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12',
+};
+
+function getIsoDate(item) {
+  if (item?.iso_date && /^\d{4}-\d{2}-\d{2}$/.test(item.iso_date)) return item.iso_date;
+  const match = String(item?.tanggal || '').toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  const month = match && MONTHS[match[2]];
+  return match && month ? `${match[3]}-${month}-${String(match[1]).padStart(2, '0')}` : '';
+}
+
+function getAnnouncementDetails(notification) {
+  const text = `${notification?.title || ''} ${notification?.body || ''}`;
+  const dateMatch = text.toLowerCase().match(/(?:tanggal\s+)?(\d{1,2})\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+(\d{4})/);
+  const isoDate = dateMatch
+    ? `${dateMatch[3]}-${MONTHS[dateMatch[2]]}-${String(dateMatch[1]).padStart(2, '0')}`
+    : '';
+  const timeMatch = text.match(/(?:pukul|jam)\s+([0-9]{1,2}[.:][0-9]{2}(?:\s*-\s*[0-9]{1,2}[.:][0-9]{2})?(?:\s*WIB)?)/i);
+  const locationMatch = text.match(/(?:bertempat|lokasi)\s+(?:di\s+)?([^.!?]+)/i);
+  return {
+    program: notification?.title || '',
+    tanggal: isoDate,
+    jam: timeMatch ? timeMatch[1].replace('.', ':') : '',
+    lokasi: locationMatch ? locationMatch[1].trim() : '',
+  };
+}
 
 export default function Jadwal() {
-  const [schedule, setSchedule] = useState(null);
+  const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [displayedMonth, setDisplayedMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState('');
-  const [downloadState, setDownloadState] = useState('default');
+  const [latestAnnouncement, setLatestAnnouncement] = useState(null);
 
   const loadSchedule = async () => {
     try {
       setLoading(true);
       setError('');
       const response = await jadwalService.getJadwal();
-      const payload = response?.data ? response : { data: response };
-      setSchedule(payload.data);
-      if (payload.data?.tanggal) {
-        const scheduleDate = new Date(`${payload.data.tanggal}T00:00:00`);
-        setSelectedDate(payload.data.tanggal);
+      const list = Array.isArray(response) ? response : response?.data ? (Array.isArray(response.data) ? response.data : [response.data]) : [];
+      setSchedules(list);
+      const firstDate = getIsoDate(list[0]);
+      if (firstDate) {
+        const scheduleDate = new Date(`${firstDate}T00:00:00`);
+        setSelectedDate(firstDate);
         setDisplayedMonth(scheduleDate);
       }
     } catch (err) {
@@ -36,36 +63,42 @@ export default function Jadwal() {
 
   useEffect(() => {
     loadSchedule();
+    let active = true;
+    const loadAnnouncement = async () => {
+      try {
+        const notifications = await notificationService.getNotifications();
+        if (active && Array.isArray(notifications)) {
+          setLatestAnnouncement(notifications[0] || null);
+          const announcementDate = getAnnouncementDetails(notifications[0]).tanggal;
+          if (announcementDate) {
+            setSelectedDate(announcementDate);
+            setDisplayedMonth(new Date(`${announcementDate}T00:00:00`));
+          }
+        }
+      } catch {
+        if (active) setLatestAnnouncement(null);
+      }
+    };
+    loadAnnouncement();
+    const interval = window.setInterval(loadAnnouncement, 8000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
-  const scheduleDate = schedule?.tanggal ? new Date(`${schedule.tanggal}T00:00:00`) : null;
+  const announcementDetails = getAnnouncementDetails(latestAnnouncement);
+  const allSchedules = announcementDetails.tanggal
+    ? [...schedules, { ...announcementDetails, iso_date: announcementDetails.tanggal }]
+    : schedules;
+  const selectedSchedule = allSchedules.find((item) => getIsoDate(item) === selectedDate) || allSchedules[0] || {};
+  const scheduleDate = getIsoDate(selectedSchedule) ? new Date(`${getIsoDate(selectedSchedule)}T00:00:00`) : null;
   const firstWeekday = (new Date(displayedMonth.getFullYear(), displayedMonth.getMonth(), 1).getDay() + 6) % 7;
   const daysInMonth = new Date(displayedMonth.getFullYear(), displayedMonth.getMonth() + 1, 0).getDate();
   const calendarDays = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)];
   const selectedDateLabel = selectedDate
     ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('id-ID', { dateStyle: 'full' })
     : 'Pilih tanggal pada kalender';
-
-  const handleDownload = () => {
-    if (!scheduleDate) return;
-    const datePart = scheduleDate.toISOString().slice(0, 10).replaceAll('-', '');
-    const calendar = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SI-BANSOS NGROWO//Jadwal//ID',
-      'BEGIN:VEVENT', `UID:sibansos-${datePart}@ngrowo.local`, `DTSTART;TZID=Asia/Jakarta:${datePart}T080000`,
-      `DTEND;TZID=Asia/Jakarta:${datePart}T120000`, `SUMMARY:${schedule?.judul || schedule?.program || 'Jadwal Bansos Ngrowo'}`,
-      `LOCATION:${schedule?.lokasi || 'Ngrowo, Bojonegoro'}`, 'END:VEVENT', 'END:VCALENDAR',
-    ].join('\r\n');
-    const fileUrl = URL.createObjectURL(new Blob([calendar], { type: 'text/calendar;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.download = `jadwal-bansos-ngrowo-${datePart}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
-    setDownloadState('success');
-    window.setTimeout(() => setDownloadState('default'), 2500);
-  };
 
   return (
     <div className="bg-surface text-on-surface flex flex-col min-h-screen bg-[#f8f9ff]">
@@ -85,12 +118,34 @@ export default function Jadwal() {
                 style={{ backgroundColor: '#F0F5F2', color: '#1B4D3E', border: '1px solid #DCE7E1' }}
               >
                 <span className="material-symbols-outlined text-[15px]">verified</span>
-                {schedule?.tahap || (loading ? 'Memuat jadwal...' : 'Jadwal penyaluran')}
+                {selectedSchedule?.tahap || (loading ? 'Memuat jadwal...' : 'Jadwal penyaluran')}
               </div>
               <span className="text-[12px] font-medium text-gray-500">Penyaluran Reguler</span>
             </div>
 
             {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error} <button type="button" onClick={loadSchedule} className="ml-2 font-bold underline">Coba lagi</button></div>}
+
+            {latestAnnouncement && (
+              <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm" aria-label="Pengumuman admin">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                    <span className="material-symbols-outlined text-[22px]">campaign</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900">Info admin</span>
+                      {latestAnnouncement.created_at && (
+                        <span className="text-[10px] text-amber-800">
+                          {new Date(latestAnnouncement.created_at).toLocaleDateString('id-ID')}
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="mt-1 text-sm font-bold text-gray-900">{latestAnnouncement.title}</h2>
+                    <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-gray-700">{latestAnnouncement.body}</p>
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section aria-label="Kalender penyaluran" className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
@@ -103,15 +158,16 @@ export default function Jadwal() {
                 {calendarDays.map((day, index) => {
                   if (!day) return <span key={`blank-${index}`} aria-hidden="true" />;
                   const dateValue = `${displayedMonth.getFullYear()}-${String(displayedMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                  const isEvent = dateValue === schedule?.tanggal;
-                  return <button key={dateValue} type="button" onClick={() => setSelectedDate(dateValue)} aria-pressed={selectedDate === dateValue} className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm ${selectedDate === dateValue ? 'bg-emerald-800 font-bold text-white' : 'text-gray-800 hover:bg-emerald-50'}`}>
-                    {day}{isEvent && <span className={`absolute bottom-0.5 h-1 w-1 rounded-full ${selectedDate === dateValue ? 'bg-white' : 'bg-amber-500'}`} />}
+                  const isEvent = allSchedules.some((item) => getIsoDate(item) === dateValue);
+                  const isSelected = selectedDate === dateValue;
+                  return <button key={dateValue} type="button" onClick={() => setSelectedDate(dateValue)} aria-pressed={isSelected} aria-label={isEvent ? `Tanggal jadwal penyaluran: ${day}` : `Tanggal ${day}`} className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm ${isSelected ? 'bg-emerald-800 font-bold text-white' : isEvent ? 'border-2 border-emerald-600 bg-emerald-100 font-bold text-emerald-900 hover:bg-emerald-200' : 'text-gray-800 hover:bg-emerald-50'}`}>
+                    {day}{isEvent && !isSelected && <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-emerald-700" />}
                   </button>;
                 })}
               </div>
               <div className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-600">
                 <p className="font-semibold text-gray-900">{selectedDateLabel}</p>
-                {selectedDate && selectedDate === schedule?.tanggal ? <p className="mt-1 text-emerald-800">{schedule?.judul || schedule?.program || 'Jadwal penyaluran bansos'} · {schedule?.waktu || '-'}</p> : <p className="mt-1">Tidak ada jadwal penyaluran pada tanggal ini.</p>}
+                {selectedSchedule && selectedDate && getIsoDate(selectedSchedule) === selectedDate ? <p className="mt-1 text-emerald-800">{selectedSchedule.judul || selectedSchedule.program || 'Jadwal penyaluran bansos'} · {selectedSchedule.waktu || selectedSchedule.jam || '-'}</p> : <p className="mt-1">Tidak ada jadwal penyaluran pada tanggal ini.</p>}
               </div>
             </section>
 
@@ -124,7 +180,7 @@ export default function Jadwal() {
                   </div>
                   <div>
                     <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider block">Paket Bansos</span>
-                    <h2 className="text-[15px] font-bold text-gray-900 leading-tight">{schedule?.program || (loading ? 'Memuat program...' : 'Program tidak tersedia')}</h2>
+                    <h2 className="text-[15px] font-bold text-gray-900 leading-tight">{selectedSchedule.program || (loading ? 'Memuat program...' : 'Program tidak tersedia')}</h2>
                   </div>
                 </div>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-[#ECFDF5] text-[#1B4D3E]">
@@ -151,7 +207,7 @@ export default function Jadwal() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-[11px] text-gray-500 font-medium leading-none">Waktu Pengambilan</span>
-                    <span className="text-[14px] font-bold text-gray-900 mt-1">{schedule?.waktu || (loading ? 'Memuat...' : 'Belum tersedia')}</span>
+                    <span className="text-[14px] font-bold text-gray-900 mt-1">{selectedSchedule.waktu || selectedSchedule.jam || (loading ? 'Memuat...' : 'Belum tersedia')}</span>
                   </div>
                 </div>
 
@@ -162,8 +218,8 @@ export default function Jadwal() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-[11px] text-gray-500 font-medium leading-none">Lokasi Titik Kumpul</span>
-                    <span className="text-[14px] font-bold text-gray-900 mt-1">{schedule?.lokasi || (loading ? 'Memuat...' : 'Kantor Lurah Ngrowo, Bojonegoro')}</span>
-                    <span className="text-[12px] text-gray-500 mt-0.5">Kantor Lurah Ngrowo, Bojonegoro</span>
+                    <span className="text-[14px] font-bold text-gray-900 mt-1">{selectedSchedule.lokasi || (loading ? 'Memuat...' : 'Kantor Lurah Ngrowo, Bojonegoro')}</span>
+                    <span className="text-[12px] text-gray-500 mt-0.5">{latestAnnouncement ? 'Informasi terbaru dari admin desa' : 'Kantor Lurah Ngrowo, Bojonegoro'}</span>
                   </div>
                 </div>
               </div>
@@ -173,17 +229,17 @@ export default function Jadwal() {
             <section className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
                 <h3 className="text-[14px] font-bold text-gray-900">Sesi &amp; Kuota Pengambilan (Per RT)</h3>
-                <span className="text-[12px] font-semibold text-[#1B4D3E]">Total: {schedule?.total_kpm ?? '-'} KPM</span>
+                <span className="text-[12px] font-semibold text-[#1B4D3E]">Total: {selectedSchedule.total_kpm ?? '-'} KPM</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {schedule?.sesi?.map((session, index) => (
+                {selectedSchedule.sesi?.map((session, index) => (
                   <div key={session.rt} className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm">
                     <div className="flex items-center justify-between"><span className="text-[13px] font-bold text-gray-900">RT {session.rt}</span><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F0F5F2] text-[10px] font-bold text-[#1B4D3E]">{index + 1}</span></div>
                     <div className="mt-2.5 flex items-baseline gap-1"><span className="text-[22px] font-extrabold text-[#1B4D3E]">{session.jumlah_kpm}</span><span className="text-[12px] font-medium text-gray-500">KPM</span></div>
                     <div className="mt-2 flex items-center gap-1.5 border-t border-gray-100 pt-2 text-[11px] font-medium text-gray-500"><span className="material-symbols-outlined text-[14px]">schedule</span><span>{session.waktu}</span></div>
                   </div>
                 ))}
-                {!loading && !schedule?.sesi?.length && <p className="col-span-2 text-sm text-gray-500">Sesi penyaluran belum tersedia.</p>}
+                {!loading && !selectedSchedule.sesi?.length && <p className="col-span-2 text-sm text-gray-500">Sesi penyaluran belum tersedia.</p>}
               </div>
             </section>
 
@@ -229,32 +285,6 @@ export default function Jadwal() {
                 <span className="material-symbols-outlined text-[20px]">directions</span>
                 <span>Petunjuk Arah Balai Desa</span>
               </a>
-
-              <button 
-                type="button" 
-                onClick={handleDownload}
-                disabled={!scheduleDate || loading}
-                className="w-full h-12 rounded-xl text-[14px] font-semibold bg-white flex items-center justify-center gap-2 active:scale-[0.99] transition-all border border-gray-200 text-[#1B4D3E]"
-              >
-                {downloadState === 'loading' && (
-                  <>
-                    <span className="material-symbols-outlined text-[20px] animate-spin">refresh</span>
-                    <span>Mengunduh kalender...</span>
-                  </>
-                )}
-                {downloadState === 'success' && (
-                  <>
-                    <span className="material-symbols-outlined text-[20px] text-primary">check_circle</span>
-                    <span>Kalender berhasil diunduh</span>
-                  </>
-                )}
-                {downloadState === 'default' && (
-                  <>
-                    <span className="material-symbols-outlined text-[20px]">download</span>
-                    <span>Unduh Kalender Jadwal (.ics)</span>
-                  </>
-                )}
-              </button>
             </div>
 
             {/* PETA LOKASI PENYALURAN */}
@@ -274,20 +304,6 @@ export default function Jadwal() {
                 className="h-56 w-full rounded-xl border border-gray-200"
               />
             </section>
-
-            {/* BANTUAN POSKO BANSOS */}
-            <Link to="/pengaduan" className="flex items-center justify-between p-3.5 bg-white rounded-xl transition-all hover:bg-gray-50 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-[#F0F5F2] text-[#1B4D3E]">
-                  <span className="material-symbols-outlined text-[20px]">support_agent</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-bold text-gray-900">Nama belum terdaftar?</span>
-                  <span className="text-[11px] text-gray-500">Hubungi atau lapor ke Posko Bansos Desa Ngrowo</span>
-                </div>
-              </div>
-              <span className="material-symbols-outlined text-gray-400 text-[20px]">chevron_right</span>
-            </Link>
 
           </div>
         </div>

@@ -235,7 +235,7 @@ export default function Register() {
           {errorMessage && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2.5">
               <span className="material-symbols-outlined text-red-600 text-[20px] shrink-0 mt-0.5">error</span>
-              <span>{errorMessage}</span>
+              <span className="whitespace-pre-line">{errorMessage}</span>
             </div>
           )}
 

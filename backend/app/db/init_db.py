@@ -8,6 +8,8 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models.user import User
+from app.models.bansos import DataBansos
+from app.models.eligible_resident import EligibleResident
 import app.models  # noqa: F401 - load models before create_all
 
 
@@ -16,9 +18,13 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
         try:
             Base.metadata.create_all(bind=engine)
             ensure_username_column()
+            ensure_user_status_columns()
+            ensure_notification_preference_column()
+            ensure_desil_columns()
             seed_default_admin()
             seed_demo_warga()
             seed_missing_usernames()
+            seed_demo_desil_and_bansos()
             return
         except Exception:
             if attempt == max_retries:
@@ -47,6 +53,67 @@ def ensure_username_column():
     if "foto_profil" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE users ADD COLUMN foto_profil VARCHAR(255) NULL"))
+
+
+def ensure_user_status_columns():
+    columns = {column["name"] for column in inspect(engine).get_columns("users")}
+    missing_columns = {
+        "is_ngrowo_resident": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "is_verified": "BOOLEAN NOT NULL DEFAULT FALSE",
+    }
+    with engine.begin() as connection:
+        for column, definition in missing_columns.items():
+            if column not in columns:
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {definition}"))
+
+
+def ensure_notification_preference_column():
+    columns = {column["name"] for column in inspect(engine).get_columns("users")}
+    if "notifikasi_otomatis" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN notifikasi_otomatis BOOLEAN NOT NULL DEFAULT TRUE"))
+
+
+def ensure_desil_columns():
+    for table in ("eligible_residents", "data_bansos"):
+        columns = {column["name"] for column in inspect(engine).get_columns(table)}
+        if "desil" not in columns:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN desil INTEGER NOT NULL DEFAULT 4"))
+
+
+def seed_demo_desil_and_bansos():
+    db: Session = SessionLocal()
+    try:
+        residents = db.query(EligibleResident).order_by(EligibleResident.id).all()
+        if not residents:
+            return
+
+        for index, resident in enumerate(residents):
+            resident.desil = (index % 10) + 1
+
+        existing_niks = {row.nik_penerima for row in db.query(DataBansos.nik_penerima).all()}
+        demo_recipients = residents[:20]
+        for index, resident in enumerate(demo_recipients):
+            if resident.nik in existing_niks:
+                continue
+            db.add(
+                DataBansos(
+                    nik_penerima=resident.nik,
+                    nama_penerima=resident.nama_lengkap,
+                    no_kk=None,
+                    jenis_bansos="Bansos Beras CPP",
+                    periode_tahun=2026,
+                    status_penerima="aktif",
+                    rt=f"{(index % 5) + 1:03d}",
+                    rw=f"{(index % 5) + 1:03d}",
+                    dusun="Desa Ngrowo",
+                    desil=resident.desil,
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
 
 
 def seed_default_admin():
@@ -121,4 +188,3 @@ def seed_missing_usernames():
         db.commit()
     finally:
         db.close()
-

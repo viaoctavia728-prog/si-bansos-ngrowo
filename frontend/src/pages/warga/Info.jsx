@@ -4,6 +4,28 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { jadwalService } from '../../services/api';
 
+const PROGRAM_REQUIREMENTS = [
+  { title: 'Program Keluarga Harapan (PKH)', items: ['KTP dan Kartu Keluarga', 'Terdaftar sebagai keluarga penerima manfaat', 'Mengikuti verifikasi dan pemutakhiran data'] },
+  { title: 'Bantuan Pangan Non-Tunai (BPNT / Sembako)', items: ['KTP dan Kartu Keluarga', 'Kartu Keluarga Sejahtera (KKS) jika tersedia', 'Mengikuti jadwal pengambilan yang ditetapkan'] },
+  { title: 'BLT Dana Desa (Ngrowo)', items: ['KTP dan Kartu Keluarga', 'Terdaftar dalam data penerima yang diverifikasi desa', 'Hadir sesuai jadwal dan lokasi penyaluran'] },
+  { title: 'Cadangan Pangan Beras CPP 10 Kg', items: ['KTP asli penerima', 'Kartu Keluarga asli', 'Undangan atau barcode resmi dari RT/RW'] },
+  { title: 'Desil Tidak Sesuai', items: ['NIK dan data keluarga yang sesuai', 'Penjelasan perubahan kondisi ekonomi', 'Bukti pendukung bila tersedia'] },
+];
+
+const FAQ_ITEMS = [
+  ['Siapa yang dapat menerima bantuan sosial?', 'Warga yang memenuhi kriteria program dan tercatat dalam data penerima yang telah diverifikasi.'],
+  ['Bagaimana cara mengecek status bansos?', 'Masuk ke akun warga, buka menu Cek Bansos, lalu masukkan NIK sesuai data kependudukan.'],
+  ['Apa yang harus dibawa saat mengambil bantuan?', 'Bawa KTP asli, Kartu Keluarga, kartu bantuan atau undangan resmi sesuai persyaratan program.'],
+  ['Bagaimana jika nama saya belum terdaftar?', 'Pastikan data registrasi sesuai daftar warga. Jika tetap belum terdaftar, hubungi perangkat Desa Ngrowo melalui pengaduan.'],
+  ['Bagaimana cara mengajukan pengaduan?', 'Masuk ke akun warga, buka menu Pengaduan, lengkapi kategori, program terkait, domisili, dan deskripsi laporan.'],
+  ['Apa arti desil tidak sesuai?', 'Desil tidak sesuai berarti kondisi ekonomi keluarga yang tercatat diduga tidak lagi sesuai dengan kondisi sebenarnya.'],
+  ['Apakah pengaduan dapat dibuat secara anonim?', 'Ya. Pilih opsi Lapor Anonim pada formulir pengaduan untuk menyamarkan identitas dari tampilan laporan.'],
+  ['Berapa lama pengaduan diproses?', 'Pengaduan ditinjau petugas secara bertahap. Pantau statusnya menggunakan nomor tiket laporan.'],
+  ['Bagaimana jika NIK atau nama tidak cocok saat registrasi?', 'Registrasi hanya dapat dilakukan oleh warga yang datanya terdapat dalam daftar warga yang disediakan desa.'],
+  ['Di mana jadwal penyaluran dapat dilihat?', 'Jadwal penyaluran tersedia pada menu Jadwal dan akan diperbarui ketika ada informasi terbaru dari admin desa.'],
+  ['Bagaimana cara menghubungi perangkat desa?', 'Gunakan kanal WhatsApp Bantuan Kelurahan yang tersedia pada halaman ini atau menu Pengaduan setelah login.'],
+];
+
 export default function Info() {
   const [schedule, setSchedule] = useState(null);
   const [scheduleError, setScheduleError] = useState('');
@@ -11,7 +33,10 @@ export default function Info() {
   useEffect(() => {
     let active = true;
     jadwalService.getJadwal().then((response) => {
-      if (active) setSchedule(response?.data || response);
+      if (active) {
+        const list = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : response?.data ? [response.data] : [];
+        setSchedule(list[0] || null);
+      }
     }).catch((error) => {
       if (active) setScheduleError(error.message || 'Informasi jadwal belum dapat dimuat.');
     });
@@ -24,7 +49,11 @@ export default function Info() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-gray-900">
-      <Header title="Info Desa" eyebrow="Informasi Layanan Warga" backTo="/dashboard" />
+      <Header
+        title="Info Desa"
+        eyebrow="Informasi Layanan Warga"
+        backTo="/"
+      />
       <main className="w-full flex-1 pb-24 pt-16">
         <div className="mx-auto flex w-full max-w-lg flex-col gap-4 px-4 py-4">
           <section className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5">
@@ -53,6 +82,40 @@ export default function Info() {
                 <span className="material-symbols-outlined text-[16px]">calendar_month</span>
                 Lihat semua jadwal
               </Link>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="text-base font-bold">Syarat &amp; Ketentuan Program</h3>
+            <p className="mt-1 text-xs leading-relaxed text-gray-600">Pilih program untuk melihat persyaratan yang perlu disiapkan.</p>
+            <div className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-100">
+              {PROGRAM_REQUIREMENTS.map((program) => (
+                <details key={program.title} className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-semibold text-gray-900">
+                    <span>{program.title}</span>
+                    <span className="material-symbols-outlined text-gray-500 transition-transform group-open:rotate-180">expand_more</span>
+                  </summary>
+                  <ul className="space-y-1.5 px-3 pb-3 text-xs leading-relaxed text-gray-600">
+                    {program.items.map((item) => <li key={item} className="flex gap-2"><span className="text-emerald-700">•</span><span>{item}</span></li>)}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="text-base font-bold">FAQ Bansos</h3>
+            <p className="mt-1 text-xs leading-relaxed text-gray-600">Jawaban singkat untuk pertanyaan yang sering ditanyakan warga.</p>
+            <div className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-100">
+              {FAQ_ITEMS.map(([question, answer]) => (
+                <details key={question} className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-semibold text-gray-900">
+                    <span>{question}</span>
+                    <span className="material-symbols-outlined shrink-0 text-gray-500 transition-transform group-open:rotate-180">expand_more</span>
+                  </summary>
+                  <p className="px-3 pb-3 text-xs leading-relaxed text-gray-600">{answer}</p>
+                </details>
+              ))}
             </div>
           </section>
 

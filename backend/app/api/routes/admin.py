@@ -6,11 +6,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin
+from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.pengaduan import PengaduanBansos
 from app.models.user import User
-from app.schemas.auth import UserResponse
+from app.schemas.auth import UserProfileUpdate, UserResponse
 from app.schemas.pengaduan import PengaduanResponse, PengaduanUpdateStatus
 
 router = APIRouter()
@@ -130,6 +131,28 @@ def get_warga_terdaftar(
         .order_by(User.created_at.desc())
         .all()
     )
+
+
+@router.put("/profile/{id_user}", response_model=UserResponse)
+def update_admin_profile(
+    id_user: int,
+    profile: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    if id_user != current_admin.get("id_user"):
+        raise HTTPException(status_code=403, detail="Admin hanya dapat memperbarui profil sendiri.")
+    user = db.query(User).filter(User.id_user == id_user, User.role == "admin").first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Profil admin tidak ditemukan!")
+    for field, value in profile.model_dump(exclude_unset=True).items():
+        if field == "password":
+            user.password_hash = hash_password(value)
+        else:
+            setattr(user, field, value.strip() if isinstance(value, str) else value)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.get("/pending-warga", response_model=List[UserResponse])
@@ -257,4 +280,16 @@ def update_status_pengaduan(
 
     db.commit()
     db.refresh(pengaduan)
+    try:
+        from app.api.routes.notifications import send_automatic_notification_to_user
+
+        note = f" Catatan petugas: {data_update.catatan_admin}" if data_update.catatan_admin else ""
+        send_automatic_notification_to_user(
+            db=db,
+            id_user=pengaduan.id_user,
+            title="Pembaruan Status Pengaduan Bansos",
+            body=f"Laporan {pengaduan.nomor_tiket} berstatus '{pengaduan.status_laporan}'.{note}",
+        )
+    except Exception:
+        pass
     return pengaduan

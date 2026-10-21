@@ -62,6 +62,13 @@ export const jadwalService = {
   },
 };
 
+export const wilayahService = {
+  async getWilayah() {
+    const response = await citizenApiClient.get('/wilayah');
+    return response.data;
+  },
+};
+
 export const notificationService = {
   async getNotifications() {
     try {

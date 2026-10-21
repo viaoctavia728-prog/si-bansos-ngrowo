@@ -13,6 +13,7 @@ class DataBansosCreate(BaseModel):
   rt: str = Field(min_length=1, max_length=10)
   rw: str = Field(min_length=1, max_length=10)
   dusun: Optional[str] = Field(default=None, max_length=50)
+  desil: int = Field(ge=1, le=10, default=4)
 
 
 class DataBansosResponse(DataBansosCreate):

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
+import { getAssetUrl } from '../../services/apiClient';
 
 const DUSUN_OPTIONS = [
   'Semua Dusun',
@@ -1022,7 +1023,7 @@ export default function AdminPengaduan() {
                   <span className="text-xs font-bold text-slate-800 block mb-1">Bukti Foto Terlampir</span>
                   <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-56 flex items-center justify-center">
                     <img
-                      src={selectedReport.bukti_foto}
+                      src={getAssetUrl(selectedReport.bukti_foto)}
                       alt="Bukti Pengaduan"
                       className="max-h-56 w-full object-contain"
                     />

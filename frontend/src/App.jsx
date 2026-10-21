@@ -56,6 +56,7 @@ function App() {
       <Route path="/tracking" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
       <Route path="/jadwal" element={<ProtectedRoute><Jadwal /></ProtectedRoute>} />
       <Route path="/info" element={<ProtectedRoute><Info /></ProtectedRoute>} />
+      <Route path="/info-bansos" element={<Info />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

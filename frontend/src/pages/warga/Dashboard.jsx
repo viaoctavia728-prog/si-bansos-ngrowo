@@ -500,9 +500,14 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold px-1.5 py-0.5 rounded text-white leading-none bg-[#1B4D3E]">Pengumuman</span>
-                  <span className="text-xs text-[#40493d]">Kelurahan Ngrowo</span>
+                  <span className="text-xs text-[#40493d]">Admin Desa Ngrowo</span>
                 </div>
-                <h2 className="text-[14px] font-bold text-[#121c2a] truncate mt-1">Jadwal Sembako Beras CPP 10 Kg di Pendopo Balai Desa</h2>
+                <h2 className="text-[14px] font-bold text-[#121c2a] truncate mt-1">
+                  {notifications[0]?.title || 'Belum ada pengumuman terbaru'}
+                </h2>
+                <p className="mt-1 line-clamp-2 text-xs text-gray-600">
+                  {notifications[0]?.body || 'Informasi dari admin akan tampil otomatis di bagian ini.'}
+                </p>
               </div>
               <Link to="/jadwal" className="material-symbols-outlined text-gray-400 hover:text-emerald-700 text-[20px]">
                 chevron_right

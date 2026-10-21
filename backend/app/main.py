@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import get_current_user
-from app.api.routes import admin, auth, bansos, notifications, pengaduan, wilayah
+from app.api.routes import admin, auth, bansos, house_validation, notifications, pengaduan, wilayah
 from app.core.config import get_settings
 from app.core.storage import UPLOAD_DIR
 from app.db.init_db import create_tables
@@ -43,6 +43,8 @@ app.include_router(pengaduan.router, prefix="/api/pengaduan", tags=["Pengaduan A
 
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin API"])
+app.include_router(house_validation.router, prefix="/admin", tags=["House Validation AI"])
+app.include_router(house_validation.router, prefix="/api/admin", tags=["House Validation AI"])
 app.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications API"])
 

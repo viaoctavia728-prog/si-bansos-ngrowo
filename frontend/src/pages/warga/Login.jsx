@@ -30,6 +30,7 @@ export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [showLanding, setShowLanding] = useState(true);
+    const [showPublicMenu, setShowPublicMenu] = useState(false);
 
     // Form state & feedback
     const [nik, setNik] = useState('');
@@ -93,16 +94,41 @@ export default function Login() {
                             </span>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowLanding(false)}
-                        className="bg-white hover:bg-emerald-50 active:scale-95 text-emerald-800 text-xs sm:text-sm font-bold py-2 sm:py-2.5 px-3.5 sm:px-5 md:px-6 rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center gap-1.5 cursor-pointer shrink-0"
-                    >
-                        <span>Masuk Portal</span>
-                        <span className="hidden sm:inline">Warga</span>
-                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                        </svg>
-                    </button>
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setShowPublicMenu((visible) => !visible)}
+                            aria-expanded={showPublicMenu}
+                            aria-controls="public-info-menu"
+                            aria-label="Buka menu informasi publik"
+                            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/30 bg-white/15 text-white shadow-lg backdrop-blur-md transition-all hover:bg-white/25"
+                        >
+                            <span className="material-symbols-outlined">menu</span>
+                        </button>
+                        {showPublicMenu && (
+                            <div id="public-info-menu" className="absolute right-0 top-14 z-50 w-56 rounded-xl border border-white/20 bg-white p-2 text-left shadow-xl">
+                                <Link
+                                    to="/info-bansos"
+                                    onClick={() => setShowPublicMenu(false)}
+                                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
+                                >
+                                    <span className="material-symbols-outlined text-[19px]">info</span>
+                                    Informasi Bansos &amp; FAQ
+                                </Link>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowPublicMenu(false);
+                                        setShowLanding(false);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
+                                >
+                                    <span className="material-symbols-outlined text-[19px]">login</span>
+                                    Masuk Portal Warga
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </header>
 
                 {/* Slider Backgrounds */}
@@ -354,6 +380,9 @@ export default function Login() {
                     <Link to="/admin/login" className="text-xs font-semibold text-slate-500 hover:text-emerald-700">
                         Portal khusus petugas
                     </Link>
+                   <Link to="/info-bansos" className="text-xs font-semibold text-emerald-700 hover:text-emerald-900">
+                       Info bansos publik &amp; FAQ
+                   </Link>
                 </div>
             </div>
         </div>

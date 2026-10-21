@@ -188,6 +188,10 @@ export default function CekBansos() {
                   </div>
 
                   <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-[12px]">
+                      <span className="font-medium text-amber-900">Desil kesejahteraan</span>
+                      <span className="font-bold text-amber-900">Desil {selectedPenerima.desil ?? '-'}</span>
+                    </div>
                     <div className="flex items-start gap-2 text-gray-700 text-[13px]">
                       <span className="material-symbols-outlined text-[18px] text-[#1B4D3E] mt-0.5">location_on</span>
                       <span className="font-medium leading-snug">
@@ -201,6 +205,16 @@ export default function CekBansos() {
                       </div>
                       <span className="font-semibold text-gray-800">Tahun {selectedPenerima.periode_tahun || 2026}</span>
                     </div>
+                    {Number(selectedPenerima.desil) >= 4 && (
+                      <Link
+                        to="/pengaduan"
+                        state={{ kategoriAduan: 'Desil Tidak Sesuai', program: 'Desil Tidak Sesuai', nikTerlapor: selectedPenerima.nik_penerima }}
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-900 hover:bg-amber-100"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">flag</span>
+                        Laporkan ketidaksesuaian desil
+                      </Link>
+                    )}
                   </div>
                 </div>
 

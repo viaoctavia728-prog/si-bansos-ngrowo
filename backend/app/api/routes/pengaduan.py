@@ -102,6 +102,17 @@ def buat_pengaduan(
         db.rollback()
         raise HTTPException(status_code=409, detail="Pengaduan gagal disimpan karena konflik data. Silakan coba lagi.") from exc
     db.refresh(new_pengaduan)
+    try:
+        from app.api.routes.notifications import send_automatic_notification_to_admins
+
+        send_automatic_notification_to_admins(
+            db=db,
+            title="Pengaduan Bansos Baru",
+            body=f"Tiket {tiket} ({pengaduan_data.kategori_aduan}) menunggu tinjauan petugas.",
+            exclude_user_id=user_id,
+        )
+    except Exception:
+        pass
     return _response_pengaduan(new_pengaduan)
 
 

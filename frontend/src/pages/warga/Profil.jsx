@@ -131,6 +131,22 @@ export default function Profil() {
     }
   };
 
+  const saveNotificationPreference = async (event) => {
+    event.preventDefault();
+    try {
+      setSaving(true);
+      setMessage('');
+      const updated = await authService.updateProfile({ notifikasi_otomatis: form.notifikasi_otomatis });
+      setProfile(updated);
+      setForm(profileToForm(updated));
+      setMessage('Preferensi notifikasi berhasil diperbarui.');
+    } catch (error) {
+      setMessage(error.message || 'Preferensi notifikasi gagal diperbarui.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const logout = () => {
     authService.logout();
     navigate('/login', { replace: true });
@@ -274,7 +290,19 @@ export default function Profil() {
             onClick={() => setActiveSection(activeSection === 'notifications' ? '' : 'notifications')}
           >
             {activeSection === 'notifications' && (
-              <div className="space-y-3 text-xs">
+              <form onSubmit={saveNotificationPreference} className="space-y-3 text-xs">
+                <label className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-3">
+                  <span>
+                    <span className="block font-bold text-gray-900">Notifikasi otomatis</span>
+                    <span className="mt-0.5 block text-[11px] text-gray-500">Terima pembaruan status pengaduan dan informasi layanan.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.notifikasi_otomatis)}
+                    onChange={(event) => setForm((current) => ({ ...current, notifikasi_otomatis: event.target.checked }))}
+                    className="h-5 w-5 accent-emerald-800"
+                  />
+                </label>
                 <div className="flex items-start gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-emerald-950">
                   <span className="material-symbols-outlined text-[20px] text-emerald-700 shrink-0">check_circle</span>
                   <div className="leading-relaxed">
@@ -301,7 +329,11 @@ export default function Profil() {
                   </div>
                 )}
                 {pushMessage && <p className="text-[11px] text-emerald-700 font-medium">{pushMessage}</p>}
-              </div>
+                <button type="submit" disabled={saving} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-emerald-800 px-3 text-xs font-bold text-white hover:bg-emerald-900 disabled:opacity-60">
+                  <span className="material-symbols-outlined text-[16px]">save</span>
+                  {saving ? 'Menyimpan...' : 'Simpan Preferensi'}
+                </button>
+              </form>
             )}
           </DisclosureRow>
         </ProfileGroup>
@@ -328,7 +360,10 @@ export default function Profil() {
 }
 
 function profileToForm(profile) {
-  return Object.fromEntries(PROFILE_FIELDS.map(([field]) => [field, profile?.[field] || '']));
+  return {
+    ...Object.fromEntries(PROFILE_FIELDS.map(([field]) => [field, profile?.[field] || ''])),
+    notifikasi_otomatis: profile?.notifikasi_otomatis !== false,
+  };
 }
 
 function ProfileGroup({ title, children }) {

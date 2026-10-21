@@ -37,6 +37,7 @@ yarn-error.log*
 # IDE & OS
 .idea/
 .vscode/
+.firebase/
 *.swp
 *.swo
 .DS_Store

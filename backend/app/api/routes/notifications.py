@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.fcm_device_token import FcmDeviceToken
 from app.models.notification import NotificationHistory
+from app.models.user import User
 from app.schemas.notifications import FcmNotificationCreate, FcmTargetNotificationCreate, FcmTokenRegistration
 
 router = APIRouter()
@@ -166,6 +167,46 @@ def send_fcm_notification(
     }
 
 
+def send_automatic_notification_to_user(db: Session, id_user: int, title: str, body: str) -> bool:
+    user = db.query(User).filter(User.id_user == id_user).first()
+    if not user or not user.notifikasi_otomatis:
+        return False
+    tokens = [row.token for row in db.query(FcmDeviceToken.token).filter(FcmDeviceToken.id_user == id_user).all()]
+    if not tokens:
+        return False
+    try:
+        messaging = _get_firebase_messaging()
+        for token in tokens:
+            messaging.send(messaging.Message(notification=messaging.Notification(title=title, body=body), token=token))
+        return True
+    except Exception:
+        return False
+
+
+def send_automatic_notification_to_admins(
+    db: Session, title: str, body: str, exclude_user_id: int | None = None
+) -> int:
+    query = db.query(User.id_user).filter(User.role == "admin", User.notifikasi_otomatis.is_(True))
+    if exclude_user_id is not None:
+        query = query.filter(User.id_user != exclude_user_id)
+    admin_ids = [row.id_user for row in query.all()]
+    tokens = [row.token for row in db.query(FcmDeviceToken.token).filter(FcmDeviceToken.id_user.in_(admin_ids)).all()]
+    if not tokens:
+        return 0
+    try:
+        messaging = _get_firebase_messaging()
+        sent = 0
+        for token in tokens:
+            try:
+                messaging.send(messaging.Message(notification=messaging.Notification(title=title, body=body), token=token))
+                sent += 1
+            except Exception:
+                continue
+        return sent
+    except Exception:
+        return 0
+
+
 @router.get("")
 @router.get("/")
 @router.get("/warga")
@@ -197,4 +238,4 @@ def mark_notification_read(
     if notif:
         notif.read_at = datetime.utcnow()
         db.commit()
-    return {"status": "success"}
+    return {"status": "success"}

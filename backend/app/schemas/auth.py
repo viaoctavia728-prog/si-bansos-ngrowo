@@ -47,6 +47,16 @@ class UserProfileUpdate(BaseModel):
     rt: Optional[str] = Field(default=None, max_length=10)
     rw: Optional[str] = Field(default=None, max_length=10)
     alamat_detail: Optional[str] = Field(default=None, max_length=255)
+    username: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    password: Optional[str] = Field(default=None, min_length=6, max_length=72)
+    notifikasi_otomatis: Optional[bool] = None
+
+    @field_validator("password")
+    @classmethod
+    def enforce_optional_password_byte_limit(cls, value):
+        if value is not None and len(value.encode("utf-8")) > 72:
+            raise ValueError("Password maksimal 72 byte.")
+        return value
 
 
 class UserResponse(BaseModel):
@@ -63,6 +73,7 @@ class UserResponse(BaseModel):
     role: str
     is_ngrowo_resident: Optional[bool] = False
     is_verified: Optional[bool] = False
+    notifikasi_otomatis: bool = True
     created_at: Optional[datetime] = None
 
     class Config:

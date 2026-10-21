@@ -15,6 +15,7 @@ export default function AdminProfil() {
     rw: '',
     jabatan: 'Sekdes Ngrowo',
     password: '',
+    notifikasi_otomatis: true,
   });
 
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,7 @@ export default function AdminProfil() {
         rw: active.rw || '01',
         jabatan: active.role === 'admin' ? 'Sekretaris Desa (Sekdes)' : 'Perangkat Desa',
         password: '',
+        notifikasi_otomatis: active.notifikasi_otomatis !== false,
       });
     } finally {
       setLoading(false);
@@ -73,6 +75,7 @@ export default function AdminProfil() {
         no_hp: formData.no_hp,
         rt: formData.rt,
         rw: formData.rw,
+        notifikasi_otomatis: formData.notifikasi_otomatis,
       };
 
       if (formData.password) {
@@ -91,6 +94,7 @@ export default function AdminProfil() {
         no_hp: formData.no_hp,
         rt: formData.rt,
         rw: formData.rw,
+        notifikasi_otomatis: formData.notifikasi_otomatis,
       };
 
       localStorage.setItem('admin_user', JSON.stringify(mergedUser));
@@ -354,6 +358,20 @@ export default function AdminProfil() {
                   className="h-10 w-full rounded-xl border border-slate-300 px-3 text-xs focus:border-emerald-600 focus:outline-none"
                 />
               </div>
+
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                <span>
+                  <span className="block text-xs font-bold text-slate-800">Notifikasi otomatis admin</span>
+                  <span className="mt-0.5 block text-[11px] text-slate-600">Terima pemberitahuan otomatis tentang pengaduan baru dan perubahan layanan.</span>
+                </span>
+                <input
+                  type="checkbox"
+                  name="notifikasi_otomatis"
+                  checked={Boolean(formData.notifikasi_otomatis)}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, notifikasi_otomatis: event.target.checked }))}
+                  className="h-5 w-5 accent-emerald-800"
+                />
+              </label>
 
               {/* Submit Buttons */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">

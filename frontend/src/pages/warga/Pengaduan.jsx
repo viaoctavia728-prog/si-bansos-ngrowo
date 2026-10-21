@@ -1,17 +1,24 @@
-import React, { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { pengaduanService } from '../../services/api';
+import { pengaduanService, wilayahService } from '../../services/api';
 import { authService } from '../../services/auth';
+
+const FALLBACK_RW_OPTIONS = ['001', '002', '003', '004', '005'];
+const FALLBACK_RT_OPTIONS = ['001', '002', '003', '004', '005'];
 
 export default function Pengaduan() {
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = authService.getCurrentUser();
 
-  const [jenisAduan, setJenisAduan] = useState('Warga Mampu Terima Bansos');
-  const [program, setProgram] = useState('PKH');
-  const [nikTerlapor, setNikTerlapor] = useState('');
+  const [jenisAduan, setJenisAduan] = useState(location.state?.kategoriAduan || 'Warga Mampu Terima Bansos');
+  const [program, setProgram] = useState(location.state?.program || 'PKH');
+  const [wilayah, setWilayah] = useState([]);
+  const [domisiliRw, setDomisiliRw] = useState(currentUser?.rw || '');
+  const [domisiliRt, setDomisiliRt] = useState(currentUser?.rt || '');
+  const [nikTerlapor, setNikTerlapor] = useState(location.state?.nikTerlapor || '');
   const [description, setDescription] = useState('');
   const [isAnonim, setIsAnonim] = useState(false);
   const [buktiFoto, setBuktiFoto] = useState(null);
@@ -20,6 +27,38 @@ export default function Pengaduan() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [createdTicket, setCreatedTicket] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    wilayahService.getWilayah()
+      .then((data) => {
+        if (active && Array.isArray(data)) setWilayah(data);
+      })
+      .catch(() => {
+        if (active) setWilayah([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const rwOptions = useMemo(() => {
+    const options = [...new Set(wilayah.map((item) => item.rw).filter(Boolean))].sort();
+    return options.length ? options : FALLBACK_RW_OPTIONS;
+  }, [wilayah]);
+  const rtOptions = useMemo(
+    () => {
+      const options = [...new Set(wilayah.filter((item) => item.rw === domisiliRw).map((item) => item.rt).filter(Boolean))].sort();
+      return options.length ? options : FALLBACK_RT_OPTIONS;
+    },
+    [wilayah, domisiliRw],
+  );
+
+  useEffect(() => {
+    if (domisiliRw && rtOptions.length && !rtOptions.includes(domisiliRt)) {
+      setDomisiliRt('');
+    }
+  }, [domisiliRw, domisiliRt, rtOptions]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -33,7 +72,7 @@ export default function Pengaduan() {
         kategori_aduan: jenisAduan,
         program_terkait: program,
         deskripsi_kejadian: description,
-        lokasi_spesifik: `RT ${currentUser?.rt || '001'} / RW ${currentUser?.rw || '001'}, Kelurahan Ngrowo`,
+        lokasi_spesifik: `RT ${domisiliRt} / RW ${domisiliRw}, Kelurahan Ngrowo`,
         bukti_foto: buktiFotoUrl,
         is_anonymous: isAnonim,
       };
@@ -175,8 +214,64 @@ export default function Pengaduan() {
                     <option value="BPNT">Bantuan Pangan Non-Tunai (BPNT / Sembako)</option>
                     <option value="BLT Desa">BLT Dana Desa (Ngrowo)</option>
                     <option value="Bansos Beras CPP">Cadangan Pangan Beras CPP 10 Kg</option>
+                    <option value="Desil Tidak Sesuai">Desil Tidak Sesuai</option>
                   </select>
                   <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+                </div>
+              </section>
+
+              {/* DOMISILI WARGA */}
+              <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined mt-0.5 text-[24px] text-[#1B4D3E]">location_on</span>
+                  <div>
+                    <h2 className="text-[18px] font-semibold text-gray-900">Lokasi Domisili Warga</h2>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-gray-600">
+                      Pastikan wilayah lokasi warga yang dilaporkan sesuai domisili riil.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[14px] font-semibold text-gray-900" htmlFor="domisili_rw">
+                    2. Rukun Warga (RW) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="domisili_rw"
+                      value={domisiliRw}
+                      onChange={(event) => {
+                        setDomisiliRw(event.target.value);
+                        setDomisiliRt('');
+                      }}
+                      required
+                      className="h-12 w-full appearance-none rounded-xl border border-transparent bg-[#eff4ff] px-4 pr-10 text-[15px] text-gray-900 outline-none focus:border-[#1B4D3E] focus:bg-white"
+                    >
+                      <option value="">Pilih RW</option>
+                      {rwOptions.map((rw) => <option key={rw} value={rw}>RW {rw}</option>)}
+                    </select>
+                    <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">expand_more</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[14px] font-semibold text-gray-900" htmlFor="domisili_rt">
+                    3. Rukun Tetangga (RT) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="domisili_rt"
+                      value={domisiliRt}
+                      onChange={(event) => setDomisiliRt(event.target.value)}
+                      required
+                      disabled={!domisiliRw}
+                      className="h-12 w-full appearance-none rounded-xl border border-transparent bg-[#eff4ff] px-4 pr-10 text-[15px] text-gray-900 outline-none focus:border-[#1B4D3E] focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">Pilih RT</option>
+                      {rtOptions.map((rt) => <option key={rt} value={rt}>RT {rt}</option>)}
+                    </select>
+                    <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">expand_more</span>
+                  </div>
                 </div>
               </section>
 

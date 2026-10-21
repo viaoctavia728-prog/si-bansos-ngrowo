@@ -9,9 +9,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.normalization import normalize_name
 from app.core.security import create_access_token, hash_password, verify_password
 from app.core.storage import MAX_UPLOAD_BYTES, UPLOAD_DIR
 from app.db.session import get_db
+from app.models.eligible_resident import EligibleResident
 from app.models.user import User
 from app.schemas.auth import UserLogin, UserProfileUpdate, UserRegister, UserResponse
 
@@ -21,6 +23,26 @@ PROFILE_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": 
 
 @router.post("/register")
 def register(user_data: UserRegister, db: Session = Depends(get_db)):
+    eligible_resident = (
+        db.query(EligibleResident)
+        .filter(EligibleResident.nik == user_data.nik)
+        .with_for_update()
+        .first()
+    )
+    if not eligible_resident or eligible_resident.nama_normalized != normalize_name(user_data.nama_lengkap):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Pendaftaran ditolak, Anda bukan warga Desa Ngrowo.\n"
+                "Tunggu konfirmasi perangkat desa setempat."
+            ),
+        )
+    if eligible_resident.registered_user_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="NIK ini sudah digunakan untuk registrasi.",
+        )
+
     user_exist = db.query(User).filter(User.nik == user_data.nik).first()
     if user_exist:
         raise HTTPException(status_code=400, detail="NIK sudah terdaftar!")
@@ -33,7 +55,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     new_user = User(
         nik=user_data.nik,
         username=username,
-        nama_lengkap=user_data.nama_lengkap,
+        nama_lengkap=eligible_resident.nama_lengkap,
         no_kk=user_data.no_kk,
         no_hp=user_data.no_hp,
         alamat_detail=user_data.alamat_detail,
@@ -44,6 +66,8 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     )
     db.add(new_user)
     try:
+        db.flush()
+        eligible_resident.registered_user_id = new_user.id_user
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -152,6 +176,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
             "nik": user.nik,
             "nama_lengkap": user.nama_lengkap,
             "role": user.role,
+            "notifikasi_otomatis": user.notifikasi_otomatis,
             "rt": user.rt,
             "rw": user.rw,
             "foto_profil": user.foto_profil,
@@ -177,7 +202,10 @@ def update_current_profile(
     if not user:
         raise HTTPException(status_code=404, detail="Profil pengguna tidak ditemukan!")
     for field, value in profile.model_dump(exclude_unset=True).items():
-        setattr(user, field, value.strip() if isinstance(value, str) else value)
+        if field == "password":
+            user.password_hash = hash_password(value)
+        else:
+            setattr(user, field, value.strip() if isinstance(value, str) else value)
     db.commit()
     db.refresh(user)
     return user
