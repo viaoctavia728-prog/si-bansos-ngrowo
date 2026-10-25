@@ -65,11 +65,7 @@ export default function AdminLogin() {
             />
           </label>
 
-          {import.meta.env.DEV && (
-            <p className="text-xs text-slate-500">
-              Demo lokal: username <strong>admin</strong>, password <strong>admin</strong>.
-            </p>
-          )}
+        
 
           <label className="block text-sm font-semibold text-slate-700">
             Password

@@ -49,6 +49,9 @@ export default function AdminPengaduan() {
   const [editStatus, setEditStatus] = useState('pending');
   const [editCatatan, setEditCatatan] = useState('');
   const [modalFeedback, setModalFeedback] = useState(null);
+  const [aiAssessment, setAiAssessment] = useState(null);
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [aiAnalysisError, setAiAnalysisError] = useState('');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -220,6 +223,34 @@ export default function AdminPengaduan() {
     setEditStatus(item.status_laporan || 'pending');
     setEditCatatan(item.catatan_admin || '');
     setModalFeedback(null);
+    setAiAssessment(null);
+    setAiAnalysisError('');
+  };
+
+  const handleAnalyzePhoto = async () => {
+    if (!selectedReport?.bukti_foto) return;
+
+    try {
+      setIsAnalyzingPhoto(true);
+      setAiAnalysisError('');
+      const imageResponse = await fetch(getAssetUrl(selectedReport.bukti_foto));
+      if (!imageResponse.ok) {
+        throw new Error('Bukti foto tidak dapat diambil dari server.');
+      }
+
+      const imageBlob = await imageResponse.blob();
+      const file = new File(
+        [imageBlob],
+        `bukti-${selectedReport.nomor_tiket || selectedReport.id_laporan}.jpg`,
+        { type: imageBlob.type || 'image/jpeg' },
+      );
+      const assessment = await adminService.analyzeHousePhoto(file);
+      setAiAssessment(assessment);
+    } catch (err) {
+      setAiAnalysisError(err.message || 'Analisis AI gagal dijalankan. Silakan coba lagi.');
+    } finally {
+      setIsAnalyzingPhoto(false);
+    }
   };
 
   // Save report status
@@ -268,12 +299,7 @@ export default function AdminPengaduan() {
     }
   };
 
-  // Export CSV
-  const handleExportCSV = () => {
-    if (items.length === 0) {
-      alert('Tidak ada data pengaduan untuk diekspor.');
-      return;
-    }
+  const buildExportRows = () => {
     const headers = ['Nomor Tiket', 'Tanggal', 'Pelapor', 'NIK Terlapor', 'Kategori Aduan', 'Program Terkait', 'RT', 'RW', 'Status', 'Catatan Admin'];
     const rows = filteredItems.map((item) => {
       const user = personById[item.id_user];
@@ -292,15 +318,123 @@ export default function AdminPengaduan() {
         `"${(item.catatan_admin || '').replace(/"/g, '""')}"`,
       ].join(',');
     });
+    return { headers, rows };
+  };
 
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Rekap_Pengaduan_Ngrowo_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const escapePreviewHtml = (value) => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  const handleExportExcelPreview = () => {
+    if (filteredItems.length === 0) {
+      alert('Tidak ada data pengaduan untuk dipratinjau.');
+      return;
+    }
+
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      alert('Popup diblokir browser. Izinkan pop-up untuk membuka pratinjau.');
+      return;
+    }
+
+    const { headers, rows } = buildExportRows();
+    const csv = `\uFEFF${[headers.join(','), ...rows].join('\n')}`;
+    const csvDataUrl = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+    const tableRows = filteredItems.map((item) => {
+      const user = personById[item.id_user];
+      const { rt, rw } = getItemWilayah(item);
+      const pelapor = item.is_anonymous ? 'Anonim' : (user?.nama_lengkap || `User #${item.id_user}`);
+      return [
+        item.nomor_tiket,
+        item.created_at || '',
+        pelapor,
+        item.nik_terlapor || '-',
+        item.kategori_aduan,
+        item.program_terkait,
+        `RT ${rt}`,
+        `RW ${rw}`,
+        item.status_laporan,
+        item.catatan_admin || '-',
+      ];
+    });
+    const htmlRows = tableRows.map((row) => (
+      `<tr>${row.map((value) => `<td>${escapePreviewHtml(value)}</td>`).join('')}</tr>`
+    )).join('');
+
+    previewTab.document.write(`<!doctype html>
+      <html lang="id">
+        <head>
+          <meta charset="utf-8" />
+          <title>Preview Rekap Pengaduan Ngrowo</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #172033; margin: 32px; }
+            h1 { color: #166534; margin-bottom: 4px; }
+            .meta { color: #64748b; margin-bottom: 20px; }
+            .actions { display: flex; gap: 8px; margin-bottom: 20px; }
+            button { border: 0; border-radius: 6px; padding: 10px 14px; cursor: pointer; font-weight: 700; }
+            .save { background: #166534; color: white; }
+            .print { background: #e2e8f0; color: #172033; }
+            .table-wrap { overflow-x: auto; }
+            table { border-collapse: collapse; width: 100%; min-width: 1450px; font-size: 12px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #dcfce7; color: #14532d; white-space: nowrap; }
+            td { max-width: 260px; word-break: break-word; }
+            @media print { .actions { display: none; } body { margin: 12px; } }
+          </style>
+        </head>
+        <body>
+          <h1>Preview Rekap Laporan Pengaduan &amp; Sanggahan Bansos</h1>
+          <div class="meta">Desa Ngrowo &bull; ${escapePreviewHtml(new Date().toLocaleDateString('id-ID'))}</div>
+          <div class="actions">
+            <a href="${csvDataUrl}" download="Rekap_Pengaduan_Ngrowo_${new Date().toISOString().slice(0, 10)}.csv">
+              <button class="save" type="button">Simpan Excel (CSV)</button>
+            </a>
+            <button class="print" type="button" onclick="window.print()">Cetak Preview</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>${headers.map((header) => `<th>${escapePreviewHtml(header)}</th>`).join('')}</tr></thead>
+              <tbody>${htmlRows}</tbody>
+            </table>
+          </div>
+        </body>
+      </html>`);
+    previewTab.document.close();
+  };
+
+  const handleExportPDFPreview = async () => {
+    if (filteredItems.length === 0) {
+      alert('Tidak ada data pengaduan untuk dipratinjau ke PDF.');
+      return;
+    }
+
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      alert('Popup diblokir browser. Izinkan pop-up untuk membuka pratinjau PDF.');
+      return;
+    }
+
+    previewTab.document.write('<p style="font-family: Arial, sans-serif; padding: 16px;">Menyiapkan pratinjau PDF rekap pengaduan...</p>');
+    previewTab.document.close();
+
+    try {
+      const pdfBlob = await adminService.getPengaduanRekapPdf({
+        rt: appliedFilters.rt || undefined,
+        rw: appliedFilters.rw || undefined,
+        dusun: appliedFilters.dusun !== 'Semua Dusun' ? appliedFilters.dusun : undefined,
+        status: appliedFilters.status !== 'all' ? appliedFilters.status : undefined,
+        search: (appliedFilters.search || (globalSearch || '').trim()).trim() || undefined,
+      });
+
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      previewTab.location.href = blobUrl;
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (err) {
+      previewTab.close();
+      alert(err.message || 'Gagal membuka pratinjau PDF.');
+    }
   };
 
   // Donut chart stats
@@ -339,14 +473,24 @@ export default function AdminPengaduan() {
             Kelola dan tindak lanjuti laporan akurasi penerima bansos (PKH, BPNT, BLT-DD) Desa Ngrowo secara objektif, akuntabel, dan transparan.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleExportCSV}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-2.5 text-xs sm:text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-colors shadow-xs self-start md:self-auto"
-        >
-          <span className="material-symbols-outlined text-[19px]">download</span>
-          Export Rekap Excel / PDF
-        </button>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <button
+            type="button"
+            onClick={handleExportExcelPreview}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-2.5 text-xs sm:text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[19px]">table_view</span>
+            Export Rekap Excel
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPDFPreview}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-2.5 text-xs sm:text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-colors shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[19px]">picture_as_pdf</span>
+            Export Rekap PDF
+          </button>
+        </div>
       </div>
 
       {/* 3. 5 STAT CARDS */}
@@ -1020,7 +1164,20 @@ export default function AdminPengaduan() {
               {/* Bukti Foto (jika ada) */}
               {selectedReport.bukti_foto && (
                 <div>
-                  <span className="text-xs font-bold text-slate-800 block mb-1">Bukti Foto Terlampir</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
+                    <span className="text-xs font-bold text-slate-800">Bukti Foto Terlampir</span>
+                    <button
+                      type="button"
+                      onClick={handleAnalyzePhoto}
+                      disabled={isAnalyzingPhoto}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+                    >
+                      <span className={`material-symbols-outlined text-[16px] ${isAnalyzingPhoto ? 'animate-spin' : ''}`}>
+                        {isAnalyzingPhoto ? 'progress_activity' : 'auto_awesome'}
+                      </span>
+                      {isAnalyzingPhoto ? 'Menganalisis foto...' : 'Analisis dengan Gemini'}
+                    </button>
+                  </div>
                   <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-56 flex items-center justify-center">
                     <img
                       src={getAssetUrl(selectedReport.bukti_foto)}
@@ -1028,6 +1185,27 @@ export default function AdminPengaduan() {
                       className="max-h-56 w-full object-contain"
                     />
                   </div>
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400">
+                    Hasil AI hanya penyaringan awal kondisi fisik yang terlihat, bukan keputusan kelayakan bantuan.
+                  </p>
+                </div>
+              )}
+
+              {aiAnalysisError && (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                  <span className="material-symbols-outlined text-[17px]">error</span>
+                  <span>{aiAnalysisError}</span>
+                </div>
+              )}
+
+              {aiAssessment && (
+                <GeminiAssessmentCard assessment={aiAssessment} />
+              )}
+
+              {!selectedReport.bukti_foto && (
+                <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                  <span className="material-symbols-outlined text-[17px]">image_not_supported</span>
+                  <span>Belum ada bukti foto. Analisis indikator AI Gemini membutuhkan foto rumah yang terlampir.</span>
                 </div>
               )}
 
@@ -1087,6 +1265,123 @@ export default function AdminPengaduan() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function GeminiAssessmentCard({ assessment }) {
+  const conditionStyles = {
+    baik: {
+      label: 'Baik',
+      badge: 'bg-emerald-100 text-emerald-800',
+      accent: 'border-emerald-200 bg-emerald-50/50',
+      icon: 'check_circle',
+    },
+    sedang: {
+      label: 'Sedang',
+      badge: 'bg-amber-100 text-amber-800',
+      accent: 'border-amber-200 bg-amber-50/50',
+      icon: 'warning',
+    },
+    kurang: {
+      label: 'Kurang',
+      badge: 'bg-rose-100 text-rose-800',
+      accent: 'border-rose-200 bg-rose-50/50',
+      icon: 'priority_high',
+    },
+    tidak_dapat_dinilai: {
+      label: 'Tidak dapat dinilai',
+      badge: 'bg-slate-200 text-slate-700',
+      accent: 'border-slate-200 bg-slate-50',
+      icon: 'help',
+    },
+  };
+  const style = conditionStyles[assessment.condition_level] || conditionStyles.tidak_dapat_dinilai;
+  const confidence = Math.round(Number(assessment.confidence || 0) * 100);
+
+  return (
+    <section className={`rounded-xl border p-4 ${style.accent}`} aria-labelledby="gemini-assessment-title">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[19px] text-indigo-600">auto_awesome</span>
+            <h4 id="gemini-assessment-title" className="text-xs font-extrabold text-slate-900">
+              Indikator Analisis AI Gemini
+            </h4>
+          </div>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Analisis visual foto rumah untuk membantu penyaringan awal petugas.
+          </p>
+        </div>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${style.badge}`}>
+          <span className="material-symbols-outlined text-[14px]">{style.icon}</span>
+          Kondisi {style.label}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-600">Tingkat keyakinan model</span>
+            <span className="text-xs font-black text-slate-900">{confidence}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-white/80">
+            <div
+              className="h-full rounded-full bg-indigo-500 transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, confidence))}%` }}
+            />
+          </div>
+        </div>
+        <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2">
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Review</span>
+          <span className="mt-1 flex items-center gap-1 text-[11px] font-bold text-rose-700">
+            <span className="material-symbols-outlined text-[14px]">fact_check</span>
+            Wajib manual
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-white/80 bg-white/70 p-3">
+        <span className="text-[11px] font-bold text-slate-700">Ringkasan visual</span>
+        <p className="mt-1 text-xs leading-relaxed text-slate-600">{assessment.explanation}</p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <AssessmentList
+          title="Indikator yang terlihat"
+          items={assessment.visible_indicators}
+          emptyLabel="Tidak ada indikator visual yang cukup jelas."
+          icon="visibility"
+          iconClass="text-emerald-600"
+        />
+        <AssessmentList
+          title="Keterbatasan analisis"
+          items={assessment.limitations}
+          emptyLabel="Tidak ada keterbatasan tambahan."
+          icon="info"
+          iconClass="text-amber-600"
+        />
+      </div>
+    </section>
+  );
+}
+
+function AssessmentList({ title, items = [], emptyLabel, icon, iconClass }) {
+  return (
+    <div className="rounded-lg border border-white/80 bg-white/70 p-3">
+      <span className="text-[11px] font-bold text-slate-700">{title}</span>
+      {items.length > 0 ? (
+        <ul className="mt-2 space-y-1.5">
+          {items.map((item, index) => (
+            <li key={`${item}-${index}`} className="flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-600">
+              <span className={`material-symbols-outlined mt-0.5 text-[14px] ${iconClass}`}>{icon}</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">{emptyLabel}</p>
       )}
     </div>
   );

@@ -1,9 +1,17 @@
 from datetime import datetime
+from io import BytesIO
 from typing import Any, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_admin
 from app.core.security import hash_password
@@ -26,6 +34,28 @@ BULAN_ID = [
 ]
 
 in_memory_jadwal: List[dict] = []
+
+
+def determine_dusun(rt: str | None, rw: str | None) -> str:
+    rt_val = (rt or "").zfill(2)
+    rw_val = (rw or "").zfill(2)
+    if rt_val == "01" and rw_val == "03":
+        return "Dusun Kedungrejo"
+    if rt_val == "04" and rw_val == "02":
+        return "Dusun Geneng"
+    if rt_val == "05" and rw_val == "03":
+        return "Dusun Kedungrejo"
+    return "Dusun Ngrowo Krajan"
+
+
+def _format_tanggal_indonesia(value: datetime | None) -> str:
+    if not value:
+        return "-"
+    bulan_id = [
+        "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+    ]
+    return f"{value.day:02d} {bulan_id[value.month]} {value.year}"
 
 
 def generate_default_dynamic_jadwal():
@@ -246,6 +276,189 @@ def get_semua_pengaduan(
     if rw:
         query = query.filter(User.rw == rw)
     return query.order_by(PengaduanBansos.created_at.desc()).all()
+
+
+@router.get("/pengaduan/rekap-pdf")
+def export_rekap_pengaduan_pdf(
+    rt: str | None = Query(default=None),
+    rw: str | None = Query(default=None),
+    dusun: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _current_admin=Depends(get_current_admin),
+):
+    query = (
+        db.query(PengaduanBansos)
+        .join(User, PengaduanBansos.id_user == User.id_user)
+        .options(joinedload(PengaduanBansos.pelapor))
+    )
+
+    if rt:
+        query = query.filter(User.rt == rt)
+    if rw:
+        query = query.filter(User.rw == rw)
+    if status:
+        query = query.filter(PengaduanBansos.status_laporan == status)
+    if search:
+        keyword = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                PengaduanBansos.nomor_tiket.ilike(keyword),
+                PengaduanBansos.nik_terlapor.ilike(keyword),
+                PengaduanBansos.kategori_aduan.ilike(keyword),
+                PengaduanBansos.program_terkait.ilike(keyword),
+                PengaduanBansos.deskripsi_kejadian.ilike(keyword),
+                User.nama_lengkap.ilike(keyword),
+            )
+        )
+
+    records = query.order_by(PengaduanBansos.created_at.desc()).all()
+    if dusun:
+        records = [
+            item for item in records
+            if determine_dusun(getattr(item.pelapor, "rt", None), getattr(item.pelapor, "rw", None)) == dusun
+        ]
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.3 * cm,
+        bottomMargin=1.3 * cm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "TitleCenter",
+        parent=styles["Heading2"],
+        alignment=1,
+        fontName="Helvetica-Bold",
+        leading=16,
+        spaceAfter=4,
+    )
+    subtitle_style = ParagraphStyle(
+        "SubtitleCenter",
+        parent=styles["Normal"],
+        alignment=1,
+        leading=13,
+        spaceAfter=3,
+    )
+    normal_small = ParagraphStyle(
+        "NormalSmall",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=12,
+    )
+
+    elements = [
+        Paragraph("PEMERINTAH DESA NGROWO", title_style),
+        Paragraph("KECAMATAN BANGSAL - KABUPATEN MOJOKERTO", subtitle_style),
+        Paragraph("Jl. Raya Ngrowo No. 10, Telp. (0321) 000000", subtitle_style),
+        Spacer(1, 6),
+        Table(
+            [[""]],
+            colWidths=[27.3 * cm],
+            style=TableStyle([("LINEABOVE", (0, 0), (-1, -1), 1.3, colors.black)]),
+        ),
+        Spacer(1, 8),
+        Paragraph("REKAP LAPORAN PENGADUAN & SANGGAHAN BANSOS", title_style),
+        Paragraph(
+            f"Tanggal Cetak: {_format_tanggal_indonesia(datetime.now())}",
+            ParagraphStyle("PrintDate", parent=styles["Normal"], alignment=1, fontSize=9),
+        ),
+        Spacer(1, 8),
+    ]
+
+    info_filter = [
+        f"RT: {rt or 'Semua'}",
+        f"RW: {rw or 'Semua'}",
+        f"Dusun: {dusun or 'Semua Dusun'}",
+        f"Status: {status or 'Semua'}",
+    ]
+    elements.append(Paragraph("Filter Aktif: " + " | ".join(info_filter), normal_small))
+    elements.append(Spacer(1, 6))
+
+    table_header = [
+        "No", "No. Tiket", "Tanggal", "Pelapor", "NIK Terlapor", "Kategori", "Program", "Wilayah", "Status", "Catatan Admin",
+    ]
+    cell_style = ParagraphStyle(
+        "TableCell",
+        parent=styles["Normal"],
+        fontSize=8,
+        leading=9.5,
+        alignment=1,
+    )
+    table_data: List[list[Any]] = [[
+        Paragraph(f"<b>{header}</b>", cell_style) for header in table_header
+    ]]
+    for idx, item in enumerate(records, start=1):
+        pelapor = item.pelapor
+        pelapor_nama = "Anonim" if item.is_anonymous else (pelapor.nama_lengkap if pelapor else f"User #{item.id_user}")
+        rt_val = getattr(pelapor, "rt", None) or "-"
+        rw_val = getattr(pelapor, "rw", None) or "-"
+        wilayah = f"{determine_dusun(rt_val, rw_val)} (RT {rt_val}/RW {rw_val})"
+        table_data.append([
+            Paragraph(str(idx), cell_style),
+            Paragraph(item.nomor_tiket or "-", cell_style),
+            Paragraph(_format_tanggal_indonesia(item.created_at), cell_style),
+            Paragraph(pelapor_nama, cell_style),
+            Paragraph(item.nik_terlapor or "-", cell_style),
+            Paragraph(item.kategori_aduan or "-", cell_style),
+            Paragraph(item.program_terkait or "-", cell_style),
+            Paragraph(wilayah, cell_style),
+            Paragraph(item.status_laporan or "-", cell_style),
+            Paragraph(item.catatan_admin or "-", cell_style),
+        ])
+
+    if len(table_data) == 1:
+        table_data.append([
+            Paragraph(value, cell_style)
+            for value in ["-", "-", "-", "Tidak ada data pengaduan", "-", "-", "-", "-", "-", "-"]
+        ])
+
+    report_table = Table(
+        table_data,
+        colWidths=[0.7 * cm, 3.2 * cm, 2.3 * cm, 3.0 * cm, 2.4 * cm, 3.0 * cm, 2.7 * cm, 4.1 * cm, 2.0 * cm, 3.9 * cm],
+        repeatRows=1,
+    )
+    report_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E2E8F0")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.black),
+            ("WORDWRAP", (0, 0), (-1, -1), True),
+        ])
+    )
+    elements.append(report_table)
+    elements.append(Spacer(1, 18))
+
+    ttd_table = Table(
+        [[
+            Paragraph(
+                "Mengetahui,<br/>Sekretaris Desa Ngrowo<br/><br/><br/><u>....................................</u>",
+                ParagraphStyle("Sig", parent=styles["Normal"], alignment=1, leading=14),
+            ),
+            Paragraph(
+                f"Ngrowo, {_format_tanggal_indonesia(datetime.now())}<br/>Kepala Desa Ngrowo<br/><br/><br/><u>....................................</u>",
+                ParagraphStyle("Sig2", parent=styles["Normal"], alignment=1, leading=14),
+            ),
+        ]],
+        colWidths=[9.0 * cm, 9.0 * cm],
+    )
+    ttd_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    elements.append(ttd_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    filename = f"Rekap_Pengaduan_Ngrowo_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.get("/audit-logs")

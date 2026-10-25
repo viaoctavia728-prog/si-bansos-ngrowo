@@ -11,8 +11,25 @@ export const adminService = {
     return response.data;
   },
 
+  async getPengaduanRekapPdf(params = {}) {
+    const response = await adminApiClient.get('/admin/pengaduan/rekap-pdf', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
   async updateStatus(idLaporan, payload) {
     const response = await adminApiClient.put(`/admin/pengaduan/${idLaporan}`, payload);
+    return response.data;
+  },
+
+  async analyzeHousePhoto(file) {
+    const formData = new FormData();
+    formData.append('file', file, file.name || 'bukti-rumah');
+    const response = await adminApiClient.post('/admin/validate-house', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
   },
 
