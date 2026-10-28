@@ -38,9 +38,9 @@ export default function AdminLogin() {
             className="mx-auto h-16 w-16 rounded-2xl border border-[#EAF5EB] bg-[#F8F9FF] object-contain p-2"
           />
           <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-[#2E7D32]">Area terbatas</p>
-          <h1 className="mt-2 text-2xl font-extrabold text-[#212529]">Portal Admin</h1>
+          <h1 className="mt-2 text-2xl font-extrabold text-[#212529]">Portal Petugas</h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Masuk dengan akun petugas untuk mengelola layanan SI-BANSOS Ngrowo.
+            Halaman khusus petugas untuk mengelola layanan SI-BANSOS Ngrowo.
           </p>
         </div>
 
@@ -52,14 +52,14 @@ export default function AdminLogin() {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block text-sm font-semibold text-slate-700">
-            Username admin
+            Username petugas
             <input
               type="text"
               autoComplete="username"
               maxLength={50}
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="Masukkan username admin"
+              placeholder="Masukkan username petugas"
               required
               className="mt-1.5 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/10"
             />
@@ -75,7 +75,7 @@ export default function AdminLogin() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="Masukkan password admin"
+                placeholder="Masukkan password petugas"
                 required
                 className="h-12 w-full rounded-xl border border-slate-300 bg-white px-3 pr-16 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
               />
@@ -95,7 +95,7 @@ export default function AdminLogin() {
             disabled={isLoading}
             className="flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-800 px-4 text-sm font-bold text-white transition hover:bg-emerald-900 disabled:cursor-wait disabled:opacity-60"
           >
-            {isLoading ? 'Memverifikasi...' : 'Masuk ke Panel Admin'}
+            {isLoading ? 'Memverifikasi...' : 'Masuk ke Portal Petugas'}
           </button>
         </form>
 
