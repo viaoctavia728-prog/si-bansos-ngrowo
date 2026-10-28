@@ -44,6 +44,18 @@ using their NIK. Admins use the separate portal at `/admin/login` (for example,
 `http://localhost/admin/login` with Docker or `http://localhost:5173/admin/login`
 with the Vite development server).
 
+### Warga eligible
+
+Semua NIK dan nama yang sudah ada di tabel `eligible_residents` dianggap sebagai
+data warga yang telah diverifikasi operator. Warga tersebut dapat melakukan
+registrasi dengan NIK dan nama yang sesuai, lalu langsung login tanpa menunggu
+persetujuan admin. Akun warga yang tidak ada di tabel tersebut tetap ditolak.
+
+Jika akun dari data eligible sudah terlanjur dibuat dengan status belum aktif,
+backend akan mengaktifkan statusnya otomatis saat startup.
+
+The warga portal is `/login`; the separate petugas portal is `/admin/login`.
+
 ## Push notifications (optional)
 
 Create a Firebase project and enable Firebase Cloud Messaging. In the root

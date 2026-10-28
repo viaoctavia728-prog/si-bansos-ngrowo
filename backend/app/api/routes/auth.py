@@ -63,6 +63,10 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         rt=user_data.rt,
         rw=user_data.rw,
         role="user",
+        # NIK yang sudah masuk daftar eligible_residents telah diverifikasi
+        # oleh operator data, sehingga tidak perlu persetujuan admin kedua.
+        is_ngrowo_resident=True,
+        is_verified=True,
     )
     db.add(new_user)
     try:
@@ -162,6 +166,13 @@ async def login(request: Request, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="NIK/Username atau Password salah!",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    is_citizen = user.role in {"user", "warga"}
+    if is_citizen and not (user.is_ngrowo_resident and user.is_verified):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akun warga belum diverifikasi petugas. Silakan tunggu persetujuan admin.",
         )
 
     token = create_access_token({"id_user": user.id_user, "role": user.role})

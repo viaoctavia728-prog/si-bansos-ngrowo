@@ -23,6 +23,7 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
             ensure_desil_columns()
             seed_default_admin()
             seed_demo_warga()
+            activate_eligible_citizens()
             seed_missing_usernames()
             seed_demo_desil_and_bansos()
             return
@@ -148,8 +149,15 @@ def seed_demo_warga():
     try:
         demo_warga = db.query(User).filter(User.nik == "3524000000000001").first()
         if demo_warga:
+            changed = False
             if not demo_warga.username and not db.query(User).filter(User.username == "wargademo").first():
                 demo_warga.username = "wargademo"
+                changed = True
+            if not demo_warga.is_ngrowo_resident or not demo_warga.is_verified:
+                demo_warga.is_ngrowo_resident = True
+                demo_warga.is_verified = True
+                changed = True
+            if changed:
                 db.commit()
             return
 
@@ -167,9 +175,32 @@ def seed_demo_warga():
                 rt="001",
                 rw="001",
                 role="user",
+                is_ngrowo_resident=True,
+                is_verified=True,
             )
         )
         db.commit()
+    finally:
+        db.close()
+
+
+def activate_eligible_citizens():
+    db: Session = SessionLocal()
+    try:
+        users = (
+            db.query(User)
+            .join(EligibleResident, EligibleResident.nik == User.nik)
+            .filter(User.role.in_(["user", "warga"]))
+            .all()
+        )
+        changed = False
+        for user in users:
+            if not user.is_ngrowo_resident or not user.is_verified:
+                user.is_ngrowo_resident = True
+                user.is_verified = True
+                changed = True
+        if changed:
+            db.commit()
     finally:
         db.close()
 
