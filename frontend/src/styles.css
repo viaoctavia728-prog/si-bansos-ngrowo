@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Material Symbols Outlined Local';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('material-symbols/material-symbols-outlined.woff2') format('woff2');
+}
+
 :root {
   --primary-green: #2E7D32;
   --secondary-blue: #1565C0;
@@ -47,7 +55,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .material-symbols-outlined {
-  font-family: 'Material Symbols Outlined' !important;
+  font-family: 'Material Symbols Outlined Local', 'Material Symbols Outlined' !important;
   font-weight: normal;
   font-style: normal;
   font-size: 1em;
