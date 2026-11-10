@@ -2,8 +2,13 @@ import { citizenApiClient } from './apiClient';
 
 export const bansosService = {
   async cekBansosByNik(nik) {
-    const response = await citizenApiClient.get(`/cek-bansos/${nik}`);
-    return response.data;
+    try {
+      const response = await citizenApiClient.get(`/cek-bansos/${nik}`);
+      return response.data;
+    } catch (err) {
+      const response = await citizenApiClient.get(`/bansos/cek/${nik}`);
+      return response.data;
+    }
   },
 
   async getPenerimaBansos(params = {}) {
@@ -38,7 +43,6 @@ export const pengaduanService = {
     });
     return response.data.bukti_foto;
   },
-
   async buatPengaduan(data) {
     const response = await citizenApiClient.post('/pengaduan', data);
     return response.data;

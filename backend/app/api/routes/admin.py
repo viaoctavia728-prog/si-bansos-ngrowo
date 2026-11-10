@@ -1,5 +1,7 @@
 from datetime import datetime
 from io import BytesIO
+import random
+import string
 from typing import Any, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,10 +19,15 @@ from app.api.deps import get_current_admin
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
+from app.models.bansos import DataBansos
 from app.models.pengaduan import PengaduanBansos
 from app.models.user import User
 from app.schemas.auth import UserProfileUpdate, UserResponse
-from app.schemas.pengaduan import PengaduanResponse, PengaduanUpdateStatus
+from app.schemas.pengaduan import (
+    PengaduanAdminCreate,
+    PengaduanAdminUpdate,
+    PengaduanResponse,
+)
 
 router = APIRouter()
 
@@ -34,18 +41,6 @@ BULAN_ID = [
 ]
 
 in_memory_jadwal: List[dict] = []
-
-
-def determine_dusun(rt: str | None, rw: str | None) -> str:
-    rt_val = (rt or "").zfill(2)
-    rw_val = (rw or "").zfill(2)
-    if rt_val == "01" and rw_val == "03":
-        return "Dusun Kedungrejo"
-    if rt_val == "04" and rw_val == "02":
-        return "Dusun Geneng"
-    if rt_val == "05" and rw_val == "03":
-        return "Dusun Kedungrejo"
-    return "Dusun Ngrowo Krajan"
 
 
 def _format_tanggal_indonesia(value: datetime | None) -> str:
@@ -76,7 +71,6 @@ def generate_default_dynamic_jadwal():
             "lokasi": "Pendopo Balai Desa Ngrowo",
             "status": "Akan Datang",
             "persyaratan": ["KTP Asli Penerima", "Kartu Keluarga Asli", "Undangan Ber-Barcode dari RT"],
-            "dusun": "Dusun Krajan (RT 01, 02) & Ngrowo Timur (RT 01)",
         },
         {
             "id": 2,
@@ -87,7 +81,6 @@ def generate_default_dynamic_jadwal():
             "lokasi": "Ruang Pelayanan Kantor Kelurahan Ngrowo",
             "status": "Dijadwalkan",
             "persyaratan": ["KTP Asli", "Fotokopi KK 1 Lembar"],
-            "dusun": "Semua Dusun Kelurahan Ngrowo",
         },
         {
             "id": 3,
@@ -98,7 +91,6 @@ def generate_default_dynamic_jadwal():
             "lokasi": "E-Warong Amanah Makmur Ngrowo",
             "status": "Persiapan",
             "persyaratan": ["KKS (Kartu Keluarga Sejahtera)", "KTP Elektronik"],
-            "dusun": "Seluruh Wilayah RT/RW",
         },
     ]
 
@@ -111,7 +103,6 @@ class JadwalBansosCreate(BaseModel):
     lokasi: str
     status: Optional[str] = "Dijadwalkan"
     persyaratan: Optional[Union[List[str], str]] = []
-    dusun: Optional[str] = None
     iso_date: Optional[str] = None
 
 
@@ -282,7 +273,6 @@ def get_semua_pengaduan(
 def export_rekap_pengaduan_pdf(
     rt: str | None = Query(default=None),
     rw: str | None = Query(default=None),
-    dusun: str | None = Query(default=None),
     status: str | None = Query(default=None),
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
@@ -314,11 +304,6 @@ def export_rekap_pengaduan_pdf(
         )
 
     records = query.order_by(PengaduanBansos.created_at.desc()).all()
-    if dusun:
-        records = [
-            item for item in records
-            if determine_dusun(getattr(item.pelapor, "rt", None), getattr(item.pelapor, "rw", None)) == dusun
-        ]
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -374,7 +359,6 @@ def export_rekap_pengaduan_pdf(
     info_filter = [
         f"RT: {rt or 'Semua'}",
         f"RW: {rw or 'Semua'}",
-        f"Dusun: {dusun or 'Semua Dusun'}",
         f"Status: {status or 'Semua'}",
     ]
     elements.append(Paragraph("Filter Aktif: " + " | ".join(info_filter), normal_small))
@@ -398,7 +382,7 @@ def export_rekap_pengaduan_pdf(
         pelapor_nama = "Anonim" if item.is_anonymous else (pelapor.nama_lengkap if pelapor else f"User #{item.id_user}")
         rt_val = getattr(pelapor, "rt", None) or "-"
         rw_val = getattr(pelapor, "rw", None) or "-"
-        wilayah = f"{determine_dusun(rt_val, rw_val)} (RT {rt_val}/RW {rw_val})"
+        wilayah = f"RT {rt_val}/RW {rw_val}"
         table_data.append([
             Paragraph(str(idx), cell_style),
             Paragraph(item.nomor_tiket or "-", cell_style),
@@ -470,10 +454,104 @@ def get_audit_logs(
     return db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(limit).all()
 
 
+def _generate_nomor_tiket() -> str:
+    tanggal = datetime.now().strftime("%Y%m%d")
+    acak = "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"ADU-{tanggal}-{acak}"
+
+
+def _apply_bantuan_from_pengaduan(db: Session, pengaduan: PengaduanBansos, data_update: PengaduanAdminUpdate):
+    """Tetapkan warga sebagai penerima bantuan + desil saat laporan disetujui."""
+    if data_update.desil is None:
+        return None
+
+    pelapor = db.query(User).filter(User.id_user == pengaduan.id_user).first()
+    target_nik = data_update.nik_penerima or pengaduan.nik_terlapor or (pelapor.nik if pelapor else None)
+    if not target_nik:
+        return None
+
+    target_user = db.query(User).filter(User.nik == target_nik).first()
+    nama = target_user.nama_lengkap if target_user else (pelapor.nama_lengkap if pelapor else "Warga Ngrowo")
+    no_kk = target_user.no_kk if target_user else (pelapor.no_kk if pelapor else None)
+    rt = (target_user.rt if target_user else None) or (pelapor.rt if pelapor else None) or "-"
+    rw = (target_user.rw if target_user else None) or (pelapor.rw if pelapor else None) or "-"
+    jenis = data_update.jenis_bansos or pengaduan.program_terkait or "Bantuan Sosial"
+    periode = data_update.periode_tahun or datetime.now().year
+
+    existing = (
+        db.query(DataBansos)
+        .filter(
+            DataBansos.nik_penerima == target_nik,
+            DataBansos.jenis_bansos == jenis,
+            DataBansos.periode_tahun == periode,
+        )
+        .first()
+    )
+    if existing:
+        existing.status_penerima = "aktif"
+        existing.desil = data_update.desil
+        existing.rt = rt
+        existing.rw = rw
+    else:
+        db.add(
+            DataBansos(
+                nik_penerima=target_nik,
+                nama_penerima=nama,
+                no_kk=no_kk,
+                jenis_bansos=jenis,
+                periode_tahun=periode,
+                status_penerima="aktif",
+                rt=rt,
+                rw=rw,
+                desil=data_update.desil,
+            )
+        )
+    return {"jenis_bansos": jenis, "desil": data_update.desil, "periode_tahun": periode, "nik": target_nik}
+
+
+@router.post("/pengaduan", response_model=PengaduanResponse, status_code=201)
+def create_pengaduan_admin(
+    data: PengaduanAdminCreate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    user = db.query(User).filter(User.id_user == data.id_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Data warga pelapor tidak ditemukan!")
+
+    tiket = _generate_nomor_tiket()
+    while db.query(PengaduanBansos).filter(PengaduanBansos.nomor_tiket == tiket).first():
+        tiket = _generate_nomor_tiket()
+
+    pengaduan = PengaduanBansos(
+        nomor_tiket=tiket,
+        id_user=data.id_user,
+        nik_terlapor=data.nik_terlapor,
+        kategori_aduan=data.kategori_aduan,
+        program_terkait=data.program_terkait or "Umum",
+        deskripsi_kejadian=data.deskripsi_kejadian,
+        lokasi_spesifik=data.lokasi_spesifik,
+        bukti_foto=data.bukti_foto,
+        is_anonymous=bool(data.is_anonymous),
+        status_laporan=data.status_laporan or "pending",
+        catatan_admin=data.catatan_admin,
+    )
+    db.add(pengaduan)
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user") if isinstance(current_admin, dict) else 1,
+            aktivitas=f"Admin menambahkan pengaduan baru {tiket} untuk {user.nama_lengkap}",
+        )
+    )
+    db.commit()
+    db.refresh(pengaduan)
+    return pengaduan
+
+
 @router.put("/pengaduan/{id_laporan}", response_model=PengaduanResponse)
 def update_status_pengaduan(
     id_laporan: int,
-    data_update: PengaduanUpdateStatus,
+    data_update: PengaduanAdminUpdate,
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
 ):
@@ -481,9 +559,26 @@ def update_status_pengaduan(
     if not pengaduan:
         raise HTTPException(status_code=404, detail="Data pengaduan tidak ditemukan!")
 
-    pengaduan.status_laporan = data_update.status_laporan
-    if data_update.catatan_admin is not None:
-        pengaduan.catatan_admin = data_update.catatan_admin
+    payload = data_update.model_dump(exclude_unset=True)
+    editable_fields = (
+        "nik_terlapor",
+        "kategori_aduan",
+        "program_terkait",
+        "deskripsi_kejadian",
+        "lokasi_spesifik",
+        "bukti_foto",
+        "is_anonymous",
+        "status_laporan",
+        "catatan_admin",
+    )
+    for field in editable_fields:
+        if field in payload and payload[field] is not None:
+            setattr(pengaduan, field, payload[field])
+
+    bantuan_info = None
+    if pengaduan.status_laporan == "selesai":
+        bantuan_info = _apply_bantuan_from_pengaduan(db, pengaduan, data_update)
+
     db.add(
         AuditLog(
             id_user=current_admin.get("id_user") if isinstance(current_admin, dict) else 1,
@@ -496,13 +591,47 @@ def update_status_pengaduan(
     try:
         from app.api.routes.notifications import send_automatic_notification_to_user
 
-        note = f" Catatan petugas: {data_update.catatan_admin}" if data_update.catatan_admin else ""
-        send_automatic_notification_to_user(
-            db=db,
-            id_user=pengaduan.id_user,
-            title="Pembaruan Status Pengaduan Bansos",
-            body=f"Laporan {pengaduan.nomor_tiket} berstatus '{pengaduan.status_laporan}'.{note}",
-        )
+        if bantuan_info:
+            send_automatic_notification_to_user(
+                db=db,
+                id_user=pengaduan.id_user,
+                title="Selamat! Anda Ditetapkan Menerima Bantuan",
+                body=(
+                    f"Laporan {pengaduan.nomor_tiket} telah disetujui. Anda terdaftar sebagai penerima "
+                    f"{bantuan_info['jenis_bansos']} periode {bantuan_info['periode_tahun']} "
+                    f"dengan Desil {bantuan_info['desil']}."
+                ),
+            )
+        else:
+            note = f" Catatan petugas: {data_update.catatan_admin}" if data_update.catatan_admin else ""
+            send_automatic_notification_to_user(
+                db=db,
+                id_user=pengaduan.id_user,
+                title="Pembaruan Status Pengaduan Bansos",
+                body=f"Laporan {pengaduan.nomor_tiket} berstatus '{pengaduan.status_laporan}'.{note}",
+            )
     except Exception:
         pass
     return pengaduan
+
+
+@router.delete("/pengaduan/{id_laporan}")
+def delete_pengaduan(
+    id_laporan: int,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    pengaduan = db.query(PengaduanBansos).filter(PengaduanBansos.id_laporan == id_laporan).first()
+    if not pengaduan:
+        raise HTTPException(status_code=404, detail="Data pengaduan tidak ditemukan!")
+
+    tiket = pengaduan.nomor_tiket
+    db.delete(pengaduan)
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user") if isinstance(current_admin, dict) else 1,
+            aktivitas=f"Admin menghapus pengaduan {tiket}",
+        )
+    )
+    db.commit()
+    return {"status": "success", "message": f"Laporan {tiket} berhasil dihapus."}

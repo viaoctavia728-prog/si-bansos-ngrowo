@@ -3,13 +3,6 @@ import { useOutletContext, Link } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
 import { getAssetUrl } from '../../services/apiClient';
 
-const DUSUN_OPTIONS = [
-  'Semua Dusun',
-  'Dusun Ngrowo Krajan',
-  'Dusun Kedungrejo',
-  'Dusun Geneng',
-];
-
 const STATUS_FILTERS = [
   { value: 'all', label: 'Semua Status' },
   { value: 'pending', label: 'Pending' },
@@ -17,6 +10,26 @@ const STATUS_FILTERS = [
   { value: 'selesai', label: 'Selesai' },
   { value: 'ditolak', label: 'Ditolak' },
 ];
+
+const KATEGORI_OPTIONS = [
+  'Warga Mampu Terima Bansos',
+  'Warga Miskin Terlewat',
+  'Sanggah Data Mandiri',
+];
+
+const PROGRAM_OPTIONS = ['PKH', 'BPNT', 'BLT Desa', 'Bansos Beras CPP', 'Desil Tidak Sesuai'];
+
+const EMPTY_FORM = {
+  id_user: '',
+  kategori_aduan: KATEGORI_OPTIONS[0],
+  program_terkait: PROGRAM_OPTIONS[0],
+  nik_terlapor: '',
+  deskripsi_kejadian: '',
+  lokasi_spesifik: '',
+  is_anonymous: false,
+  status_laporan: 'pending',
+  catatan_admin: '',
+};
 
 export default function AdminPengaduan() {
   const { globalSearch } = useOutletContext() || {};
@@ -28,7 +41,6 @@ export default function AdminPengaduan() {
   const [unmaskedNikMap, setUnmaskedNikMap] = useState({});
 
   // Filter form state
-  const [dusunFilter, setDusunFilter] = useState('Semua Dusun');
   const [rwFilter, setRwFilter] = useState('');
   const [rtFilter, setRtFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -36,7 +48,6 @@ export default function AdminPengaduan() {
 
   // Applied filter state
   const [appliedFilters, setAppliedFilters] = useState({
-    dusun: 'Semua Dusun',
     rw: '',
     rt: '',
     status: 'all',
@@ -52,6 +63,23 @@ export default function AdminPengaduan() {
   const [aiAssessment, setAiAssessment] = useState(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [aiAnalysisError, setAiAnalysisError] = useState('');
+
+  // Penetapan bantuan saat status laporan = selesai
+  const [editJenisBansos, setEditJenisBansos] = useState('');
+  const [editDesil, setEditDesil] = useState('');
+  const [editPeriode, setEditPeriode] = useState(new Date().getFullYear());
+  const [editNikPenerima, setEditNikPenerima] = useState('');
+
+  // CRUD laporan (Tambah / Edit / Hapus)
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState('create');
+  const [formEditId, setFormEditId] = useState(null);
+  const [formData, setFormData] = useState({ ...EMPTY_FORM });
+  const [formSaving, setFormSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [listFeedback, setListFeedback] = useState(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,7 +117,6 @@ export default function AdminPengaduan() {
   // Handle Apply Filter
   const handleApplyFilter = () => {
     setAppliedFilters({
-      dusun: dusunFilter,
       rw: rwFilter,
       rt: rtFilter,
       status: statusFilter,
@@ -100,13 +127,11 @@ export default function AdminPengaduan() {
 
   // Handle Reset Filter
   const handleResetFilter = () => {
-    setDusunFilter('Semua Dusun');
     setRwFilter('');
     setRtFilter('');
     setStatusFilter('all');
     setTicketSearch('');
     setAppliedFilters({
-      dusun: 'Semua Dusun',
       rw: '',
       rt: '',
       status: 'all',
@@ -126,16 +151,12 @@ export default function AdminPengaduan() {
     };
   }, [items]);
 
-  // Determine Dusun & RT/RW helper for each item
+  // Determine RT/RW for each item
   const getItemWilayah = (item) => {
     const user = personById[item.id_user];
     const rt = item.rt || user?.rt || '02';
     const rw = item.rw || user?.rw || '01';
-    let dusun = item.dusun || 'Dusun Ngrowo Krajan';
-    if (rt === '01' && rw === '03') dusun = 'Dusun Kedungrejo';
-    if (rt === '04' && rw === '02') dusun = 'Dusun Geneng';
-    if (rt === '05' && rw === '03') dusun = 'Dusun Kedungrejo';
-    return { rt, rw, dusun };
+    return { rt, rw };
   };
 
   // Filter items
@@ -143,16 +164,12 @@ export default function AdminPengaduan() {
     const activeSearch = (appliedFilters.search || (globalSearch || '').trim().toLowerCase());
 
     return items.filter((item) => {
-      const { rt, rw, dusun } = getItemWilayah(item);
+      const { rt, rw } = getItemWilayah(item);
       const user = personById[item.id_user];
       const pelaporName = item.is_anonymous ? 'anonim' : (user?.nama_lengkap || '').toLowerCase();
 
       // Status
       if (appliedFilters.status !== 'all' && item.status_laporan !== appliedFilters.status) {
-        return false;
-      }
-      // Dusun
-      if (appliedFilters.dusun !== 'Semua Dusun' && dusun !== appliedFilters.dusun) {
         return false;
       }
       // RW
@@ -222,6 +239,11 @@ export default function AdminPengaduan() {
     setSelectedReport(item);
     setEditStatus(item.status_laporan || 'pending');
     setEditCatatan(item.catatan_admin || '');
+    const pelapor = personById[item.id_user];
+    setEditJenisBansos(item.program_terkait || 'Bantuan Sosial');
+    setEditDesil('');
+    setEditPeriode(new Date().getFullYear());
+    setEditNikPenerima(item.nik_terlapor || pelapor?.nik || '');
     setModalFeedback(null);
     setAiAssessment(null);
     setAiAnalysisError('');
@@ -259,12 +281,29 @@ export default function AdminPengaduan() {
     try {
       setIsUpdating(true);
       setModalFeedback(null);
-      await adminService.updateStatus(selectedReport.id_laporan, {
+      const payload = {
         status_laporan: editStatus,
         catatan_admin: editCatatan,
-      });
+      };
+      if (editStatus === 'selesai') {
+        if (!editDesil) {
+          setModalFeedback({ type: 'error', message: 'Isi desil penerima (1–10) untuk menetapkan bantuan.' });
+          setIsUpdating(false);
+          return;
+        }
+        payload.jenis_bansos = editJenisBansos || selectedReport.program_terkait || 'Bantuan Sosial';
+        payload.desil = Number(editDesil);
+        payload.periode_tahun = Number(editPeriode) || new Date().getFullYear();
+        payload.nik_penerima = editNikPenerima || selectedReport.nik_terlapor || undefined;
+      }
+      await adminService.updateStatus(selectedReport.id_laporan, payload);
 
-      setModalFeedback({ type: 'success', message: 'Status laporan berhasil diperbarui dan dicatat ke Audit Log!' });
+      setModalFeedback({
+        type: 'success',
+        message: editStatus === 'selesai'
+          ? 'Laporan disetujui. Warga ditetapkan sebagai penerima bantuan, diberi notifikasi, dan datanya tampil di dashboard warga.'
+          : 'Status laporan berhasil diperbarui dan dicatat ke Audit Log!',
+      });
       await loadData();
       setTimeout(() => {
         setSelectedReport((prev) => prev ? { ...prev, status_laporan: editStatus, catatan_admin: editCatatan } : null);
@@ -273,6 +312,89 @@ export default function AdminPengaduan() {
       setModalFeedback({ type: 'error', message: err.message || 'Gagal memperbarui status.' });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  // === CRUD laporan ===
+  const openCreateForm = () => {
+    setFormMode('create');
+    setFormEditId(null);
+    setFormData({ ...EMPTY_FORM });
+    setFormError('');
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (item) => {
+    setFormMode('edit');
+    setFormEditId(item.id_laporan);
+    setFormData({
+      id_user: item.id_user || '',
+      kategori_aduan: item.kategori_aduan || KATEGORI_OPTIONS[0],
+      program_terkait: item.program_terkait || PROGRAM_OPTIONS[0],
+      nik_terlapor: item.nik_terlapor || '',
+      deskripsi_kejadian: item.deskripsi_kejadian || '',
+      lokasi_spesifik: item.lokasi_spesifik || '',
+      is_anonymous: Boolean(item.is_anonymous),
+      status_laporan: item.status_laporan || 'pending',
+      catatan_admin: item.catatan_admin || '',
+    });
+    setFormError('');
+    setIsFormOpen(true);
+  };
+
+  const handleFormSubmit = async (event) => {
+    event.preventDefault();
+    setFormError('');
+    if (formMode === 'create' && !formData.id_user) {
+      setFormError('Pilih warga pelapor terlebih dahulu.');
+      return;
+    }
+    if (!formData.deskripsi_kejadian.trim()) {
+      setFormError('Deskripsi kejadian wajib diisi.');
+      return;
+    }
+    try {
+      setFormSaving(true);
+      const payload = {
+        kategori_aduan: formData.kategori_aduan,
+        program_terkait: formData.program_terkait,
+        nik_terlapor: formData.nik_terlapor || null,
+        deskripsi_kejadian: formData.deskripsi_kejadian,
+        lokasi_spesifik: formData.lokasi_spesifik || null,
+        is_anonymous: Boolean(formData.is_anonymous),
+        status_laporan: formData.status_laporan,
+        catatan_admin: formData.catatan_admin || null,
+      };
+      if (formMode === 'create') {
+        await adminService.createPengaduan({ ...payload, id_user: Number(formData.id_user) });
+      } else {
+        await adminService.updatePengaduan(formEditId, payload);
+      }
+      setIsFormOpen(false);
+      setListFeedback({
+        type: 'success',
+        message: formMode === 'create' ? 'Laporan pengaduan berhasil ditambahkan.' : 'Laporan pengaduan berhasil diperbarui.',
+      });
+      await loadData();
+    } catch (err) {
+      setFormError(err.message || 'Gagal menyimpan laporan.');
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setDeleting(true);
+      await adminService.deletePengaduan(deleteTarget.id_laporan);
+      setDeleteTarget(null);
+      setListFeedback({ type: 'success', message: 'Laporan pengaduan berhasil dihapus.' });
+      await loadData();
+    } catch (err) {
+      setListFeedback({ type: 'error', message: err.message || 'Gagal menghapus laporan.' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -423,7 +545,6 @@ export default function AdminPengaduan() {
       const pdfBlob = await adminService.getPengaduanRekapPdf({
         rt: appliedFilters.rt || undefined,
         rw: appliedFilters.rw || undefined,
-        dusun: appliedFilters.dusun !== 'Semua Dusun' ? appliedFilters.dusun : undefined,
         status: appliedFilters.status !== 'all' ? appliedFilters.status : undefined,
         search: (appliedFilters.search || (globalSearch || '').trim()).trim() || undefined,
       });
@@ -460,7 +581,7 @@ export default function AdminPengaduan() {
         <span>/</span>
         <span className="text-slate-600">Admin Desa</span>
         <span>/</span>
-        <span className="text-emerald-700 font-bold">Manajemen Pengaduan</span>
+        <span className="text-[#166534] font-bold">Manajemen Pengaduan</span>
       </nav>
 
       {/* 2. TITLE & ACTION BUTTON */}
@@ -473,11 +594,19 @@ export default function AdminPengaduan() {
             Kelola dan tindak lanjuti laporan akurasi penerima bansos (PKH, BPNT, BLT-DD) Desa Ngrowo secara objektif, akuntabel, dan transparan.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <button
+            type="button"
+            onClick={openCreateForm}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#166534] px-4 py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#15803D] transition-colors shadow-xs"
+          >
+            <span className="material-symbols-outlined text-[19px]">add</span>
+            Tambah Laporan
+          </button>
           <button
             type="button"
             onClick={handleExportExcelPreview}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-2.5 text-xs sm:text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors shadow-xs"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-2.5 text-xs sm:text-sm font-bold text-[#166534] hover:bg-emerald-100 transition-colors shadow-xs"
           >
             <span className="material-symbols-outlined text-[19px]">table_view</span>
             Export Rekap Excel
@@ -492,6 +621,26 @@ export default function AdminPengaduan() {
           </button>
         </div>
       </div>
+
+      {listFeedback && (
+        <div
+          className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${
+            listFeedback.type === 'success'
+              ? 'bg-emerald-50 text-[#166534] border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border-rose-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px]">
+              {listFeedback.type === 'success' ? 'check_circle' : 'error'}
+            </span>
+            <span>{listFeedback.message}</span>
+          </div>
+          <button type="button" onClick={() => setListFeedback(null)} className="text-slate-400 hover:text-slate-700">
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
 
       {/* 3. 5 STAT CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
@@ -548,7 +697,7 @@ export default function AdminPengaduan() {
             </div>
           </div>
           <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">{stats.selesai}</p>
-          <p className="text-[11px] font-semibold text-emerald-700 mt-1 flex items-center gap-1">
+          <p className="text-[11px] font-semibold text-[#166534] mt-1 flex items-center gap-1">
             <span className="material-symbols-outlined text-[13px]">task_alt</span>
             Masuk Berita Acara Musdes
           </p>
@@ -574,27 +723,13 @@ export default function AdminPengaduan() {
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-emerald-700">tune</span>
+            <span className="material-symbols-outlined text-[20px] text-[#166534]">tune</span>
             <h3 className="text-sm font-bold text-slate-900">Filter & Pencarian Laporan</h3>
           </div>
           <span className="text-xs text-slate-400 hidden sm:inline">Menampilkan data real-time Desa Ngrowo</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Dusun */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">Dusun</label>
-            <select
-              value={dusunFilter}
-              onChange={(e) => setDusunFilter(e.target.value)}
-              className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-800 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-200"
-            >
-              {DUSUN_OPTIONS.map((dusun) => (
-                <option key={dusun} value={dusun}>{dusun}</option>
-              ))}
-            </select>
-          </div>
-
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* RW */}
           <div>
             <label className="block text-[11px] font-bold text-slate-600 mb-1">Rukun Warga (RW)</label>
@@ -693,7 +828,7 @@ export default function AdminPengaduan() {
               Seluruh aduan terdaftar otomatis dengan enkripsi data identitas warga
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 self-start sm:self-auto">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-[#166534] self-start sm:self-auto">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
             Server Sinkronisasi Aktif
           </div>
@@ -751,7 +886,7 @@ export default function AdminPengaduan() {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {paginatedItems.map((item) => {
                   const user = personById[item.id_user];
-                  const { rt, rw, dusun } = getItemWilayah(item);
+                  const { rt, rw } = getItemWilayah(item);
                   const isAnon = Boolean(item.is_anonymous);
                   const pelaporName = isAnon ? 'Anonim' : (user?.nama_lengkap || `Warga #${item.id_user}`);
                   const isNikVisible = unmaskedNikMap[item.id_laporan];
@@ -808,7 +943,7 @@ export default function AdminPengaduan() {
                           </span>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <div className="h-6 w-6 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-[10px]">
+                            <div className="h-6 w-6 rounded-full bg-emerald-100 text-[#166534] font-bold flex items-center justify-center text-[10px]">
                               {pelaporName.charAt(0).toUpperCase()}
                             </div>
                             <span className="font-semibold text-slate-800 text-xs truncate max-w-[120px]">
@@ -854,9 +989,6 @@ export default function AdminPengaduan() {
                         <span className="font-bold text-slate-800 text-xs block">
                           RT {rt} / RW {rw}
                         </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          {dusun}
-                        </span>
                       </td>
 
                       {/* STATUS */}
@@ -866,14 +998,33 @@ export default function AdminPengaduan() {
 
                       {/* AKSI */}
                       <td className="px-4 py-4 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => openDetail(item)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-2xs transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[16px] text-sky-600">visibility</span>
-                          Detail
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openDetail(item)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-2xs transition-colors"
+                            title="Lihat detail"
+                          >
+                            <span className="material-symbols-outlined text-[16px] text-sky-600">visibility</span>
+                            Detail
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditForm(item)}
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-amber-50 px-2 py-1.5 text-amber-600 shadow-2xs transition-colors"
+                            title="Edit laporan"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(item)}
+                            className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white hover:bg-rose-50 px-2 py-1.5 text-rose-600 shadow-2xs transition-colors"
+                            title="Hapus laporan"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -893,7 +1044,7 @@ export default function AdminPengaduan() {
               <button
                 type="button"
                 onClick={handleBatchVerify}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-[#166534] text-white text-xs font-bold transition-colors"
               >
                 <span className="material-symbols-outlined text-[15px]">verified</span>
                 Verifikasi Terpilih ({selectedIds.length})
@@ -917,7 +1068,7 @@ export default function AdminPengaduan() {
                 onClick={() => setCurrentPage(page)}
                 className={`h-8 w-8 rounded-lg text-xs font-bold transition-colors ${
                   currentPage === page
-                    ? 'bg-[#1b7340] text-white shadow-xs'
+                    ? 'bg-[#166534] text-white shadow-xs'
                     : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
                 }`}
               >
@@ -1010,7 +1161,7 @@ export default function AdminPengaduan() {
                 <h3 className="text-sm font-bold text-slate-900">Instruksi Verifikasi Lapangan (Perangkat Desa)</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">SOP Tindak Lanjut Berdasarkan Permensos & Perbup Bojonegoro</p>
               </div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-[#166534] border border-emerald-200 uppercase tracking-wider">
                 SOP RESMI
               </span>
             </div>
@@ -1055,14 +1206,14 @@ export default function AdminPengaduan() {
           {/* Agenda banner */}
           <div className="mt-5 rounded-xl bg-emerald-50/80 border border-emerald-100 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[20px] text-emerald-800">notifications_active</span>
+              <span className="material-symbols-outlined text-[20px] text-[#166534]">notifications_active</span>
               <p className="text-xs font-semibold text-emerald-950">
                 Jadwal pelaksanaan pembagian bantuan sosial bulan {new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
               </p>
             </div>
             <Link
               to="/admin/jadwal"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#1b7340] hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors shrink-0"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#166534] hover:bg-[#166534] text-white text-xs font-bold shadow-xs transition-colors shrink-0"
             >
               Lihat Agenda
             </Link>
@@ -1079,7 +1230,7 @@ export default function AdminPengaduan() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-extrabold text-slate-900">Detail Pengaduan Bansos</h3>
-                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-[#166534]">
                     {selectedReport.nomor_tiket}
                   </span>
                 </div>
@@ -1099,7 +1250,7 @@ export default function AdminPengaduan() {
               {modalFeedback && (
                 <div
                   className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-                    modalFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+                    modalFeedback.type === 'success' ? 'bg-emerald-50 text-[#166534] border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[18px]">
@@ -1239,6 +1390,64 @@ export default function AdminPengaduan() {
                     className="w-full rounded-xl border border-slate-300 p-3 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-200"
                   />
                 </div>
+
+                {editStatus === 'selesai' && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-[#166534]">volunteer_activism</span>
+                      <p className="text-[11px] leading-relaxed text-emerald-900">
+                        Laporan disetujui → warga otomatis ditetapkan sebagai penerima bantuan, diberi notifikasi,
+                        dan datanya langsung muncul di dashboard warga.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Bantuan</label>
+                        <select
+                          value={editJenisBansos}
+                          onChange={(e) => setEditJenisBansos(e.target.value)}
+                          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                        >
+                          {[selectedReport?.program_terkait, ...PROGRAM_OPTIONS]
+                            .filter((v, i, arr) => v && arr.indexOf(v) === i)
+                            .map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Desil (1–10)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={editDesil}
+                          onChange={(e) => setEditDesil(e.target.value)}
+                          placeholder="Contoh: 3"
+                          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Periode Tahun</label>
+                        <input
+                          type="number"
+                          value={editPeriode}
+                          onChange={(e) => setEditPeriode(e.target.value)}
+                          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">NIK Penerima</label>
+                        <input
+                          type="tel"
+                          maxLength={16}
+                          value={editNikPenerima}
+                          onChange={(e) => setEditNikPenerima(e.target.value.replace(/\D/g, ''))}
+                          placeholder="16 digit NIK"
+                          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 font-mono text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1255,12 +1464,217 @@ export default function AdminPengaduan() {
                 type="button"
                 onClick={handleSaveStatus}
                 disabled={isUpdating}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-[#1b7340] hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-[#166534] hover:bg-[#166534] text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
               >
                 <span className={`material-symbols-outlined text-[17px] ${isUpdating ? 'animate-spin' : ''}`}>
                   {isUpdating ? 'progress_activity' : 'save'}
                 </span>
                 {isUpdating ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TAMBAH / EDIT LAPORAN */}
+      {isFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
+          <form
+            onSubmit={handleFormSubmit}
+            className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {formMode === 'create' ? 'Tambah Laporan Pengaduan' : 'Edit Laporan Pengaduan'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Sesuaikan isian dengan laporan yang disampaikan warga.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 flex-1">
+              {formError && (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-800">
+                  <span className="material-symbols-outlined text-[18px]">error</span>
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {formMode === 'create' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Warga Pelapor</label>
+                  <select
+                    value={formData.id_user}
+                    onChange={(e) => setFormData({ ...formData, id_user: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                    required
+                  >
+                    <option value="">-- Pilih warga --</option>
+                    {warga.map((person) => (
+                      <option key={person.id_user} value={person.id_user}>
+                        {person.nama_lengkap} — {person.nik}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Kategori Aduan</label>
+                  <select
+                    value={formData.kategori_aduan}
+                    onChange={(e) => setFormData({ ...formData, kategori_aduan: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                  >
+                    {KATEGORI_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Program Terkait</label>
+                  <select
+                    value={formData.program_terkait}
+                    onChange={(e) => setFormData({ ...formData, program_terkait: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                  >
+                    {PROGRAM_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">NIK Terlapor (opsional)</label>
+                  <input
+                    type="tel"
+                    maxLength={16}
+                    value={formData.nik_terlapor}
+                    onChange={(e) => setFormData({ ...formData, nik_terlapor: e.target.value.replace(/\D/g, '') })}
+                    placeholder="16 digit NIK"
+                    className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 font-mono text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Status Laporan</label>
+                  <select
+                    value={formData.status_laporan}
+                    onChange={(e) => setFormData({ ...formData, status_laporan: e.target.value })}
+                    className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="proses">Proses</option>
+                    <option value="selesai">Selesai</option>
+                    <option value="ditolak">Ditolak</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Lokasi Spesifik (opsional)</label>
+                <input
+                  type="text"
+                  value={formData.lokasi_spesifik}
+                  onChange={(e) => setFormData({ ...formData, lokasi_spesifik: e.target.value })}
+                  placeholder="Contoh: RT 002 / RW 001, Kelurahan Ngrowo"
+                  className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Deskripsi Kejadian</label>
+                <textarea
+                  rows={4}
+                  value={formData.deskripsi_kejadian}
+                  onChange={(e) => setFormData({ ...formData, deskripsi_kejadian: e.target.value })}
+                  placeholder="Jelaskan kondisi warga secara faktual..."
+                  className="w-full rounded-xl border border-slate-300 p-3 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Catatan Admin (opsional)</label>
+                <textarea
+                  rows={2}
+                  value={formData.catatan_admin}
+                  onChange={(e) => setFormData({ ...formData, catatan_admin: e.target.value })}
+                  placeholder="Catatan tindak lanjut..."
+                  className="w-full rounded-xl border border-slate-300 p-3 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <label className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.is_anonymous}
+                  onChange={(e) => setFormData({ ...formData, is_anonymous: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
+                />
+                <span className="text-xs font-semibold text-slate-700">Tandai sebagai laporan anonim</span>
+              </label>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={formSaving}
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-[#166534] hover:bg-[#15803D] text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+              >
+                <span className={`material-symbols-outlined text-[17px] ${formSaving ? 'animate-spin' : ''}`}>
+                  {formSaving ? 'progress_activity' : 'save'}
+                </span>
+                {formSaving ? 'Menyimpan...' : 'Simpan Laporan'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                <span className="material-symbols-outlined text-[28px]">delete_forever</span>
+              </div>
+              <h3 className="text-base font-extrabold text-slate-900">Hapus Laporan Pengaduan?</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Laporan <span className="font-mono font-bold">{deleteTarget.nomor_tiket}</span> akan dihapus permanen.
+                Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+              >
+                <span className={`material-symbols-outlined text-[17px] ${deleting ? 'animate-spin' : ''}`}>
+                  {deleting ? 'progress_activity' : 'delete'}
+                </span>
+                {deleting ? 'Menghapus...' : 'Hapus'}
               </button>
             </div>
           </div>
@@ -1274,7 +1688,7 @@ function GeminiAssessmentCard({ assessment }) {
   const conditionStyles = {
     baik: {
       label: 'Baik',
-      badge: 'bg-emerald-100 text-emerald-800',
+      badge: 'bg-emerald-100 text-[#166534]',
       accent: 'border-emerald-200 bg-emerald-50/50',
       icon: 'check_circle',
     },
@@ -1404,7 +1818,7 @@ function TableStatusBadge({ status }) {
     },
     selesai: {
       bg: 'bg-emerald-50',
-      text: 'text-emerald-800',
+      text: 'text-[#166534]',
       dot: 'bg-emerald-500',
       label: 'Selesai',
     },

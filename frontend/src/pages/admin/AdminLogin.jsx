@@ -37,7 +37,7 @@ export default function AdminLogin() {
             alt="Logo Kelurahan Ngrowo"
             className="mx-auto h-16 w-16 rounded-2xl border border-[#EAF5EB] bg-[#F8F9FF] object-contain p-2"
           />
-          <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-[#2E7D32]">Area terbatas</p>
+          <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-[#166534]">Area terbatas</p>
           <h1 className="mt-2 text-2xl font-extrabold text-[#212529]">Portal Petugas</h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">
             Halaman khusus petugas untuk mengelola layanan SI-BANSOS Ngrowo.
@@ -61,7 +61,7 @@ export default function AdminLogin() {
               onChange={(event) => setUsername(event.target.value)}
               placeholder="Masukkan username petugas"
               required
-              className="mt-1.5 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/10"
+              className="mt-1.5 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/10"
             />
           </label>
 
@@ -83,7 +83,7 @@ export default function AdminLogin() {
                 type="button"
                 onClick={() => setShowPassword((visible) => !visible)}
                 aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                className="absolute inset-y-0 right-3 text-xs font-semibold text-emerald-800"
+                className="absolute inset-y-0 right-3 text-xs font-semibold text-[#166534]"
               >
                 {showPassword ? 'Sembunyikan' : 'Lihat'}
               </button>
@@ -93,14 +93,14 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={isLoading}
-            className="flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-800 px-4 text-sm font-bold text-white transition hover:bg-emerald-900 disabled:cursor-wait disabled:opacity-60"
+            className="flex min-h-12 w-full items-center justify-center rounded-xl bg-[#166534] px-4 text-sm font-bold text-white transition hover:bg-[#14532D] disabled:cursor-wait disabled:opacity-60"
           >
             {isLoading ? 'Memverifikasi...' : 'Masuk ke Portal Petugas'}
           </button>
         </form>
 
         <div className="mt-6 border-t border-slate-100 pt-5 text-center">
-          <Link to="/login" className="text-sm font-semibold text-emerald-800 hover:text-emerald-900">
+          <Link to="/login" className="text-sm font-semibold text-[#166534] hover:text-emerald-900">
             Kembali ke Portal Warga
           </Link>
         </div>

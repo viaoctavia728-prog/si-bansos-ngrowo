@@ -11,9 +11,11 @@ import DetailLaporan from './pages/warga/DetailLaporan';
 import Jadwal from './pages/warga/Jadwal';
 import Info from './pages/warga/Info';
 import Profil from './pages/warga/Profil';
+import Notifikasi from './pages/warga/Notifikasi';
 
 // Halaman & Portal Admin (Modular)
 import AdminPortal from './pages/admin/AdminPortal';
+import { WargaLayoutProvider } from './components/WargaLayoutContext';
 
 function getCitizenUser() {
   try {
@@ -33,7 +35,8 @@ function isCitizenAuthenticated() {
 }
 
 function ProtectedRoute({ children }) {
-  return isCitizenAuthenticated() ? children : <Navigate to="/login" replace />;
+  if (!isCitizenAuthenticated()) return <Navigate to="/login" replace />;
+  return <WargaLayoutProvider>{children}</WargaLayoutProvider>;
 }
 
 function PublicRoute({ children }) {
@@ -56,6 +59,7 @@ function App() {
       <Route path="/tracking" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
       <Route path="/jadwal" element={<ProtectedRoute><Jadwal /></ProtectedRoute>} />
       <Route path="/info" element={<ProtectedRoute><Info /></ProtectedRoute>} />
+      <Route path="/notifikasi" element={<ProtectedRoute><Notifikasi /></ProtectedRoute>} />
       <Route path="/info-bansos" element={<Info />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

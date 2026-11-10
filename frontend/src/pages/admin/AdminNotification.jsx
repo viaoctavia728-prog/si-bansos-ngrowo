@@ -111,7 +111,7 @@ export default function AdminNotification() {
         <span>/</span>
         <span className="text-slate-600">Admin Desa</span>
         <span>/</span>
-        <span className="text-emerald-700 font-bold">Broadcast Notifikasi Warga</span>
+        <span className="text-[#166534] font-bold">Broadcast Notifikasi Warga</span>
       </nav>
 
       {/* 2. TITLE */}
@@ -130,7 +130,7 @@ export default function AdminNotification() {
         <div
           className={`p-4 rounded-xl text-sm font-semibold flex items-center gap-3 ${
             feedback.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              ? 'bg-emerald-50 text-[#166534] border border-emerald-200'
               : feedback.type === 'warning'
               ? 'bg-amber-50 text-amber-800 border border-amber-200'
               : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -178,7 +178,7 @@ export default function AdminNotification() {
                       : 'border-slate-200 bg-slate-50/50 text-slate-600'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[20px] text-emerald-700">cell_tower</span>
+                  <span className="material-symbols-outlined text-[20px] text-[#166534]">cell_tower</span>
                   <div>
                     <p className="text-xs font-bold">Semua Warga (In-App Real-time)</p>
                     <p className="text-[10px] text-slate-500 font-normal">Muncul otomatis di dashboard seluruh warga</p>
@@ -194,7 +194,7 @@ export default function AdminNotification() {
                       : 'border-slate-200 bg-slate-50/50 text-slate-600'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[20px] text-emerald-700">person_pin</span>
+                  <span className="material-symbols-outlined text-[20px] text-[#166534]">person_pin</span>
                   <div>
                     <p className="text-xs font-bold">Perangkat Tertentu</p>
                     <p className="text-[10px] text-slate-500 font-normal">Kirim via target FCM device token</p>
@@ -260,7 +260,7 @@ export default function AdminNotification() {
               <button
                 type="submit"
                 disabled={sending}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1b7340] hover:bg-emerald-800 px-6 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#166534] hover:bg-[#166534] px-6 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs disabled:opacity-50"
               >
                 <span className={`material-symbols-outlined text-[18px] ${sending ? 'animate-spin' : ''}`}>
                   {sending ? 'progress_activity' : 'send'}
@@ -276,7 +276,7 @@ export default function AdminNotification() {
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-sm font-extrabold text-slate-900">Simulasi Tampilan di HP Warga</h3>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-[#166534] bg-emerald-50 px-2 py-0.5 rounded-full">
                 Live Preview
               </span>
             </div>
@@ -289,7 +289,7 @@ export default function AdminNotification() {
               {/* Push notification banner */}
               <div className="bg-white/95 backdrop-blur rounded-2xl p-3 shadow-lg border border-slate-100/50 animate-in fade-in">
                 <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-                  <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                  <div className="flex items-center gap-1.5 font-bold text-[#166534]">
                     <span className="material-symbols-outlined text-[13px]">shield</span>
                     SI-BANSOS NGROWO
                   </div>

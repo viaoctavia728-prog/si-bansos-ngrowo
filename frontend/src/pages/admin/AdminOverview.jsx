@@ -127,7 +127,7 @@ export default function AdminOverview() {
             </div>
             <Link
               to="/admin/pengaduan"
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+              className="text-xs font-semibold text-[#166534] hover:text-[#166534] flex items-center gap-1"
             >
               Lihat Detail
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -138,7 +138,7 @@ export default function AdminOverview() {
             {[
               { label: 'Menunggu Tinjauan (Pending)', value: stats.pending, color: 'bg-amber-500', text: 'text-amber-800' },
               { label: 'Sedang Proses Verifikasi', value: stats.proses, color: 'bg-blue-600', text: 'text-blue-800' },
-              { label: 'Selesai / Terverifikasi Musdes', value: stats.selesai, color: 'bg-emerald-600', text: 'text-emerald-800' },
+              { label: 'Selesai / Terverifikasi Musdes', value: stats.selesai, color: 'bg-emerald-600', text: 'text-[#166534]' },
               { label: 'Ditolak (Data Tidak Sesuai)', value: stats.ditolak, color: 'bg-rose-500', text: 'text-rose-800' },
             ].map((row) => {
               const percentage = stats.total > 0 ? Math.round((row.value / stats.total) * 100) : 0;
@@ -174,7 +174,7 @@ export default function AdminOverview() {
             </div>
             <Link
               to="/admin/pengaduan"
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+              className="text-xs font-semibold text-[#166534] hover:text-[#166534]"
             >
               Semua
             </Link>
@@ -198,7 +198,7 @@ export default function AdminOverview() {
                   <div key={item.id_laporan} className="py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-emerald-700">{item.nomor_tiket}</span>
+                        <span className="font-mono text-xs font-bold text-[#166534]">{item.nomor_tiket}</span>
                         {item.is_anonymous && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-100">
                             Anonim
@@ -230,7 +230,7 @@ export default function AdminOverview() {
             to="/admin/pengaduan"
             className="flex items-center gap-3.5 rounded-xl border border-slate-200/80 p-4 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all group"
           >
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-[#1b7340] group-hover:text-white transition-colors">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-[#166534] flex items-center justify-center group-hover:bg-[#166534] group-hover:text-white transition-colors">
               <span className="material-symbols-outlined text-[22px]">assignment</span>
             </div>
             <div>
@@ -282,7 +282,7 @@ export default function AdminOverview() {
             to="/admin/jadwal"
             className="flex items-center gap-3.5 rounded-xl border border-slate-200/80 p-4 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all group"
           >
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-700 group-hover:text-white transition-colors">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-[#166534] flex items-center justify-center group-hover:bg-emerald-700 group-hover:text-white transition-colors">
               <span className="material-symbols-outlined text-[22px]">calendar_month</span>
             </div>
             <div>
@@ -360,7 +360,7 @@ function StatusBadge({ status }) {
   const styles = {
     pending: 'bg-amber-50 text-amber-700 border border-amber-200',
     proses: 'bg-blue-50 text-blue-700 border border-blue-200',
-    selesai: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    selesai: 'bg-emerald-50 text-[#166534] border border-emerald-200',
     ditolak: 'bg-rose-50 text-rose-700 border border-rose-200',
   };
 

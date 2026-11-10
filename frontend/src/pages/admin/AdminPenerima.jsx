@@ -54,7 +54,6 @@ export default function AdminPenerima() {
           item.nik_penerima,
           item.no_kk,
           item.jenis_bansos,
-          item.dusun,
           item.rt,
           item.rw,
         ].join(' ').toLowerCase();
@@ -209,15 +208,12 @@ export default function AdminPenerima() {
                       <span className="font-semibold text-slate-800 block text-xs">
                         RT {item.rt} / RW {item.rw}
                       </span>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">
-                        {item.dusun || 'Desa Ngrowo'}
-                      </span>
                     </td>
                     <td className="px-5 py-4 font-mono text-xs text-slate-600">
                       Tahun {item.periode_tahun || 2026}
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 capitalize">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200 capitalize">
                         {item.status_penerima || 'aktif'}
                       </span>
                     </td>

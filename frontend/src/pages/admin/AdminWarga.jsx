@@ -141,7 +141,7 @@ export default function AdminWarga() {
       {feedback && (
         <div
           className={`p-4 rounded-xl text-sm font-semibold flex items-center justify-between gap-3 shadow-xs transition-all ${
-            feedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            feedback.type === 'success' ? 'bg-emerald-50 text-[#166534] border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}
         >
           <div className="flex items-center gap-3">
@@ -178,7 +178,7 @@ export default function AdminWarga() {
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Penduduk Terverifikasi</span>
-          <p className="text-3xl font-black text-emerald-700 mt-2">{stats.verified}</p>
+          <p className="text-3xl font-black text-[#166534] mt-2">{stats.verified}</p>
           <p className="text-[11px] font-medium text-emerald-600 mt-1">Kependudukan sah SIAK</p>
         </div>
 
@@ -291,7 +291,7 @@ export default function AdminWarga() {
                     <tr key={person.id_user} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shrink-0">
+                          <div className="h-8 w-8 rounded-full bg-emerald-100 text-[#166534] font-bold flex items-center justify-center text-xs shrink-0">
                             {person.nama_lengkap?.charAt(0).toUpperCase() || 'W'}
                           </div>
                           <div>
@@ -322,7 +322,7 @@ export default function AdminWarga() {
 
                       <td className="px-5 py-4 text-center whitespace-nowrap">
                         {isVerified ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200">
                             <span className="material-symbols-outlined text-[13px]">verified</span>
                             Penduduk Ngrowo
                           </span>

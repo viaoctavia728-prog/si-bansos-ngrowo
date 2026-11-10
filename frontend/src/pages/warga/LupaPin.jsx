@@ -8,22 +8,22 @@ export default function LupaPin() {
   };
 
   return (
-    <div className="bg-[#f8f9ff] font-body-md text-[#121c2a] min-h-screen flex flex-col justify-center items-center p-5">
-      <main className="w-full max-w-md bg-white rounded-2xl border border-[#e6eeff] p-6 md:p-8 shadow-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#F8FAFC] p-3 font-sans text-slate-900 sm:p-6">
+      <main className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-8">
         
         {/* Tombol Kembali */}
-        <Link to="/login" className="text-[14px] font-semibold text-[#0d631b] hover:text-[#2e7d32] inline-flex items-center gap-1">
+        <Link to="/login" className="text-[14px] font-semibold text-[#2E7D32] hover:text-[#256828] inline-flex items-center gap-1">
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Kembali ke Login
         </Link>
 
         {/* Header Icon & Title */}
         <div className="py-6 text-center">
-          <div className="w-16 h-16 bg-[#acf4a4] rounded-full flex items-center justify-center mx-auto text-[#0d631b] shadow-sm mb-3">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-soft text-primary">
             <span className="material-symbols-outlined text-[32px]">key</span>
           </div>
-          <h1 className="text-[24px] font-bold text-[#121c2a]">Lupa Password / PIN?</h1>
-          <p className="mt-1 text-[14px] text-[#40493d]">
+          <h1 className="text-2xl font-extrabold text-[#212529]">Lupa Password / PIN?</h1>
+          <p className="mt-1 text-[14px] text-slate-500">
             Masukkan NIK terdaftar untuk meminta bantuan reset akun ke Admin Desa Ngrowo.
           </p>
         </div>
@@ -31,16 +31,16 @@ export default function LupaPin() {
         {/* Form NIK */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[14px] font-semibold text-[#121c2a]" htmlFor="nik_reset">
+            <label className="text-[14px] font-semibold text-[#212529]" htmlFor="nik_reset">
               Nomor Induk Kependudukan (NIK)
             </label>
             <div className="relative flex items-center">
-              <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[20px]">id_card</span>
+              <span className="material-symbols-outlined absolute left-4 text-slate-400 text-[20px]">id_card</span>
               <input 
                 id="nik_reset"
                 required 
                 maxLength="16" 
-                className="h-12 w-full rounded-xl bg-[#eff4ff] text-[#121c2a] text-[16px] pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
+                className="gov-input pl-12" 
                 placeholder="Masukkan 16 digit NIK" 
               />
             </div>
@@ -48,7 +48,7 @@ export default function LupaPin() {
 
           <button 
             type="submit"
-            className="h-12 w-full rounded-xl bg-[#0d631b] hover:bg-[#2e7d32] text-white font-semibold text-[16px] shadow-md transition-transform active:scale-[0.99]"
+            className="gov-btn-primary w-full"
           >
             Kirim Permintaan Reset
           </button>
@@ -59,7 +59,7 @@ export default function LupaPin() {
           href="https://wa.me/6285807078899" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="mt-6 pt-5 border-t border-[#e6eeff] flex items-center justify-center gap-2 text-center text-[14px] font-semibold text-[#0d631b] hover:text-[#2e7d32]"
+          className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-center text-[14px] font-semibold text-[#2E7D32] hover:text-[#256828]"
         >
           <span className="material-symbols-outlined text-[18px]">chat</span>
           Chat WhatsApp Admin Desa

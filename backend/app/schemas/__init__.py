@@ -1,6 +1,12 @@
 from app.schemas.auth import UserLogin, UserRegister, UserResponse
 from app.schemas.bansos import DataBansosCreate, DataBansosResponse
-from app.schemas.pengaduan import PengaduanCreate, PengaduanResponse, PengaduanUpdateStatus
+from app.schemas.pengaduan import (
+    PengaduanAdminCreate,
+    PengaduanAdminUpdate,
+    PengaduanCreate,
+    PengaduanResponse,
+    PengaduanUpdateStatus,
+)
 from app.schemas.wilayah import WilayahResponse
 
 __all__ = [
@@ -12,5 +18,7 @@ __all__ = [
     "PengaduanCreate",
     "PengaduanResponse",
     "PengaduanUpdateStatus",
+    "PengaduanAdminCreate",
+    "PengaduanAdminUpdate",
     "WilayahResponse",
 ]

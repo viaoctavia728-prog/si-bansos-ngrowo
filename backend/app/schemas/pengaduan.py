@@ -26,6 +26,37 @@ class PengaduanUpdateStatus(BaseModel):
   catatan_admin: Optional[str] = Field(default=None, max_length=5000)
 
 
+class PengaduanAdminCreate(BaseModel):
+  id_user: int = Field(gt=0)
+  nik_terlapor: Optional[str] = Field(default=None, min_length=16, max_length=16, pattern=r"^\d{16}$")
+  kategori_aduan: str = Field(min_length=3, max_length=50)
+  program_terkait: Optional[str] = Field(default=None, max_length=50)
+  deskripsi_kejadian: str = Field(min_length=10, max_length=10000)
+  lokasi_spesifik: Optional[str] = Field(default=None, max_length=255)
+  bukti_foto: Optional[str] = Field(default=None, max_length=255)
+  is_anonymous: Optional[bool] = False
+  status_laporan: Literal["pending", "proses", "selesai", "ditolak"] = "pending"
+  catatan_admin: Optional[str] = Field(default=None, max_length=5000)
+
+
+class PengaduanAdminUpdate(BaseModel):
+  nik_terlapor: Optional[str] = Field(default=None, max_length=16)
+  kategori_aduan: Optional[str] = Field(default=None, min_length=3, max_length=50)
+  program_terkait: Optional[str] = Field(default=None, max_length=50)
+  deskripsi_kejadian: Optional[str] = Field(default=None, min_length=10, max_length=10000)
+  lokasi_spesifik: Optional[str] = Field(default=None, max_length=255)
+  bukti_foto: Optional[str] = Field(default=None, max_length=255)
+  is_anonymous: Optional[bool] = None
+  status_laporan: Optional[Literal["pending", "proses", "selesai", "ditolak"]] = None
+  catatan_admin: Optional[str] = Field(default=None, max_length=5000)
+
+  # Data penetapan bantuan saat laporan disetujui (status selesai)
+  jenis_bansos: Optional[str] = Field(default=None, max_length=50)
+  desil: Optional[int] = Field(default=None, ge=1, le=10)
+  periode_tahun: Optional[int] = Field(default=None, ge=2000, le=2100)
+  nik_penerima: Optional[str] = Field(default=None, max_length=16)
+
+
 class PengaduanResponse(BaseModel):
   id_laporan: int
   nomor_tiket: str

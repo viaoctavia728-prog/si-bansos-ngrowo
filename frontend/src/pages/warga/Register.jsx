@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import logoBojonegoro from '../../images/logo bojonegoro.jpg';
 import logoNgrowo from '../../images/logo ngrowo.png';
@@ -6,8 +6,9 @@ import { authService } from '../../services/auth';
 
 const maskIdentityNumber = (value) => `${value.slice(0, 4)}${'*'.repeat(Math.max(value.length - 8, 0))}${value.slice(-4)}`;
 
-export default function Register() {
+export default function Register({ embedded = false, onClose, onSuccess }) {
   const navigate = useNavigate();
+  const alertRef = useRef(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -26,8 +27,29 @@ export default function Register() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorField, setErrorField] = useState('');
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(10);
+
+  // Saat ada kesalahan, gulir ke atas dan fokuskan peringatan agar langsung terlihat
+  useEffect(() => {
+    if (errorMessage && alertRef.current) {
+      alertRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      alertRef.current.focus({ preventScroll: true });
+    }
+  }, [errorMessage]);
+
+  const showError = (message, field = '') => {
+    setErrorField(field);
+    setErrorMessage(message);
+  };
+
+  const inputClass = (field, extra = '') =>
+    `w-full h-12 text-[#0F172A] text-[15px] sm:text-[16px] rounded-lg outline-none focus:bg-white transition-all border ${extra} ${
+      errorField === field
+        ? 'bg-red-50 border-red-400 focus:border-red-500 ring-2 ring-red-200'
+        : 'bg-white border-slate-300 focus:border-primary'
+    }`;
 
   useEffect(() => {
     if (!registrationComplete) return undefined;
@@ -35,41 +57,59 @@ export default function Register() {
     const countdown = setInterval(() => {
       setSecondsRemaining((remaining) => Math.max(remaining - 1, 0));
     }, 1000);
-    const redirect = setTimeout(() => navigate('/login'), 10000);
+    const redirect = setTimeout(() => {
+      if (embedded && onSuccess) onSuccess();
+      else navigate('/login');
+    }, 10000);
 
     return () => {
       clearInterval(countdown);
       clearTimeout(redirect);
     };
-  }, [registrationComplete, navigate]);
+  }, [registrationComplete, navigate, embedded, onSuccess]);
 
   const handleChange = (e) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
+    if (errorField === id) {
+      setErrorField('');
+      setErrorMessage('');
+    }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setErrorField('');
     setErrorMessage('');
 
     // Validasi input
+    if (!formData.nama_lengkap.trim()) {
+      showError('Nama lengkap wajib diisi sesuai KTP.', 'nama_lengkap');
+      return;
+    }
+
     if (!/^\d{16}$/.test(formData.nik)) {
-      setErrorMessage('NIK harus terdiri dari 16 digit angka!');
+      showError('NIK harus terdiri dari 16 digit angka.', 'nik');
       return;
     }
 
     if (!/^\d{16}$/.test(formData.no_kk)) {
-      setErrorMessage('Nomor KK harus terdiri dari 16 digit angka!');
+      showError('Nomor KK harus terdiri dari 16 digit angka.', 'no_kk');
+      return;
+    }
+
+    if (!/^0\d{8,14}$/.test(formData.no_hp.replace(/[^0-9]/g, ''))) {
+      showError('Nomor WhatsApp/HP tidak valid. Gunakan angka dan awali dengan 0.', 'no_hp');
       return;
     }
 
     if (formData.password.length < 6) {
-      setErrorMessage('Password minimal 6 karakter!');
+      showError('Password minimal 6 karakter.', 'password');
       return;
     }
 
     if (formData.password !== formData.confirm_password) {
-      setErrorMessage('Konfirmasi password tidak cocok dengan password yang dimasukkan!');
+      showError('Konfirmasi password tidak cocok dengan password yang dimasukkan.', 'confirm_password');
       return;
     }
 
@@ -88,7 +128,7 @@ export default function Register() {
 
       setRegistrationComplete(true);
     } catch (err) {
-      setErrorMessage(err.message || 'Pendaftaran gagal. Periksa data kembali.');
+      showError(err.message || 'Pendaftaran gagal. Periksa kembali data yang diisi.');
     } finally {
       setIsLoading(false);
     }
@@ -96,63 +136,63 @@ export default function Register() {
 
   if (registrationComplete) {
     return (
-      <div className="min-h-screen bg-[#f8f9ff] px-4 py-5 text-[#121c2a]">
-        <main className="mx-auto flex w-full max-w-lg flex-col gap-4">
-          <section className="rounded-xl bg-white px-5 py-6 shadow-md sm:px-7">
+      <div className={embedded ? 'text-slate-900' : 'min-h-screen bg-[#F8FAFC] px-4 py-6 text-slate-900 sm:py-10'}>
+        <main className={embedded ? 'flex flex-col gap-4' : 'warga-content flex flex-col gap-4'}>
+          <section className="gov-card px-5 py-6 sm:px-7">
             <div className="flex flex-col items-center text-center">
-              <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#acf4a4] text-[#0d631b]">
+              <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#F0FDF4] text-[#166534]">
                 <span className="material-symbols-outlined text-[34px]">check_circle</span>
               </div>
-              <span className="rounded-full bg-[#acf4a4] px-3 py-1 text-[11px] font-bold uppercase text-[#0d631b]">
+              <span className="rounded-full bg-[#F0FDF4] px-3 py-1 text-[11px] font-bold uppercase text-[#166534]">
                 Pendaftaran Akun Berhasil
               </span>
               <h1 className="mt-3 text-xl font-bold leading-tight sm:text-2xl">
                 Selamat, Akun Warga Anda Telah Berhasil Didaftarkan!
               </h1>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-[#596354]">
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
                 Data pendaftaran Anda berhasil disimpan. Gunakan NIK dan kata sandi yang baru dibuat untuk masuk.
               </p>
             </div>
 
-            <div className="mt-5 rounded-xl bg-[#eff4ff] p-3 sm:p-4">
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-bold text-[#121c2a]">Ringkasan Akun Terdaftar</h2>
-                <span className="inline-flex items-center gap-1 rounded-md bg-[#acf4a4] px-2 py-1 text-[10px] font-bold text-[#0d631b]">
+                <h2 className="text-sm font-bold text-[#0F172A]">Ringkasan Akun Terdaftar</h2>
+                <span className="inline-flex items-center gap-1 rounded-md bg-[#F0FDF4] px-2 py-1 text-[10px] font-bold text-[#166534]">
                   <span className="material-symbols-outlined text-[13px]">verified</span>
                   Akun Terdaftar
                 </span>
               </div>
               <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="rounded-lg bg-white p-3">
-                  <dt className="text-[11px] text-[#596354]">Nama Lengkap (Sesuai KTP)</dt>
+                  <dt className="text-[11px] text-slate-500">Nama Lengkap (Sesuai KTP)</dt>
                   <dd className="mt-0.5 text-sm font-semibold">{formData.nama_lengkap}</dd>
                 </div>
                 <div className="rounded-lg bg-white p-3">
-                  <dt className="text-[11px] text-[#596354]">Nomor Induk Kependudukan (NIK)</dt>
+                  <dt className="text-[11px] text-slate-500">Nomor Induk Kependudukan (NIK)</dt>
                   <dd className="mt-0.5 font-mono text-sm font-semibold">{maskIdentityNumber(formData.nik)}</dd>
                 </div>
                 <div className="rounded-lg bg-white p-3">
-                  <dt className="text-[11px] text-[#596354]">Nomor Kartu Keluarga (No. KK)</dt>
+                  <dt className="text-[11px] text-slate-500">Nomor Kartu Keluarga (No. KK)</dt>
                   <dd className="mt-0.5 font-mono text-sm font-semibold">{maskIdentityNumber(formData.no_kk)}</dd>
                 </div>
                 <div className="rounded-lg bg-white p-3">
-                  <dt className="text-[11px] text-[#596354]">Wilayah Domisili</dt>
+                  <dt className="text-[11px] text-slate-500">Wilayah Domisili</dt>
                   <dd className="mt-0.5 text-sm font-semibold">RT {formData.rt} / RW {formData.rw}, Desa Ngrowo</dd>
                 </div>
               </dl>
             </div>
 
-            <div className="mt-4 rounded-xl bg-[#e8efff] p-4">
+            <div className="mt-4 rounded-xl bg-[#EAF3FF] p-4">
               <div className="flex items-start gap-2.5">
-                <span className="material-symbols-outlined mt-0.5 text-[20px] text-[#0d631b]">cloud_done</span>
+                <span className="material-symbols-outlined mt-0.5 text-[20px] text-[#166534]">cloud_done</span>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-sm font-semibold">Penyimpanan Data Selesai</h2>
-                  <p className="mt-1 text-xs leading-relaxed text-[#596354]">
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
                     Data akun Anda telah tersimpan di sistem. Anda dapat masuk menggunakan NIK dan kata sandi yang baru dibuat.
                   </p>
-                  <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-[#40493d]" aria-live="polite">
+                  <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-slate-500" aria-live="polite">
                     <span>Mengalihkan ke halaman masuk secara otomatis...</span>
-                    <span className="shrink-0 font-bold text-[#0d631b]">{secondsRemaining} detik</span>
+                    <span className="shrink-0 font-bold text-[#166534]">{secondsRemaining} detik</span>
                   </div>
                   <div
                     className="mt-1 h-1.5 overflow-hidden rounded-full bg-white"
@@ -163,7 +203,7 @@ export default function Register() {
                     aria-valuenow={10 - secondsRemaining}
                   >
                     <div
-                      className="h-full rounded-full bg-[#2e7d32] transition-[width] duration-1000"
+                      className="h-full rounded-full bg-[#166534] transition-[width] duration-1000"
                       style={{ width: `${((10 - secondsRemaining) / 10) * 100}%` }}
                     />
                   </div>
@@ -173,20 +213,20 @@ export default function Register() {
 
             <button
               type="button"
-              onClick={() => navigate('/login')}
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0d631b] text-sm font-bold text-white hover:bg-[#2e7d32]"
+              onClick={() => (embedded && onSuccess ? onSuccess() : navigate('/login'))}
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#166534] text-sm font-bold text-white hover:bg-[#15803D]"
             >
               Kembali ke Laman Masuk Sekarang
               <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
           </section>
 
-          <aside className="rounded-xl bg-white p-4 shadow-sm">
+          <aside className="gov-card p-4 sm:p-5">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8efff] text-[20px] text-[#0d631b]">support_agent</span>
+              <span className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF3FF] text-[20px] text-[#166534]">support_agent</span>
               <div>
                 <h2 className="text-sm font-bold">Butuh Bantuan Aktivasi atau Lupa PIN?</h2>
-                <p className="mt-1 text-xs leading-relaxed text-[#596354]">
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
                   Hubungi admin pelayanan Kantor Balai Desa Ngrowo atau Ketua RT setempat untuk panduan lebih lanjut.
                 </p>
               </div>
@@ -198,56 +238,75 @@ export default function Register() {
   }
 
   return (
-    <div className="bg-[#f8f9ff] font-body-md text-[#121c2a] min-h-screen flex flex-col justify-center items-center p-3 sm:p-5">
-      <main className="w-full max-w-xl bg-[#f8f9ff]">
-        <div className="flex flex-col w-full pb-12">
+    <div className={embedded ? 'text-slate-900' : 'flex min-h-screen flex-col items-center bg-[#F8FAFC] p-3 font-sans text-slate-900 sm:p-6'}>
+      <main className={embedded ? 'w-full' : 'w-full max-w-3xl py-4 sm:py-8'}>
+        <div className={embedded ? 'flex w-full flex-col' : 'flex flex-col w-full pb-12'}>
           
           {/* Brand & Administrative Header */}
+          {!embedded && (
           <header className="flex flex-col items-center text-center mb-6">
             <div className="relative mb-3">
-              <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white shadow-md border border-gray-100 gap-3">
+              <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white shadow-md border border-slate-100 gap-3">
                 <img 
                   alt="Lambang Kabupaten Bojonegoro" 
                   className="w-12 h-14 object-contain" 
                   src={logoBojonegoro} 
                 />
-                <div className="w-px h-8 bg-gray-200"></div>
+                <div className="w-px h-8 bg-[#F0FDF4]"></div>
                 <img 
                   alt="Lambang Resmi Desa Ngrowo" 
                   className="w-12 h-14 object-contain rounded-lg" 
                   src={logoNgrowo} 
                 />
               </div>
-              <span className="absolute -bottom-1.5 -right-1.5 bg-[#2e7d32] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+              <span className="absolute -bottom-1.5 -right-1.5 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                 RESMI
               </span>
             </div>
-            <span className="text-[13px] sm:text-[14px] font-medium text-[#0d631b] tracking-wider uppercase">
+            <span className="text-[13px] font-semibold uppercase tracking-[0.14em] text-primary">
               Sistem Informasi Bantuan Sosial
             </span>
-            <h1 className="text-2xl sm:text-[28px] font-bold text-[#121c2a] mt-1">Daftar Akun Warga</h1>
-            <p className="text-sm sm:text-[16px] text-[#40493d] max-w-md mt-1">
+            <h1 className="mt-1 text-2xl font-extrabold text-slate-900 sm:text-[28px]">Daftar Akun Warga</h1>
+            <p className="text-sm sm:text-[16px] text-slate-500 max-w-md mt-1">
               Pendaftaran Mandiri Layanan Bantuan Sosial &amp; Pengaduan Desa Ngrowo, Bojonegoro
             </p>
           </header>
+          )}
 
           {/* Feedback Banners */}
           {errorMessage && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-start gap-2.5">
-              <span className="material-symbols-outlined text-red-600 text-[20px] shrink-0 mt-0.5">error</span>
-              <span className="whitespace-pre-line">{errorMessage}</span>
+            <div
+              ref={alertRef}
+              role="alert"
+              aria-live="assertive"
+              tabIndex={-1}
+              className="sticky top-3 z-30 mb-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-md outline-none ring-2 ring-red-200/60"
+            >
+              <span className="material-symbols-outlined shrink-0 text-[20px] text-red-600">error</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Periksa kembali pendaftaran Anda</p>
+                <p className="mt-0.5 whitespace-pre-line leading-relaxed">{errorMessage}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setErrorMessage(''); setErrorField(''); }}
+                aria-label="Tutup peringatan"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-100"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
             </div>
           )}
 
           {/* Notice Callout (Civic Notice) */}
-          <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
+          <div className="gov-card mb-4 p-4 sm:p-5">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#acf4a4] flex items-center justify-center flex-shrink-0 text-[#0d631b]">
+              <div className="w-9 h-9 rounded-lg bg-[#F0FDF4] flex items-center justify-center flex-shrink-0 text-[#166534]">
                 <span className="material-symbols-outlined text-[24px]">verified_user</span>
               </div>
               <div>
-                <h4 className="text-[15px] sm:text-[16px] font-semibold text-[#121c2a]">Pendaftaran Khusus Warga Desa Ngrowo</h4>
-                <p className="text-[13px] sm:text-[14px] text-[#40493d] mt-0.5 leading-relaxed">
+                <h4 className="text-[15px] sm:text-[16px] font-semibold text-[#0F172A]">Pendaftaran Khusus Warga Desa Ngrowo</h4>
+                <p className="text-[13px] sm:text-[14px] text-slate-500 mt-0.5 leading-relaxed">
                   NIK dan nama harus cocok dengan daftar warga yang telah diverifikasi admin Desa Ngrowo. Sistem ini tidak terhubung langsung ke Dukcapil atau DTKS.
                 </p>
               </div>
@@ -255,25 +314,25 @@ export default function Register() {
           </div>
 
           {/* Registration Card Form Container */}
-          <form onSubmit={handleSubmit} className="bg-white rounded-xl p-5 md:p-6 shadow-md flex flex-col gap-6">
+          <form onSubmit={handleSubmit} noValidate className="gov-card flex flex-col gap-6 p-5 sm:p-6 md:p-8">
             
             {/* SECTION 1: Identitas Kependudukan */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2 pb-2">
-                <span className="material-symbols-outlined text-[#0d631b] text-[24px]">badge</span>
-                <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#121c2a]">1. Data Identitas Kependudukan</h2>
+                <span className="material-symbols-outlined text-[#166534] text-[24px]">badge</span>
+                <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#0F172A]">1. Data Identitas Kependudukan</h2>
               </div>
 
               {/* Nama Lengkap */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="nama_lengkap">
+                <label className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1" htmlFor="nama_lengkap">
                   Nama Lengkap (Sesuai KTP)
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">person</span>
+                  <span className="material-symbols-outlined absolute left-4 text-[#64748B] text-[22px]">person</span>
                   <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] sm:text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
+                    className={inputClass('nama_lengkap', 'pl-12 pr-4')} 
                     id="nama_lengkap" 
                     value={formData.nama_lengkap}
                     onChange={handleChange}
@@ -282,19 +341,20 @@ export default function Register() {
                     type="text" 
                   />
                 </div>
-                <p className="text-[12px] sm:text-[13px] text-[#40493d]">Tulis nama lengkap tanpa singkatan berlebihan.</p>
+                <p className="text-[12px] sm:text-[13px] text-slate-500">Tulis nama lengkap tanpa singkatan berlebihan.</p>
+                <FieldError field="nama_lengkap" active={errorField} />
               </div>
 
               {/* NIK */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="nik">
+                <label className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1" htmlFor="nik">
                   Nomor Induk Kependudukan (NIK)
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">id_card</span>
+                  <span className="material-symbols-outlined absolute left-4 text-[#64748B] text-[22px]">id_card</span>
                   <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] sm:text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all tracking-wider border border-transparent focus:border-[#707a6c]" 
+                    className={inputClass('nik', 'pl-12 pr-4 tracking-wider')} 
                     id="nik" 
                     value={formData.nik}
                     onChange={handleChange}
@@ -305,19 +365,20 @@ export default function Register() {
                     type="tel" 
                   />
                 </div>
-                <p className="text-[12px] sm:text-[13px] text-[#40493d]">16 digit angka yang tertera pada e-KTP Bojonegoro.</p>
+                <p className="text-[12px] sm:text-[13px] text-slate-500">16 digit angka yang tertera pada e-KTP Bojonegoro.</p>
+                <FieldError field="nik" active={errorField} />
               </div>
 
               {/* No KK */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="no_kk">
+                <label className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1" htmlFor="no_kk">
                   Nomor Kartu Keluarga (KK)
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">diversity_3</span>
+                  <span className="material-symbols-outlined absolute left-4 text-[#64748B] text-[22px]">diversity_3</span>
                   <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] sm:text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all tracking-wider border border-transparent focus:border-[#707a6c]" 
+                    className={inputClass('no_kk', 'pl-12 pr-4 tracking-wider')} 
                     id="no_kk" 
                     value={formData.no_kk}
                     onChange={handleChange}
@@ -327,30 +388,31 @@ export default function Register() {
                     type="tel" 
                   />
                 </div>
-                <p className="text-[12px] sm:text-[13px] text-[#40493d]">16 digit angka di bagian paling atas lembar Kartu Keluarga.</p>
+                <p className="text-[12px] sm:text-[13px] text-slate-500">16 digit angka di bagian paling atas lembar Kartu Keluarga.</p>
+                <FieldError field="no_kk" active={errorField} />
               </div>
             </div>
 
             {/* Divider */}
-            <div className="w-full h-[1px] bg-[#e6eeff]"></div>
+            <div className="h-px w-full bg-slate-100"></div>
 
             {/* SECTION 2: Kontak & Domisili */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2 pb-2">
-                <span className="material-symbols-outlined text-[#0d631b] text-[24px]">home_pin</span>
-                <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#121c2a]">2. Kontak &amp; Alamat Wilayah Domisili</h2>
+                <span className="material-symbols-outlined text-[#166534] text-[24px]">home_pin</span>
+                <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#0F172A]">2. Kontak &amp; Alamat Wilayah Domisili</h2>
               </div>
 
               {/* No WhatsApp */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="no_hp">
+                <label className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1" htmlFor="no_hp">
                   Nomor WhatsApp / Handphone
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">phone_iphone</span>
+                  <span className="material-symbols-outlined absolute left-4 text-[#64748B] text-[22px]">phone_iphone</span>
                   <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] sm:text-[16px] rounded-lg pl-12 pr-4 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
+                    className={inputClass('no_hp', 'pl-12 pr-4')} 
                     id="no_hp" 
                     value={formData.no_hp}
                     onChange={handleChange}
@@ -359,24 +421,25 @@ export default function Register() {
                     type="tel" 
                   />
                 </div>
-                <p className="text-[12px] sm:text-[13px] text-[#40493d]">
+                <p className="text-[12px] sm:text-[13px] text-slate-500">
                   Penting: Digunakan untuk menerima notifikasi status bansos via WhatsApp atau SMS.
                 </p>
+                <FieldError field="no_hp" active={errorField} />
               </div>
 
               {/* Cascading Wilayah */}
               <div className="flex flex-col gap-2">
-                <span className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1">
+                <span className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1">
                   Wilayah Domisili Desa Ngrowo
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* RW */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[13px] font-semibold text-[#40493d]" htmlFor="rw">Rukun Warga (RW)</label>
+                    <label className="text-[13px] font-semibold text-slate-500" htmlFor="rw">Rukun Warga (RW)</label>
                     <div className="relative flex items-center">
                       <select 
-                        className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" 
+                        className="gov-input appearance-none cursor-pointer px-3" 
                         id="rw" 
                         value={formData.rw}
                         onChange={handleChange}
@@ -386,15 +449,15 @@ export default function Register() {
                         <option value="002">RW 02</option>
                         <option value="003">RW 03</option>
                       </select>
-                      <span className="material-symbols-outlined absolute right-3 pointer-events-none text-[#707a6c]">arrow_drop_down</span>
+                      <span className="material-symbols-outlined absolute right-3 pointer-events-none text-[#64748B]">arrow_drop_down</span>
                     </div>
                   </div>
                   {/* RT */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-[13px] font-semibold text-[#40493d]" htmlFor="rt">Rukun Tetangga (RT)</label>
+                    <label className="text-[13px] font-semibold text-slate-500" htmlFor="rt">Rukun Tetangga (RT)</label>
                     <div className="relative flex items-center">
                       <select 
-                        className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] rounded-lg px-3 appearance-none outline-none focus:bg-white cursor-pointer border border-transparent focus:border-[#707a6c]" 
+                        className="gov-input appearance-none cursor-pointer px-3" 
                         id="rt" 
                         value={formData.rt}
                         onChange={handleChange}
@@ -405,7 +468,7 @@ export default function Register() {
                         <option value="003">RT 03</option>
                         <option value="004">RT 04</option>
                       </select>
-                      <span className="material-symbols-outlined absolute right-3 pointer-events-none text-[#707a6c]">arrow_drop_down</span>
+                      <span className="material-symbols-outlined absolute right-3 pointer-events-none text-[#64748B]">arrow_drop_down</span>
                     </div>
                   </div>
                 </div>
@@ -413,11 +476,11 @@ export default function Register() {
 
               {/* Detail Alamat */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="detail_alamat">
+                <label className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1" htmlFor="detail_alamat">
                   Detail Alamat Lengkap
                 </label>
                 <textarea 
-                  className="w-full bg-[#eff4ff] text-[#121c2a] text-[15px] rounded-lg p-3.5 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
+                  className="w-full gov-input p-3.5 outline-none focus:bg-white transition-all border border-transparent focus:border-[#64748B]" 
                   id="detail_alamat" 
                   value={formData.detail_alamat}
                   onChange={handleChange}
@@ -428,25 +491,25 @@ export default function Register() {
             </div>
 
             {/* Divider */}
-            <div className="w-full h-[1px] bg-[#e6eeff]"></div>
+            <div className="h-px w-full bg-slate-100"></div>
 
             {/* SECTION 3: Keamanan Akun */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2 pb-2">
-                <span className="material-symbols-outlined text-[#0d631b] text-[24px]">lock_reset</span>
-                <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#121c2a]">3. Keamanan Akun Warga</h2>
+                <span className="material-symbols-outlined text-[#166534] text-[24px]">lock_reset</span>
+                <h2 className="text-[18px] sm:text-[20px] font-semibold text-[#0F172A]">3. Keamanan Akun Warga</h2>
               </div>
 
               {/* Password */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="password">
+                <label className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1" htmlFor="password">
                   Password / PIN Akun
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">key</span>
+                  <span className="material-symbols-outlined absolute left-4 text-[#64748B] text-[22px]">key</span>
                   <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] sm:text-[16px] rounded-lg pl-12 pr-12 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
+                    className={inputClass('password', 'pl-12 pr-12')} 
                     id="password" 
                     value={formData.password}
                     onChange={handleChange}
@@ -456,7 +519,7 @@ export default function Register() {
                   />
                   <button 
                     aria-label="Lihat kata sandi" 
-                    className="absolute right-3 w-8 h-8 flex items-center justify-center text-[#707a6c] hover:text-[#121c2a]" 
+                    className="absolute right-3 w-8 h-8 flex items-center justify-center text-[#64748B] hover:text-[#0F172A]" 
                     onClick={() => setShowPassword(!showPassword)} 
                     type="button"
                   >
@@ -465,18 +528,19 @@ export default function Register() {
                     </span>
                   </button>
                 </div>
+                <FieldError field="password" active={errorField} />
               </div>
 
               {/* Konfirmasi Password */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[15px] sm:text-[17px] font-semibold text-[#121c2a] flex items-center gap-1" htmlFor="confirm_password">
+                <label className="text-[15px] sm:text-[17px] font-semibold text-[#0F172A] flex items-center gap-1" htmlFor="confirm_password">
                   Konfirmasi Password / PIN
                   <span className="text-[#ba1a1a] text-[13px] font-medium">(Wajib)</span>
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-4 text-[#707a6c] text-[22px]">lock</span>
+                  <span className="material-symbols-outlined absolute left-4 text-[#64748B] text-[22px]">lock</span>
                   <input 
-                    className="w-full h-12 bg-[#eff4ff] text-[#121c2a] text-[15px] sm:text-[16px] rounded-lg pl-12 pr-12 outline-none focus:bg-white transition-all border border-transparent focus:border-[#707a6c]" 
+                    className={inputClass('confirm_password', 'pl-12 pr-12')} 
                     id="confirm_password" 
                     value={formData.confirm_password}
                     onChange={handleChange}
@@ -486,7 +550,7 @@ export default function Register() {
                   />
                   <button 
                     aria-label="Lihat konfirmasi kata sandi" 
-                    className="absolute right-3 w-8 h-8 flex items-center justify-center text-[#707a6c] hover:text-[#121c2a]" 
+                    className="absolute right-3 w-8 h-8 flex items-center justify-center text-[#64748B] hover:text-[#0F172A]" 
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
                     type="button"
                   >
@@ -495,14 +559,15 @@ export default function Register() {
                     </span>
                   </button>
                 </div>
+                <FieldError field="confirm_password" active={errorField} />
               </div>
             </div>
 
             {/* Pernyataan & Persetujuan Warga */}
-            <div className="bg-[#eff4ff] p-4 rounded-xl mt-2">
+            <div className="mt-2 rounded-xl border border-emerald-200 bg-primary-soft p-4">
               <label className="flex items-start gap-3.5 cursor-pointer">
-                <input className="w-5 h-5 mt-0.5 rounded text-[#0d631b] focus:ring-[#0d631b] flex-shrink-0 cursor-pointer accent-[#0d631b]" required type="checkbox" />
-                <span className="text-[13px] sm:text-[14px] text-[#121c2a] leading-snug">
+                <input className="w-5 h-5 mt-0.5 rounded text-primary focus:ring-primary flex-shrink-0 cursor-pointer accent-[#0d631b]" required type="checkbox" />
+                <span className="text-[13px] sm:text-[14px] text-[#0F172A] leading-snug">
                   Saya menyatakan bahwa data yang diisikan adalah benar warga <strong>Desa Ngrowo</strong> dan bersedia diverifikasi oleh tim bansos desa.
                 </span>
               </label>
@@ -513,7 +578,7 @@ export default function Register() {
               <button 
                 disabled={isLoading}
                 className={`w-full h-[52px] ${
-                  isLoading ? 'bg-emerald-400 cursor-not-allowed' : 'bg-[#0d631b] hover:bg-[#2e7d32]'
+                  isLoading ? 'bg-emerald-400 cursor-not-allowed' : 'bg-[#166534] hover:bg-[#15803D]'
                 } text-white rounded-xl text-[16px] sm:text-[18px] font-semibold shadow-md flex items-center justify-center gap-2 transition-transform active:scale-[0.99] cursor-pointer`}
                 type="submit"
               >
@@ -535,25 +600,31 @@ export default function Register() {
 
               {/* Tautan Masuk (Balik ke Login) */}
               <div className="text-center py-2">
-                <p className="text-[14px] sm:text-[15px] text-[#40493d]">
+                <p className="text-[14px] sm:text-[15px] text-slate-500">
                   Sudah punya akun SI-BANSOS?{' '}
-                  <Link className="text-[#0d631b] font-bold underline hover:text-[#2e7d32] ml-1" to="/login">
-                    Masuk Sekarang
-                  </Link>
+                  {embedded ? (
+                    <button type="button" onClick={onClose} className="text-[#166534] font-bold underline hover:text-[#15803D] ml-1">
+                      Masuk Sekarang
+                    </button>
+                  ) : (
+                    <Link className="text-[#166534] font-bold underline hover:text-[#15803D] ml-1" to="/login">
+                      Masuk Sekarang
+                    </Link>
+                  )}
                 </p>
               </div>
             </div>
           </form>
 
           {/* Support Card for Seniors & Assisted Registration */}
-          <aside className="mt-6 bg-[#e6eeff] rounded-xl p-5 shadow-sm">
+          <aside className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-civic">
             <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-white text-[#0d631b] flex items-center justify-center flex-shrink-0 shadow-sm">
+              <div className="w-10 h-10 rounded-full bg-white text-[#166534] flex items-center justify-center flex-shrink-0 shadow-sm">
                 <span className="material-symbols-outlined text-[24px]">support_agent</span>
               </div>
               <div>
-                <h4 className="text-[15px] sm:text-[16px] font-semibold text-[#121c2a]">Mengalami Kendala Pendaftaran Mandiri?</h4>
-                <p className="text-[13px] sm:text-[14px] text-[#40493d] mt-1 leading-relaxed">
+                <h4 className="text-[15px] sm:text-[16px] font-semibold text-[#0F172A]">Mengalami Kendala Pendaftaran Mandiri?</h4>
+                <p className="text-[13px] sm:text-[14px] text-slate-500 mt-1 leading-relaxed">
                   Warga lansia atau yang terkendala akses digital dapat mendaftar langsung di <strong>Kantor Balai Desa Ngrowo</strong> setiap hari kerja (08.00 - 15.00 WIB) atau meminta pendampingan kepada <strong>Ketua RT setempat</strong>.
                 </p>
               </div>
@@ -563,5 +634,16 @@ export default function Register() {
         </div>
       </main>
     </div>
+  );
+}
+
+
+function FieldError({ field, active }) {
+  if (active !== field) return null;
+  return (
+    <p className="flex items-center gap-1 text-[12px] font-semibold text-red-600 sm:text-[13px]">
+      <span className="material-symbols-outlined text-[15px]">error</span>
+      <span>Periksa kembali isian kolom ini.</span>
+    </p>
   );
 }

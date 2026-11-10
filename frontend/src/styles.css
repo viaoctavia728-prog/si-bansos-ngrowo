@@ -11,13 +11,16 @@
 }
 
 :root {
-  --primary-green: #2E7D32;
-  --secondary-blue: #1565C0;
-  --bg-light: #F8F9FA;
+  --primary-green: #166534;
+  --primary-dark: #14532D;
+  --secondary-blue: #1D4ED8;
+  --bg-light: #F8FAFC;
   --bg-soft: #F8F9FF;
-  --text-dark: #212529;
-  --success-green: #28A745;
-  --danger-red: #DC3545;
+  --text-dark: #0F172A;
+  --text-muted: #64748B;
+  --line: #E2E8F0;
+  --success-green: #16A34A;
+  --danger-red: #DC2626;
 
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   color: var(--text-dark);
@@ -30,6 +33,8 @@ html {
   background: var(--bg-light);
   scroll-behavior: smooth;
   overflow-x: hidden;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -37,8 +42,21 @@ body {
   min-width: 320px;
   background: var(--bg-light);
   color: var(--text-dark);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
   overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  letter-spacing: -0.011em;
+  color: var(--text-dark);
+}
+
+p, li, span {
+  text-wrap: pretty;
 }
 
 button, input, select, textarea {
@@ -50,8 +68,16 @@ button, a, input, select, textarea {
 }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 3px solid rgba(46, 125, 50, 0.35);
+  outline: 3px solid rgba(22, 101, 52, 0.35);
   outline-offset: 2px;
+}
+
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+img {
+  height: auto;
 }
 
 .material-symbols-outlined {
@@ -81,24 +107,161 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .page-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   padding-bottom: 5.5rem;
 }
 
+/* ====== LAYOUT SHELL ====== */
 .content-width {
-  width: min(100%, 75rem);
-  margin: 0 auto;
-  padding-inline: 1.25rem;
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 1rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .content-width {
-    padding-inline: 2.5rem;
+    padding-inline: 1.5rem;
   }
 }
 
 @media (min-width: 1024px) {
-  main > div > div {
-    max-width: 75rem;
-    margin-inline: auto;
+  .content-width {
+    padding-inline: 2rem;
+  }
+}
+
+/* Shell terpusat portal warga (selaras dengan konten admin) */
+.warga-shell {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .warga-shell {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .warga-shell {
+    padding-inline: 2rem;
+  }
+}
+
+.warga-content {
+  width: 100%;
+  max-width: 960px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .warga-content {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .warga-content {
+    padding-inline: 2rem;
+  }
+}
+
+/* ====== KOMPONEN KARTU PEMERINTAH ====== */
+@layer components {
+  .gov-card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-civic;
+  }
+
+  .gov-card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-card;
+  }
+
+  .gov-section-title {
+    @apply flex items-center gap-2.5 border-b border-slate-100 px-4 py-3.5 sm:px-5;
+  }
+
+  .gov-section-title h2,
+  .gov-section-title h3 {
+    @apply text-sm font-bold text-slate-900 sm:text-base;
+  }
+
+  .gov-badge {
+    @apply inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-primary-soft px-2.5 py-0.5 text-[11px] font-semibold text-primary;
+  }
+
+  .gov-label {
+    @apply block text-xs font-semibold text-slate-700 sm:text-sm;
+  }
+
+  .gov-input {
+    @apply h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 transition placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15;
+  }
+
+  .gov-btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition-all active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40;
+  }
+
+  .gov-btn-primary {
+    @apply gov-btn bg-primary text-white shadow-sm hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .gov-btn-outline {
+    @apply gov-btn border border-slate-300 bg-white text-slate-700 hover:border-primary hover:bg-primary-soft hover:text-primary;
+  }
+
+  .gov-btn-soft {
+    @apply gov-btn border border-emerald-200 bg-primary-soft text-primary hover:bg-emerald-100;
+  }
+
+  .gov-divider {
+    @apply h-px w-full bg-slate-100;
+  }
+}
+
+/* Hilangkan scrollbar horizontal pada kontainer tabel di layar kecil */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ====== ANIMASI GLOBAL ====== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Transisi masuk untuk konten halaman */
+.page-enter {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Transisi halus untuk interaksi umum */
+a, button, input, select, textarea {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

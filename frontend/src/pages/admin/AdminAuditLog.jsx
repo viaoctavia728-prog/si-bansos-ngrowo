@@ -176,7 +176,7 @@ export default function AdminAuditLog() {
                   const cat = getLogCategory(entry.aktivitas);
                   const toneBadge = {
                     blue: 'bg-blue-50 text-blue-800 border-blue-200',
-                    emerald: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                    emerald: 'bg-emerald-50 text-[#166534] border-emerald-200',
                     purple: 'bg-purple-50 text-purple-800 border-purple-200',
                     slate: 'bg-slate-50 text-slate-800 border-slate-200',
                   }[cat.tone];
@@ -223,7 +223,7 @@ export default function AdminAuditLog() {
 
         <div className="p-4 border-t border-slate-200 bg-slate-50/50 text-xs text-slate-500 flex items-center justify-between">
           <span>Menampilkan {filteredLogs.length} rekam jejak sistem</span>
-          <span className="flex items-center gap-1 text-emerald-700 font-bold">
+          <span className="flex items-center gap-1 text-[#166534] font-bold">
             <span className="material-symbols-outlined text-[15px]">security</span>
             Integritas Audit Terjamin
           </span>

@@ -72,10 +72,10 @@ export default function AdminLayout() {
         {/* Portal Resmi Badge */}
         <div className="px-5 pt-4 pb-2">
           <div className="flex items-center gap-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100/80 px-3 py-2 text-emerald-900">
-            <span className="material-symbols-outlined text-[19px] text-emerald-700">verified</span>
+            <span className="material-symbols-outlined text-[19px] text-[#166534]">verified</span>
             <div className="leading-tight">
               <span className="block text-[11px] font-bold text-emerald-950">Portal Resmi</span>
-              <span className="block text-[10px] text-emerald-700 font-medium">Pemerintah Desa</span>
+              <span className="block text-[10px] text-[#166534] font-medium">Pemerintah Desa</span>
             </div>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function AdminLayout() {
                 to={item.to}
                 className={`flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all ${
                   active
-                    ? 'bg-[#1b7340] text-white shadow-sm shadow-emerald-900/10'
+                    ? 'bg-[#166534] text-white shadow-sm shadow-emerald-900/10'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
@@ -154,7 +154,7 @@ export default function AdminLayout() {
             {/* Notification bell */}
             <Link
               to="/admin/notifikasi"
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:text-emerald-800 transition-colors"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 text-slate-600 hover:bg-slate-50 hover:text-[#166534] transition-colors"
               title="Kirim Notifikasi Real-time"
               aria-label="Kirim Notifikasi"
             >
@@ -168,11 +168,11 @@ export default function AdminLayout() {
               className="flex items-center gap-3 pl-2 sm:border-l sm:border-slate-200 hover:opacity-85 transition-opacity group cursor-pointer"
               title="Buka Pengaturan Profil Admin"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-white font-bold shadow-xs group-hover:ring-2 group-hover:ring-emerald-400 transition-all">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#166534] text-white font-bold shadow-xs group-hover:ring-2 group-hover:ring-emerald-400 transition-all">
                 <span className="material-symbols-outlined text-[20px]">account_circle</span>
               </div>
               <div className="hidden sm:block text-left leading-tight">
-                <p className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">{adminName}</p>
+                <p className="text-xs font-bold text-slate-900 group-hover:text-[#166534] transition-colors">{adminName}</p>
                 <p className="text-[11px] text-slate-500 font-medium">{adminRole}</p>
               </div>
             </Link>
@@ -202,7 +202,7 @@ export default function AdminLayout() {
                       to={item.to}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all ${
-                        active ? 'bg-[#1b7340] text-white' : 'text-slate-600 hover:bg-slate-50'
+                        active ? 'bg-[#166534] text-white' : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
                       <span className="material-symbols-outlined text-[20px]">{item.icon}</span>

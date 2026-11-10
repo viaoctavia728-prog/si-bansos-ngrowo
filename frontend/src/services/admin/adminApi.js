@@ -24,6 +24,21 @@ export const adminService = {
     return response.data;
   },
 
+  async createPengaduan(payload) {
+    const response = await adminApiClient.post('/admin/pengaduan', payload);
+    return response.data;
+  },
+
+  async updatePengaduan(idLaporan, payload) {
+    const response = await adminApiClient.put(`/admin/pengaduan/${idLaporan}`, payload);
+    return response.data;
+  },
+
+  async deletePengaduan(idLaporan) {
+    const response = await adminApiClient.delete(`/admin/pengaduan/${idLaporan}`);
+    return response.data;
+  },
+
   async analyzeHousePhoto(file) {
     const formData = new FormData();
     formData.append('file', file, file.name || 'bukti-rumah');
@@ -85,8 +100,13 @@ export const adminService = {
   },
 
   async getWilayah() {
-    const response = await adminApiClient.get('/admin/wilayah');
-    return response.data;
+    try {
+      const response = await adminApiClient.get('/wilayah');
+      return response.data;
+    } catch {
+      const fallback = await adminApiClient.get('/api/wilayah');
+      return fallback.data;
+    }
   },
 
   async getJadwal() {
@@ -146,12 +166,32 @@ export const adminService = {
   },
 
   async sendNotification(payload) {
-    const response = await adminApiClient.post('/notifications/fcm/send', payload);
-    return response.data;
+    const paths = ['/notifications/fcm/send', '/api/notifications/fcm/send', '/notifications/send'];
+    let lastError;
+    for (const path of paths) {
+      try {
+        const response = await adminApiClient.post(path, payload);
+        return response.data;
+      } catch (err) {
+        lastError = err;
+        if (err.status !== 404 && err.status !== 405) throw err;
+      }
+    }
+    throw lastError;
   },
 
   async sendNotificationToToken(payload) {
-    const response = await adminApiClient.post('/notifications/fcm/send-to-token', payload);
-    return response.data;
+    const paths = ['/notifications/fcm/send-to-token', '/api/notifications/fcm/send-to-token'];
+    let lastError;
+    for (const path of paths) {
+      try {
+        const response = await adminApiClient.post(path, payload);
+        return response.data;
+      } catch (err) {
+        lastError = err;
+        if (err.status !== 404 && err.status !== 405) throw err;
+      }
+    }
+    throw lastError;
   },
 };

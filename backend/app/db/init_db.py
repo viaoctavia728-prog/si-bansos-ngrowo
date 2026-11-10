@@ -21,6 +21,7 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
             ensure_user_status_columns()
             ensure_notification_preference_column()
             ensure_desil_columns()
+            drop_dusun_columns()
             seed_default_admin()
             seed_demo_warga()
             activate_eligible_citizens()
@@ -83,6 +84,18 @@ def ensure_desil_columns():
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN desil INTEGER NOT NULL DEFAULT 4"))
 
 
+def drop_dusun_columns():
+    """Hapus kolom dusun yang sudah tidak dipakai sistem."""
+    for table in ("wilayah_ngrowo", "data_bansos"):
+        try:
+            columns = {column["name"] for column in inspect(engine).get_columns(table)}
+        except Exception:
+            continue
+        if "dusun" in columns:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE {table} DROP COLUMN dusun"))
+
+
 def seed_demo_desil_and_bansos():
     db: Session = SessionLocal()
     try:
@@ -108,7 +121,6 @@ def seed_demo_desil_and_bansos():
                     status_penerima="aktif",
                     rt=f"{(index % 5) + 1:03d}",
                     rw=f"{(index % 5) + 1:03d}",
-                    dusun="Desa Ngrowo",
                     desil=resident.desil,
                 )
             )

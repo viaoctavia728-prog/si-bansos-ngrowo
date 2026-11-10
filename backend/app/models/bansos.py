@@ -15,5 +15,4 @@ class DataBansos(Base):
     status_penerima = Column(String(20), default="aktif")
     rt = Column(String(10), nullable=False)
     rw = Column(String(10), nullable=False)
-    dusun = Column(String(50), nullable=True)
     desil = Column(Integer, nullable=False, default=4)

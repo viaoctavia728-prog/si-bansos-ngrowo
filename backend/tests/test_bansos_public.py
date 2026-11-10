@@ -14,7 +14,6 @@ def test_mask_bansos_response_hides_nik_and_kk_without_mutating_record():
         status_penerima="aktif",
         rt="001",
         rw="002",
-        dusun="Dusun Contoh",
     )
 
     response = mask_bansos_response(penerima)
@@ -36,7 +35,6 @@ def test_mask_bansos_response_handles_missing_kk():
         status_penerima="aktif",
         rt="001",
         rw="002",
-        dusun=None,
     )
 
     response = mask_bansos_response(penerima)

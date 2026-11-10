@@ -124,7 +124,7 @@ Data penerima memiliki informasi seperti:
 - Jenis bantuan.
 - Periode bantuan.
 - Status penerima.
-- RT/RW dan dusun.
+- RT/RW.
 - Desil 1 sampai 10.
 
 Contoh endpoint:
@@ -263,7 +263,7 @@ Model penting:
 - `bansos.py`: data penerima bantuan.
 - `pengaduan.py`: laporan pengaduan warga.
 - `notification.py`: notifikasi atau riwayat informasi admin.
-- `wilayah.py`: data RT/RW/dusun.
+- `wilayah.py`: data RT/RW.
 - `audit_log.py`: catatan aktivitas penting admin.
 - `fcm_device_token.py`: token perangkat untuk notifikasi Firebase.
 

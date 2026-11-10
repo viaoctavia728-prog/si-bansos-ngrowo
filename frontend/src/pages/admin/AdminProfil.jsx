@@ -128,7 +128,7 @@ export default function AdminProfil() {
         <span>/</span>
         <span className="text-slate-600">Admin Desa</span>
         <span>/</span>
-        <span className="text-emerald-700 font-bold">Profil Perangkat & Admin</span>
+        <span className="text-[#166534] font-bold">Profil Perangkat & Admin</span>
       </nav>
 
       {/* 2. HEADER */}
@@ -147,7 +147,7 @@ export default function AdminProfil() {
         <div
           className={`p-4 rounded-xl text-sm font-semibold flex items-center gap-3 ${
             feedback.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              ? 'bg-emerald-50 text-[#166534] border border-emerald-200'
               : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}
         >
@@ -164,7 +164,7 @@ export default function AdminProfil() {
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs text-center">
             <div className="relative inline-block mx-auto mb-4">
-              <div className="h-24 w-24 rounded-full bg-emerald-800 text-white font-black text-3xl flex items-center justify-center shadow-md mx-auto">
+              <div className="h-24 w-24 rounded-full bg-[#166534] text-white font-black text-3xl flex items-center justify-center shadow-md mx-auto">
                 {formData.nama_lengkap.charAt(0).toUpperCase() || 'A'}
               </div>
               <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-white" title="Status Aktif">
@@ -178,7 +178,7 @@ export default function AdminProfil() {
             <div className="mt-4 pt-4 border-t border-slate-100 space-y-2 text-left text-xs">
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400">Status Akun:</span>
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full text-[11px]">
+                <span className="font-bold text-[#166534] bg-emerald-50 px-2 py-0.5 rounded-full text-[11px]">
                   Terverifikasi
                 </span>
               </div>
@@ -202,7 +202,7 @@ export default function AdminProfil() {
               <span className="material-symbols-outlined text-[18px]">security</span>
               Hak Akses Administrator
             </div>
-            <p className="text-[11px] text-emerald-800 leading-relaxed">
+            <p className="text-[11px] text-[#166534] leading-relaxed">
               Akun ini memiliki wewenang memvalidasi aduan bansos, memperbarui status warga, dan melakukan siaran notifikasi resmi desa.
             </p>
           </div>
@@ -385,7 +385,7 @@ export default function AdminProfil() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#1b7340] hover:bg-emerald-800 px-6 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#166534] hover:bg-[#166534] px-6 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs disabled:opacity-50"
                 >
                   <span className={`material-symbols-outlined text-[18px] ${saving ? 'animate-spin' : ''}`}>
                     {saving ? 'progress_activity' : 'save'}

@@ -1,15 +1,45 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
 
 const WEEK_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+const MONTH_NAMES = [
+  'januari', 'februari', 'maret', 'april', 'mei', 'juni',
+  'juli', 'agustus', 'september', 'oktober', 'november', 'desember',
+];
+
+function buildIsoDate(value, fallback = new Date()) {
+  const text = String(value || '').toLowerCase();
+  const dayMatch = text.match(/(\d{1,2})/);
+  if (!dayMatch) return '';
+  const day = parseInt(dayMatch[1], 10);
+  if (day < 1 || day > 31) return '';
+  const monthIndex = MONTH_NAMES.findIndex((name) => text.includes(name));
+  const yearMatch = text.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : fallback.getFullYear();
+  const month = monthIndex >= 0 ? monthIndex : fallback.getMonth();
+  const iso = new Date(year, month, day);
+  if (iso.getMonth() !== month) return '';
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function resolveScheduleDate(item, fallback = new Date()) {
+  if (item?.iso_date) {
+    const iso = new Date(item.iso_date);
+    if (!Number.isNaN(iso.getTime())) return iso;
+  }
+  const iso = buildIsoDate(item?.tanggal, fallback);
+  if (!iso) return null;
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
 export default function AdminJadwal() {
-  const navigate = useNavigate();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState(null);
+  const [broadcastingId, setBroadcastingId] = useState(null);
 
   // Dynamic calendar states based on real-time new Date()
   const today = useMemo(() => new Date(), []);
@@ -24,7 +54,6 @@ export default function AdminJadwal() {
     tanggal: '',
     jam: '08:30 - 12:00 WIB',
     lokasi: 'Pendopo Balai Desa Ngrowo',
-    dusun: 'Semua Dusun Kelurahan Ngrowo',
     persyaratan: 'KTP Asli Penerima, Kartu Keluarga (KK), Undangan RT',
     status: 'Dijadwalkan',
   });
@@ -55,40 +84,26 @@ export default function AdminJadwal() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const calendarCells = [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
 
-  // Check which days in current month have events
+  // Check which days in the displayed month have events (only that month/year counts)
   const scheduledDaysMap = useMemo(() => {
     const map = {};
     schedules.forEach((item) => {
-      if (item.iso_date) {
-        const d = new Date(item.iso_date);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-          map[d.getDate()] = item;
-        }
-      } else if (item.tanggal) {
-        const parts = item.tanggal.split(' ');
-        const dayNum = parseInt(parts[0], 10);
-        if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
-          map[dayNum] = item;
-        }
+      const d = resolveScheduleDate(item, new Date(year, month, 1));
+      if (!d) return;
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        // Prefer the earliest schedule of the day, keep it stable
+        if (!map[d.getDate()]) map[d.getDate()] = item;
       }
     });
     return map;
   }, [schedules, year, month]);
 
-  // Filtered schedules based on day selection
+  // Filtered schedules based on the selected day within the displayed month
   const displayedSchedules = useMemo(() => {
     if (!selectedDay) return schedules;
     return schedules.filter((item) => {
-      if (item.iso_date) {
-        const d = new Date(item.iso_date);
-        return d.getFullYear() === year && d.getMonth() === month && d.getDate() === selectedDay;
-      }
-      if (item.tanggal) {
-        const parts = item.tanggal.split(' ');
-        const dayNum = parseInt(parts[0], 10);
-        return dayNum === selectedDay;
-      }
-      return false;
+      const d = resolveScheduleDate(item, new Date(year, month, 1));
+      return Boolean(d) && d.getFullYear() === year && d.getMonth() === month && d.getDate() === selectedDay;
     });
   }, [schedules, selectedDay, year, month]);
 
@@ -121,6 +136,7 @@ export default function AdminJadwal() {
       setFeedback(null);
       const reqPayload = {
         ...newSchedule,
+        iso_date: newSchedule.iso_date || buildIsoDate(newSchedule.tanggal, displayedMonth),
         persyaratan: typeof newSchedule.persyaratan === 'string'
           ? newSchedule.persyaratan.split(',').map((p) => p.trim()).filter(Boolean)
           : newSchedule.persyaratan,
@@ -133,14 +149,13 @@ export default function AdminJadwal() {
         tanggal: '',
         jam: '08:30 - 12:00 WIB',
         lokasi: 'Pendopo Balai Desa Ngrowo',
-        dusun: 'Semua Dusun Kelurahan Ngrowo',
         persyaratan: 'KTP Asli Penerima, Kartu Keluarga (KK), Undangan RT',
         status: 'Dijadwalkan',
       });
       await loadSchedules();
     } catch (err) {
-      const msg = err.status === 404 || err.message?.toLowerCase().includes('not found')
-        ? `Endpoint penambahan jadwal tidak ditemukan di server (404 Not Found). Pastikan backend aktif.`
+      const msg = err.status === 404
+        ? 'Layanan penambahan jadwal tidak ditemukan di server. Pastikan backend berjalan dan sudah diperbarui.'
         : (err.message || 'Gagal menyimpan jadwal baru.');
       setFeedback({ type: 'error', message: msg });
     } finally {
@@ -148,13 +163,32 @@ export default function AdminJadwal() {
     }
   };
 
-  const handleBroadcastSchedule = (item) => {
-    navigate('/admin/notifikasi', {
-      state: {
-        prefillTitle: `Jadwal Penyaluran: ${item.program}`,
-        prefillBody: `Penyaluran ${item.program} dijadwalkan pada ${item.tanggal} pukul ${item.jam} bertempat di ${item.lokasi}. Harap membawa persyaratan dokumen asli.`,
-      },
-    });
+  const handleBroadcastSchedule = async (item, index) => {
+    const targetKey = item.id ?? index;
+    const title = `Jadwal Penyaluran: ${item.program}`.slice(0, 120);
+    const body = `Penyaluran ${item.program} dijadwalkan pada ${item.tanggal} pukul ${item.jam} bertempat di ${item.lokasi}. Harap membawa persyaratan dokumen asli.`.slice(0, 500);
+
+    if (!window.confirm(`Kirim notifikasi jadwal '${item.program}' ke seluruh warga sekarang?`)) {
+      return;
+    }
+
+    try {
+      setBroadcastingId(targetKey);
+      setFeedback(null);
+      const result = await adminService.sendNotification({ title, body });
+      const total = result?.sent ?? 1;
+      setFeedback({
+        type: 'success',
+        message: `Notifikasi jadwal '${item.program}' berhasil dikirim ke warga (${total} penerima).`,
+      });
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Gagal mengirim notifikasi jadwal ke warga.',
+      });
+    } finally {
+      setBroadcastingId(null);
+    }
   };
 
   return (
@@ -167,7 +201,7 @@ export default function AdminJadwal() {
         <span>/</span>
         <span className="text-slate-600">Admin Desa</span>
         <span>/</span>
-        <span className="text-emerald-700 font-bold">Manajemen Jadwal Penyaluran</span>
+        <span className="text-[#166534] font-bold">Manajemen Jadwal Penyaluran</span>
       </nav>
 
       {/* 2. HEADER & ACTION BUTTONS */}
@@ -183,7 +217,7 @@ export default function AdminJadwal() {
         <div className="flex items-center gap-2.5 self-start md:self-auto">
           <Link
             to="/admin/notifikasi"
-            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs sm:text-sm font-bold text-emerald-800 hover:bg-emerald-100 transition-colors shadow-xs"
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs sm:text-sm font-bold text-[#166534] hover:bg-emerald-100 transition-colors shadow-xs"
           >
             <span className="material-symbols-outlined text-[18px]">notifications_active</span>
             Siarkan ke Warga
@@ -197,7 +231,7 @@ export default function AdminJadwal() {
               }));
               setIsAddModalOpen(true);
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#1b7340] hover:bg-emerald-800 px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#166534] hover:bg-[#166534] px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs"
           >
             <span className="material-symbols-outlined text-[18px]">add_circle</span>
             Tambah Jadwal
@@ -208,7 +242,7 @@ export default function AdminJadwal() {
       {feedback && (
         <div
           className={`p-4 rounded-xl text-sm font-semibold flex items-center justify-between gap-3 shadow-xs transition-all ${
-            feedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            feedback.type === 'success' ? 'bg-emerald-50 text-[#166534] border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}
         >
           <div className="flex items-center gap-3">
@@ -242,14 +276,14 @@ export default function AdminJadwal() {
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-emerald-700">calendar_month</span>
+                <span className="material-symbols-outlined text-[20px] text-[#166534]">calendar_month</span>
                 <h3 className="text-sm font-extrabold text-slate-900 capitalize">{monthName}</h3>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={handleCurrentMonth}
-                  className="px-2 py-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors mr-1"
+                  className="px-2 py-1 text-[10px] font-bold text-[#166534] bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors mr-1"
                   title="Kembali ke bulan ini"
                 >
                   Hari Ini
@@ -301,9 +335,9 @@ export default function AdminJadwal() {
                     onClick={() => setSelectedDay(selectedDay === day ? null : day)}
                     className={`relative h-10 rounded-xl flex flex-col items-center justify-center font-bold transition-all ${
                       isSelected
-                        ? 'bg-[#1b7340] text-white shadow-xs'
+                        ? 'bg-[#166534] text-white shadow-xs'
                         : isToday
-                        ? 'border-2 border-emerald-600 text-emerald-800 bg-emerald-50/50'
+                        ? 'border-2 border-emerald-600 text-[#166534] bg-emerald-50/50'
                         : hasEvent
                         ? 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100'
                         : 'hover:bg-slate-100 text-slate-700'
@@ -351,7 +385,7 @@ export default function AdminJadwal() {
                     <button
                       type="button"
                       onClick={() => setSelectedDay(null)}
-                      className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-lg transition-colors"
+                      className="text-[10px] font-bold text-[#166534] hover:text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded-lg transition-colors"
                     >
                       Lihat Semua
                     </button>
@@ -397,7 +431,7 @@ export default function AdminJadwal() {
                     <button
                       type="button"
                       onClick={() => setSelectedDay(null)}
-                      className="text-emerald-700 font-bold underline"
+                      className="text-[#166534] font-bold underline"
                     >
                       Klik di sini untuk melihat semua jadwal
                     </button>
@@ -414,11 +448,11 @@ export default function AdminJadwal() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-extrabold text-slate-900">{item.program}</h4>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200">
                             {item.status || 'Dijadwalkan'}
                           </span>
                         </div>
-                        <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1 mt-1">
+                        <p className="text-xs font-semibold text-[#166534] flex items-center gap-1 mt-1">
                           <span className="material-symbols-outlined text-[15px]">event</span>
                           {item.tanggal} · {item.jam}
                         </p>
@@ -426,12 +460,15 @@ export default function AdminJadwal() {
 
                       <button
                         type="button"
-                        onClick={() => handleBroadcastSchedule(item)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors shrink-0 shadow-2xs"
+                        onClick={() => handleBroadcastSchedule(item, index)}
+                        disabled={broadcastingId !== null}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors shrink-0 shadow-2xs disabled:opacity-50"
                         title="Kirim notifikasi real-time jadwal ini ke warga"
                       >
-                        <span className="material-symbols-outlined text-[15px]">send</span>
-                        Broadcast
+                        <span className={`material-symbols-outlined text-[15px] ${broadcastingId === (item.id ?? index) ? 'animate-spin' : ''}`}>
+                          {broadcastingId === (item.id ?? index) ? 'progress_activity' : 'send'}
+                        </span>
+                        {broadcastingId === (item.id ?? index) ? 'Mengirim...' : 'Broadcast'}
                       </button>
                     </div>
 
@@ -439,10 +476,6 @@ export default function AdminJadwal() {
                       <p className="flex items-center gap-1.5">
                         <span className="material-symbols-outlined text-[15px] text-slate-400">location_on</span>
                         <strong>Lokasi:</strong> {item.lokasi}
-                      </p>
-                      <p className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[15px] text-slate-400">apartment</span>
-                        <strong>Wilayah:</strong> {item.dusun || 'Seluruh Dusun Ngrowo'}
                       </p>
                       {item.persyaratan && (
                         <p className="flex items-start gap-1.5 pt-0.5">
@@ -528,18 +561,6 @@ export default function AdminJadwal() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Sasaran Wilayah / Dusun</label>
-                <input
-                  required
-                  type="text"
-                  value={newSchedule.dusun}
-                  onChange={(e) => setNewSchedule({ ...newSchedule, dusun: e.target.value })}
-                  placeholder="Contoh: Dusun Krajan (RT 01, 02) & Ngrowo Timur"
-                  className="h-10 w-full rounded-xl border border-slate-300 px-3 text-xs focus:border-emerald-600 focus:outline-none"
-                />
-              </div>
-
-              <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Persyaratan Dokumen (pisahkan dengan koma)</label>
                 <textarea
                   rows={2}
@@ -561,7 +582,7 @@ export default function AdminJadwal() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-[#1b7340] hover:bg-emerald-800 text-white text-xs font-bold shadow-xs disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-[#166534] hover:bg-[#166534] text-white text-xs font-bold shadow-xs disabled:opacity-50"
                 >
                   <span className={`material-symbols-outlined text-[17px] ${isSaving ? 'animate-spin' : ''}`}>
                     {isSaving ? 'progress_activity' : 'save'}
