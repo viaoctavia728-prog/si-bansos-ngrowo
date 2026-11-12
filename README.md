@@ -17,6 +17,14 @@ The Compose defaults are for local development only. To customize them, copy
 `.env.example` to `.env` and replace the development values. Never use the
 example credentials or signing key for a public deployment.
 
+The Docker backend runs without Uvicorn hot reload to avoid filesystem polling
+errors with Windows bind mounts. Restart or rebuild the backend after changing
+backend source files:
+
+```powershell
+docker compose up --build -d backend
+```
+
 ## Local services
 
 - Web app: <http://localhost/>

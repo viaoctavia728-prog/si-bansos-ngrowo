@@ -480,7 +480,7 @@ export default function Register({ embedded = false, onClose, onSuccess }) {
                   Detail Alamat Lengkap
                 </label>
                 <textarea 
-                  className="w-full gov-input p-3.5 outline-none focus:bg-white transition-all border border-transparent focus:border-[#64748B]" 
+                  className="w-full gov-input !h-auto min-h-24 resize-none p-3.5 outline-none focus:bg-white transition-all border border-transparent focus:border-[#64748B]"
                   id="detail_alamat" 
                   value={formData.detail_alamat}
                   onChange={handleChange}

@@ -33,6 +33,10 @@ export default function Login() {
     const [showLanding, setShowLanding] = useState(true);
     const [showPublicMenu, setShowPublicMenu] = useState(false);
     const [showRegister, setShowRegister] = useState(false);
+    const [showStaffPin, setShowStaffPin] = useState(false);
+    const [staffPin, setStaffPin] = useState('');
+    const [staffPinError, setStaffPinError] = useState('');
+    const [checkingStaffPin, setCheckingStaffPin] = useState(false);
 
     // Form state & feedback
     const [nik, setNik] = useState('');
@@ -61,6 +65,21 @@ export default function Login() {
             setErrorMessage(err.message || 'Login gagal. Periksa kembali NIK dan Password.');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleStaffPortalAccess = async (event) => {
+        event.preventDefault();
+        setStaffPinError('');
+        setCheckingStaffPin(true);
+        try {
+            await authService.verifyStaffPortalPin(staffPin);
+            sessionStorage.setItem('staff_portal_access', 'granted');
+            navigate('/admin/login');
+        } catch (error) {
+            setStaffPinError(error.message || 'PIN Portal Petugas salah.');
+        } finally {
+            setCheckingStaffPin(false);
         }
     };
 
@@ -410,7 +429,17 @@ export default function Login() {
                                 </button>
                             </p>
                             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-semibold">
-                                <Link to="/admin/login" className="text-slate-500 hover:text-primary">Portal Petugas</Link>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setStaffPin('');
+                                        setStaffPinError('');
+                                        setShowStaffPin(true);
+                                    }}
+                                    className="text-slate-500 hover:text-primary"
+                                >
+                                    Portal Petugas
+                                </button>
                                 <span className="h-3 w-px bg-slate-200" />
                                 <Link to="/info-bansos" className="text-primary hover:text-primary-dark">Info Bansos &amp; FAQ</Link>
                             </div>
@@ -419,6 +448,50 @@ export default function Login() {
                 </div>
             </div>
         </div>
+
+        {showStaffPin && (
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="staff-pin-title"
+                className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm"
+                onClick={() => setShowStaffPin(false)}
+            >
+                <form
+                    onSubmit={handleStaffPortalAccess}
+                    className="w-full max-w-sm rounded-2xl border border-emerald-100 bg-white p-6 shadow-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <div className="flex items-start gap-3">
+                        <span className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">lock</span>
+                        <div>
+                            <h2 id="staff-pin-title" className="text-base font-extrabold text-slate-900">Akses Portal Petugas</h2>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-500">Masukkan PIN akses sebelum melanjutkan ke login admin.</p>
+                        </div>
+                    </div>
+                    {staffPinError && <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{staffPinError}</p>}
+                    <label className="mt-4 block text-xs font-bold text-slate-700">
+                        PIN Portal Petugas
+                        <input
+                            type="password"
+                            value={staffPin}
+                            onChange={(event) => setStaffPin(event.target.value)}
+                            autoFocus
+                            minLength={6}
+                            required
+                            className="mt-1.5 h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+                            placeholder="Masukkan PIN"
+                        />
+                    </label>
+                    <div className="mt-5 flex justify-end gap-2">
+                        <button type="button" onClick={() => setShowStaffPin(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Batal</button>
+                        <button type="submit" disabled={checkingStaffPin} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-900 disabled:opacity-60">
+                            {checkingStaffPin ? 'Memeriksa...' : 'Lanjut ke Portal'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        )}
 
         {/* MODAL DAFTAR AKUN WARGA */}
         {showRegister && (

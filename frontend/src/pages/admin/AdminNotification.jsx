@@ -39,9 +39,13 @@ export default function AdminNotification() {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     loadRecentLogs();
+    loadAnnouncements();
   }, []);
 
   const loadRecentLogs = async () => {
@@ -56,6 +60,15 @@ export default function AdminNotification() {
     }
   };
 
+  const loadAnnouncements = async () => {
+    try {
+      const data = await adminService.getNotifications();
+      setAnnouncements(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'Gagal memuat daftar pengumuman.' });
+    }
+  };
+
   const handleApplyTemplate = (tmpl) => {
     setForm((prev) => ({
       ...prev,
@@ -65,21 +78,63 @@ export default function AdminNotification() {
     setFeedback(null);
   };
 
+  const handleEditAnnouncement = (announcement) => {
+    setEditingId(announcement.id_notification);
+    setForm((prev) => ({
+      ...prev,
+      title: announcement.title,
+      body: announcement.body,
+      targetType: 'all',
+      targetToken: '',
+    }));
+    setFeedback(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteAnnouncement = async (idNotification) => {
+    if (!window.confirm('Hapus pengumuman ini dari dashboard warga?')) return;
+    try {
+      setDeletingId(idNotification);
+      await adminService.deleteNotification(idNotification);
+      setAnnouncements((prev) => prev.filter((item) => item.id_notification !== idNotification));
+      setFeedback({ type: 'success', message: 'Pengumuman berhasil dihapus.' });
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'Gagal menghapus pengumuman.' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setSending(true);
       setFeedback(null);
 
-      let result;
-      if (form.targetType === 'token' && form.targetToken) {
-        result = await adminService.sendNotificationToToken({
+      if (editingId) {
+        await adminService.updateNotification(editingId, {
           title: form.title,
           body: form.body,
-        target_token: form.targetToken,
-      });
+        });
+        setAnnouncements((prev) => prev.map((item) => (
+          item.id_notification === editingId
+            ? { ...item, title: form.title, body: form.body }
+            : item
+        )));
+        setEditingId(null);
+          setForm((prev) => ({ ...prev, title: '', body: '', targetType: 'all', targetToken: '' }));
+          setFeedback({ type: 'success', message: 'Pengumuman berhasil diperbarui.' });
+          return;
+      }
+
+      if (form.targetType === 'token' && form.targetToken) {
+        await adminService.sendNotificationToToken({
+          title: form.title,
+          body: form.body,
+          target_token: form.targetToken,
+        });
       } else {
-        result = await adminService.sendNotification({
+        await adminService.sendNotification({
           title: form.title,
           body: form.body,
         });
@@ -91,6 +146,7 @@ export default function AdminNotification() {
       });
 
       await loadRecentLogs();
+      await loadAnnouncements();
     } catch (err) {
       setFeedback({
         type: 'error',
@@ -265,8 +321,17 @@ export default function AdminNotification() {
                 <span className={`material-symbols-outlined text-[18px] ${sending ? 'animate-spin' : ''}`}>
                   {sending ? 'progress_activity' : 'send'}
                 </span>
-                {sending ? 'Mengirim...' : 'Kirim Notifikasi ke Warga'}
+                {sending ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Kirim Notifikasi ke Warga'}
               </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-800"
+                >
+                  Batal Edit
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -323,6 +388,35 @@ export default function AdminNotification() {
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {log.timestamp ? new Date(log.timestamp).toLocaleString('id-ID') : '-'}
                     </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+            <h3 className="text-sm font-extrabold text-slate-900 mb-1">Kelola Pengumuman Warga</h3>
+            <p className="text-[11px] text-slate-500 mb-3">Pengumuman yang tampil di dashboard warga.</p>
+            {announcements.length === 0 ? (
+              <p className="text-xs text-slate-400 py-4 text-center">Belum ada pengumuman.</p>
+            ) : (
+              <div className="space-y-2">
+                {announcements.map((announcement) => (
+                  <div key={announcement.id_notification} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800">{announcement.title}</p>
+                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{announcement.body}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button type="button" onClick={() => handleEditAnnouncement(announcement)} className="rounded-lg p-1.5 text-blue-700 hover:bg-blue-50" title="Edit pengumuman">
+                          <span className="material-symbols-outlined text-[17px]">edit</span>
+                        </button>
+                        <button type="button" disabled={deletingId === announcement.id_notification} onClick={() => handleDeleteAnnouncement(announcement.id_notification)} className="rounded-lg p-1.5 text-rose-700 hover:bg-rose-50 disabled:opacity-50" title="Hapus pengumuman">
+                          <span className="material-symbols-outlined text-[17px]">delete</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

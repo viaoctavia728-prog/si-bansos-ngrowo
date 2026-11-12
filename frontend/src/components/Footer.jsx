@@ -1,6 +1,5 @@
 import { NavLink, Link } from 'react-router-dom';
 import logoNgrowo from '../images/logo ngrowo.png';
-import { useWargaLayout } from './WargaLayoutContext';
 
 const navItems = [
   { path: '/dashboard', icon: 'home', label: 'Beranda' },
@@ -10,13 +9,11 @@ const navItems = [
 ];
 
 export default function Footer() {
-  const { collapsed } = useWargaLayout();
-
   return (
     <>
       {/* Footer utama (desktop) - layout terpusat */}
-      <footer className={`mt-10 hidden border-t border-slate-200 bg-white transition-[padding] duration-300 lg:block ${collapsed ? 'lg:pl-[76px]' : 'lg:pl-64'}`}>
-        <div className="warga-content flex flex-col items-center py-10 text-center">
+      <footer className="mt-10 hidden border-t border-slate-200 bg-white lg:block">
+        <div className="warga-content flex flex-col items-center py-8 text-center sm:py-10">
           {/* Identitas singkat */}
           <div className="flex flex-col items-center">
             <div className="flex items-center gap-3">
@@ -32,41 +29,44 @@ export default function Footer() {
           </div>
 
           {/* Navigasi layanan */}
-          <nav className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-slate-500">
-            <Link to="/dashboard" className="hover:text-primary">Beranda</Link>
-            <span className="text-slate-300">|</span>
-            <Link to="/cek-bansos" className="hover:text-primary">Cek Status Bansos</Link>
-            <span className="text-slate-300">|</span>
-            <Link to="/pengaduan" className="hover:text-primary">Pengaduan Warga</Link>
-            <span className="text-slate-300">|</span>
-            <Link to="/jadwal" className="hover:text-primary">Jadwal Penyaluran</Link>
-            <span className="text-slate-300">|</span>
-            <Link to="/info" className="hover:text-primary">Informasi &amp; FAQ</Link>
+          <nav className="mt-6 flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-slate-500 sm:gap-x-4">
+            {[
+              ['/dashboard', 'Beranda'],
+              ['/cek-bansos', 'Cek Status Bansos'],
+              ['/pengaduan', 'Pengaduan Warga'],
+              ['/jadwal', 'Jadwal Penyaluran'],
+              ['/info', 'Informasi & FAQ'],
+            ].map(([path, label], index) => (
+              <span key={path} className="inline-flex items-center gap-x-3 sm:gap-x-4">
+                {index > 0 && <span className="text-slate-300">|</span>}
+                <Link to={path} className="whitespace-nowrap hover:text-primary">{label}</Link>
+              </span>
+            ))}
           </nav>
 
           {/* Kontak interaktif */}
-          <div className="mt-6 flex flex-col items-center gap-3 text-sm sm:flex-row sm:justify-center sm:gap-8">
+          <div className="mt-6 grid w-full max-w-5xl gap-3 text-sm lg:grid-cols-3">
             <a
               href="https://www.google.com/maps/search/?api=1&query=Kantor+Kelurahan+Ngrowo+Bojonegoro"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-slate-600 transition-colors hover:text-primary"
+              className="flex min-w-0 items-center justify-center gap-2 text-center text-slate-600 transition-colors hover:text-primary"
             >
               <span className="material-symbols-outlined text-[20px] text-primary">location_on</span>
-              <span>Kantor Kelurahan Ngrowo, Bojonegoro</span>
+              <span className="break-words">Kantor Kelurahan Ngrowo, Bojonegoro</span>
             </a>
             <a
               href="https://wa.me/6285807078899"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-slate-600 transition-colors hover:text-primary"
+              className="flex min-w-0 items-center justify-center gap-2 text-center text-slate-600 transition-colors hover:text-primary"
             >
               <span className="material-symbols-outlined text-[20px] text-primary">call</span>
               <span>0858-0707-8899</span>
             </a>
-            <span className="flex items-center gap-2 text-slate-600">
+            <span className="flex min-w-0 items-center justify-center gap-2 text-center text-slate-600">
               <span className="material-symbols-outlined text-[20px] text-primary">schedule</span>
-              <span>Senin&ndash;Jumat, 08.00&ndash;15.00 WIB</span>
+              <span className="break-words">Senin&ndash;Jumat, 08.00&ndash;15.00 WIB</span>
             </span>
           </div>
         </div>
@@ -82,7 +82,7 @@ export default function Footer() {
 
       {/* Footer ringkas (mobile & tablet) - tampil di atas navigasi bawah */}
       <footer className="mt-8 border-t border-slate-200 bg-white px-4 pb-24 pt-6 text-center lg:hidden">
-        <div className="mx-auto flex max-w-md flex-col items-center">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center">
           <div className="flex items-center gap-2.5">
             <img src={logoNgrowo} alt="Logo Kelurahan Ngrowo" className="h-9 w-9 shrink-0 rounded-lg border border-emerald-100 bg-primary-soft object-contain p-1" />
             <div className="text-left">
@@ -93,28 +93,28 @@ export default function Footer() {
           <p className="mt-2.5 text-[11px] leading-relaxed text-slate-500">
             Portal resmi pelayanan bantuan sosial Kelurahan Ngrowo, Kabupaten Bojonegoro.
           </p>
-          <div className="mt-3 flex w-full flex-col items-center gap-2 text-xs">
+          <div className="mt-3 flex w-full flex-col items-stretch gap-2 text-xs">
             <a
               href="https://www.google.com/maps/search/?api=1&query=Kantor+Kelurahan+Ngrowo+Bojonegoro"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-slate-600 hover:text-primary"
+              className="flex min-w-0 items-start justify-center gap-1.5 text-slate-600 hover:text-primary"
             >
               <span className="material-symbols-outlined text-[18px] text-primary">location_on</span>
-              <span>Kantor Kelurahan Ngrowo, Bojonegoro</span>
+              <span className="break-words text-left">Kantor Kelurahan Ngrowo, Bojonegoro</span>
             </a>
             <a
               href="https://wa.me/6285807078899"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-slate-600 hover:text-primary"
+              className="flex min-w-0 items-center justify-center gap-1.5 text-slate-600 hover:text-primary"
             >
               <span className="material-symbols-outlined text-[18px] text-primary">call</span>
               <span>0858-0707-8899</span>
             </a>
-            <span className="flex items-center gap-1.5 text-slate-600">
+            <span className="flex min-w-0 items-start justify-center gap-1.5 text-slate-600">
               <span className="material-symbols-outlined text-[18px] text-primary">schedule</span>
-              <span>Senin&ndash;Jumat, 08.00&ndash;15.00 WIB</span>
+              <span className="break-words text-left">Senin&ndash;Jumat, 08.00&ndash;15.00 WIB</span>
             </span>
           </div>
           <p className="mt-3 border-t border-slate-100 pt-3 text-[10px] text-slate-400">

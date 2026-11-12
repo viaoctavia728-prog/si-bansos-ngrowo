@@ -70,7 +70,7 @@ class PengaduanResponse(BaseModel):
   is_anonymous: bool
   status_laporan: str
   catatan_admin: Optional[str] = None
-  created_at: datetime
+  created_at: Optional[datetime] = None
 
   class Config:
     from_attributes = True

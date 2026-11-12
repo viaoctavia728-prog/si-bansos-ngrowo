@@ -20,6 +20,11 @@ export const authService = {
     return persistCitizenSession(response.data);
   },
 
+  async verifyStaffPortalPin(pin) {
+    const response = await citizenApiClient.post('/portal-access', { pin });
+    return response.data;
+  },
+
   async register(userData) {
     const response = await citizenApiClient.post('/register', userData);
     return response.data;

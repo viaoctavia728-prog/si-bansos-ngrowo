@@ -21,5 +21,5 @@ COPY . .
 # Expose FastAPI port
 EXPOSE 8000
 
-# Run uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run uvicorn without filesystem polling; bind-mount polling is unreliable on Windows.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

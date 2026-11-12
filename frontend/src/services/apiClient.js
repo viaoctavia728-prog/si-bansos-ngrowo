@@ -14,6 +14,10 @@ function createApiClient({ tokenKeys, sessionKeys }) {
     (config) => {
       const token = tokenKeys.map((key) => localStorage.getItem(key)).find(Boolean);
       if (token) config.headers.Authorization = `Bearer ${token}`;
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
       return config;
     },
     (error) => Promise.reject(error),

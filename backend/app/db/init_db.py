@@ -23,7 +23,6 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
             ensure_desil_columns()
             drop_dusun_columns()
             seed_default_admin()
-            seed_demo_warga()
             activate_eligible_citizens()
             seed_missing_usernames()
             seed_demo_desil_and_bansos()
@@ -151,46 +150,6 @@ def seed_default_admin():
             role="admin",
         )
         db.add(default_admin)
-        db.commit()
-    finally:
-        db.close()
-
-
-def seed_demo_warga():
-    db: Session = SessionLocal()
-    try:
-        demo_warga = db.query(User).filter(User.nik == "3524000000000001").first()
-        if demo_warga:
-            changed = False
-            if not demo_warga.username and not db.query(User).filter(User.username == "wargademo").first():
-                demo_warga.username = "wargademo"
-                changed = True
-            if not demo_warga.is_ngrowo_resident or not demo_warga.is_verified:
-                demo_warga.is_ngrowo_resident = True
-                demo_warga.is_verified = True
-                changed = True
-            if changed:
-                db.commit()
-            return
-
-        if db.query(User).filter(User.username == "wargademo").first():
-            return
-
-        db.add(
-            User(
-                nik="3524000000000001",
-                username="wargademo",
-                nama_lengkap="Warga Demo",
-                no_kk="3524000000000000",
-                no_hp="000000000000",
-                password_hash=hash_password("admin123"),
-                rt="001",
-                rw="001",
-                role="user",
-                is_ngrowo_resident=True,
-                is_verified=True,
-            )
-        )
         db.commit()
     finally:
         db.close()

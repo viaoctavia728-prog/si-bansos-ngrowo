@@ -258,13 +258,6 @@ export default function Dashboard() {
               </div>
             </section>
 
-            {/* NIK ringkas */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-              <span className="font-medium">NIK:</span>
-              <code className="rounded-md border border-slate-200 bg-white px-2 py-0.5 font-mono text-xs font-bold text-slate-800">{currentUser?.nik || '-'}</code>
-              <span className="hidden h-1 w-1 rounded-full bg-slate-300 sm:inline" />
-              <span>Data terhubung dengan basis data resmi Kelurahan Ngrowo.</span>
-            </div>
             {/* Ringkasan statistik */}
             <section aria-label="Ringkasan bansos dan pengaduan saya" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="gov-card flex items-center gap-3.5 p-4">

@@ -7,7 +7,7 @@ import WargaMain from '../../components/WargaMain';
 import { pengaduanService, wilayahService } from '../../services/api';
 import { authService } from '../../services/auth';
 
-const FALLBACK_RW_OPTIONS = ['001', '002', '003', '004', '005'];
+const FALLBACK_RW_OPTIONS = ['001', '002', '003'];
 const FALLBACK_RT_OPTIONS = ['001', '002', '003', '004', '005'];
 
 export default function Pengaduan() {
@@ -32,6 +32,22 @@ export default function Pengaduan() {
 
   useEffect(() => {
     let active = true;
+    authService.getProfile()
+      .then((profile) => {
+        if (!active) return;
+        if (profile?.rw) setDomisiliRw(profile.rw);
+        if (profile?.rt) setDomisiliRt(profile.rt);
+      })
+      .catch((error) => {
+        if (!active) return;
+        if (error.status === 401 || error.status === 404) {
+          authService.logout();
+          navigate('/login', { replace: true });
+          return;
+        }
+        setErrorMsg(error.message || 'Sesi warga tidak dapat diverifikasi. Silakan coba lagi.');
+      });
+
     wilayahService.getWilayah()
       .then((data) => {
         if (active && Array.isArray(data)) setWilayah(data);
@@ -42,7 +58,7 @@ export default function Pengaduan() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [navigate]);
 
   const rwOptions = useMemo(() => {
     const options = [...new Set(wilayah.map((item) => item.rw).filter(Boolean))].sort();

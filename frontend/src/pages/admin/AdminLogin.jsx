@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import logoNgrowo from '../../images/logo ngrowo.png';
 import { adminAuthService } from '../../services/admin/adminAuth';
@@ -11,6 +11,12 @@ export default function AdminLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  useEffect(() => {
+    if (sessionStorage.getItem('staff_portal_access') !== 'granted') {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setErrorMessage('');
@@ -18,6 +24,7 @@ export default function AdminLogin() {
 
     try {
       await adminAuthService.login(username.trim(), password);
+      sessionStorage.removeItem('staff_portal_access');
       navigate('/admin', { replace: true });
     } catch (error) {
       setErrorMessage(error.status === 401

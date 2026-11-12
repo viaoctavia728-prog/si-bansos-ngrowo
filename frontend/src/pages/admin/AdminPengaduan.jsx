@@ -63,6 +63,7 @@ export default function AdminPengaduan() {
   const [aiAssessment, setAiAssessment] = useState(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [aiAnalysisError, setAiAnalysisError] = useState('');
+  const [photoLoadError, setPhotoLoadError] = useState(false);
 
   // Penetapan bantuan saat status laporan = selesai
   const [editJenisBansos, setEditJenisBansos] = useState('');
@@ -247,6 +248,7 @@ export default function AdminPengaduan() {
     setModalFeedback(null);
     setAiAssessment(null);
     setAiAnalysisError('');
+    setPhotoLoadError(false);
   };
 
   const handleAnalyzePhoto = async () => {
@@ -255,21 +257,34 @@ export default function AdminPengaduan() {
     try {
       setIsAnalyzingPhoto(true);
       setAiAnalysisError('');
-      const imageResponse = await fetch(getAssetUrl(selectedReport.bukti_foto));
+      const imageResponse = await fetch(getAssetUrl(selectedReport.bukti_foto), {
+        cache: 'no-store',
+      });
       if (!imageResponse.ok) {
         throw new Error('Bukti foto tidak dapat diambil dari server.');
       }
 
       const imageBlob = await imageResponse.blob();
+      const photoPath = selectedReport.bukti_foto.toLowerCase();
+      const mimeType = photoPath.endsWith('.png')
+        ? 'image/png'
+        : photoPath.endsWith('.webp')
+          ? 'image/webp'
+          : 'image/jpeg';
       const file = new File(
         [imageBlob],
-        `bukti-${selectedReport.nomor_tiket || selectedReport.id_laporan}.jpg`,
-        { type: imageBlob.type || 'image/jpeg' },
+        `bukti-${selectedReport.nomor_tiket || selectedReport.id_laporan}${photoPath.endsWith('.png') ? '.png' : photoPath.endsWith('.webp') ? '.webp' : '.jpg'}`,
+        { type: mimeType },
       );
       const assessment = await adminService.analyzeHousePhoto(file);
       setAiAssessment(assessment);
     } catch (err) {
-      setAiAnalysisError(err.message || 'Analisis AI gagal dijalankan. Silakan coba lagi.');
+      const errorMessage = typeof err?.message === 'string'
+        ? err.message
+        : typeof err === 'string'
+          ? err
+          : 'Analisis AI gagal dijalankan. Silakan coba lagi.';
+      setAiAnalysisError(errorMessage);
     } finally {
       setIsAnalyzingPhoto(false);
     }
@@ -305,9 +320,11 @@ export default function AdminPengaduan() {
           : 'Status laporan berhasil diperbarui dan dicatat ke Audit Log!',
       });
       await loadData();
-      setTimeout(() => {
-        setSelectedReport((prev) => prev ? { ...prev, status_laporan: editStatus, catatan_admin: editCatatan } : null);
-      }, 500);
+      setSelectedReport(null);
+      setListFeedback({
+        type: 'success',
+        message: 'Perubahan berhasil disimpan. Anda kembali ke daftar pengaduan.',
+      });
     } catch (err) {
       setModalFeedback({ type: 'error', message: err.message || 'Gagal memperbarui status.' });
     } finally {
@@ -594,19 +611,11 @@ export default function AdminPengaduan() {
             Kelola dan tindak lanjuti laporan akurasi penerima bansos (PKH, BPNT, BLT-DD) Desa Ngrowo secara objektif, akuntabel, dan transparan.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#166534] px-4 py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#15803D] transition-colors shadow-xs"
-          >
-            <span className="material-symbols-outlined text-[19px]">add</span>
-            Tambah Laporan
-          </button>
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           <button
             type="button"
             onClick={handleExportExcelPreview}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-2.5 text-xs sm:text-sm font-bold text-[#166534] hover:bg-emerald-100 transition-colors shadow-xs"
+            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-[#166534] shadow-xs transition-colors hover:bg-emerald-100 sm:text-sm"
           >
             <span className="material-symbols-outlined text-[19px]">table_view</span>
             Export Rekap Excel
@@ -614,7 +623,7 @@ export default function AdminPengaduan() {
           <button
             type="button"
             onClick={handleExportPDFPreview}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-2.5 text-xs sm:text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-colors shadow-xs"
+            className="inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-2.5 text-xs font-bold text-indigo-700 shadow-xs transition-colors hover:bg-indigo-100 sm:text-sm"
           >
             <span className="material-symbols-outlined text-[19px]">picture_as_pdf</span>
             Export Rekap PDF
@@ -1010,14 +1019,6 @@ export default function AdminPengaduan() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => openEditForm(item)}
-                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-amber-50 px-2 py-1.5 text-amber-600 shadow-2xs transition-colors"
-                            title="Edit laporan"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">edit</span>
-                          </button>
-                          <button
-                            type="button"
                             onClick={() => setDeleteTarget(item)}
                             className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white hover:bg-rose-50 px-2 py-1.5 text-rose-600 shadow-2xs transition-colors"
                             title="Hapus laporan"
@@ -1312,11 +1313,11 @@ export default function AdminPengaduan() {
                 </div>
               </div>
 
-              {/* Bukti Foto (jika ada) */}
-              {selectedReport.bukti_foto && (
-                <div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
-                    <span className="text-xs font-bold text-slate-800">Bukti Foto Terlampir</span>
+              {/* Bukti Foto dan validasi AI */}
+              <div>
+                <div className="mb-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs font-bold text-slate-800">Bukti Foto & Validasi AI</span>
+                  {selectedReport.bukti_foto && !photoLoadError && (
                     <button
                       type="button"
                       onClick={handleAnalyzePhoto}
@@ -1328,19 +1329,39 @@ export default function AdminPengaduan() {
                       </span>
                       {isAnalyzingPhoto ? 'Menganalisis foto...' : 'Analisis dengan Gemini'}
                     </button>
-                  </div>
-                  <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-56 flex items-center justify-center">
-                    <img
-                      src={getAssetUrl(selectedReport.bukti_foto)}
-                      alt="Bukti Pengaduan"
-                      className="max-h-56 w-full object-contain"
-                    />
-                  </div>
-                  <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400">
-                    Hasil AI hanya penyaringan awal kondisi fisik yang terlihat, bukan keputusan kelayakan bantuan.
-                  </p>
+                  )}
                 </div>
-              )}
+
+                {selectedReport.bukti_foto && !photoLoadError && (
+                  <>
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 max-h-56 flex items-center justify-center">
+                      <img
+                        src={getAssetUrl(selectedReport.bukti_foto)}
+                        alt="Bukti Pengaduan"
+                        className="max-h-56 w-full object-contain"
+                        onError={() => setPhotoLoadError(true)}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[10px] leading-relaxed text-slate-400">
+                      Hasil AI hanya penyaringan awal kondisi fisik yang terlihat, bukan keputusan kelayakan bantuan.
+                    </p>
+                  </>
+                )}
+
+                {!selectedReport.bukti_foto && (
+                  <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                    <span className="material-symbols-outlined text-[17px]">image_not_supported</span>
+                    <span>Pengaduan ini tidak memiliki foto bukti, sehingga belum dapat divalidasi oleh Gemini.</span>
+                  </div>
+                )}
+
+                {selectedReport.bukti_foto && photoLoadError && (
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <span className="material-symbols-outlined text-[17px]">image_not_supported</span>
+                    <span>Foto tercatat di database, tetapi file aslinya tidak tersedia di server. Unggah ulang foto bukti agar validasi Gemini dapat dijalankan.</span>
+                  </div>
+                )}
+              </div>
 
               {aiAnalysisError && (
                 <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">

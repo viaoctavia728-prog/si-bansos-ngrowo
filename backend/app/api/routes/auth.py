@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.normalization import normalize_name
+from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.core.storage import MAX_UPLOAD_BYTES, UPLOAD_DIR
 from app.db.session import get_db
@@ -19,6 +20,16 @@ from app.schemas.auth import UserLogin, UserProfileUpdate, UserRegister, UserRes
 
 router = APIRouter()
 PROFILE_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+
+
+@router.post("/portal-access")
+async def verify_staff_portal_pin(request: Request):
+    payload = await request.json()
+    pin = payload.get("pin") if isinstance(payload, dict) else None
+    expected_pin = get_settings().staff_portal_pin
+    if not isinstance(pin, str) or not secrets.compare_digest(pin, expected_pin):
+        raise HTTPException(status_code=401, detail="PIN Portal Petugas salah.")
+    return {"status": "ok"}
 
 
 @router.post("/register")

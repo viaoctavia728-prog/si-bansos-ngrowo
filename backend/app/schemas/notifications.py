@@ -12,3 +12,8 @@ class FcmNotificationCreate(BaseModel):
 
 class FcmTargetNotificationCreate(FcmNotificationCreate):
     target_token: str = Field(min_length=20, max_length=512)
+
+
+class NotificationUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=500)

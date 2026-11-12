@@ -43,7 +43,7 @@ export const adminService = {
     const formData = new FormData();
     formData.append('file', file, file.name || 'bukti-rumah');
     const response = await adminApiClient.post('/admin/validate-house', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
     });
     return response.data;
   },
@@ -193,5 +193,20 @@ export const adminService = {
       }
     }
     throw lastError;
+  },
+
+  async getNotifications() {
+    const response = await adminApiClient.get('/notifications');
+    return response.data;
+  },
+
+  async updateNotification(idNotification, payload) {
+    const response = await adminApiClient.put(`/notifications/${idNotification}`, payload);
+    return response.data;
+  },
+
+  async deleteNotification(idNotification) {
+    const response = await adminApiClient.delete(`/notifications/${idNotification}`);
+    return response.data;
   },
 };

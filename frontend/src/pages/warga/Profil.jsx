@@ -26,6 +26,9 @@ export default function Profil() {
   const [form, setForm] = useState(() => profileToForm(authService.getCurrentUser()));
   const [activeSection, setActiveSection] = useState(() => new URLSearchParams(window.location.search).get('section') || 'biodata');
   const [saving, setSaving] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [photoSaving, setPhotoSaving] = useState(false);
   const [cropFile, setCropFile] = useState(null);
   const [message, setMessage] = useState('');
@@ -67,6 +70,11 @@ export default function Profil() {
       setForm(profileToForm(value));
     }).catch((error) => {
       if (!active) return;
+      if (error.status === 401 || error.status === 404) {
+        authService.logout();
+        navigate('/login', { replace: true });
+        return;
+      }
       setMessage(error.message || 'Data profil gagal dimuat.');
     }).finally(() => {
       if (active) setLoading(false);
@@ -80,10 +88,24 @@ export default function Profil() {
     try {
       setSaving(true);
       setMessage('');
-      const updated = await authService.updateProfile(form);
+      if (password && password.length < 6) {
+        setMessage('Password baru minimal 6 karakter.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setMessage('Konfirmasi password baru tidak cocok.');
+        return;
+      }
+      const updated = await authService.updateProfile({
+        ...form,
+        ...(password ? { password } : {}),
+      });
       setProfile(updated);
       setForm(profileToForm(updated));
-      setMessage('Profil berhasil diperbarui.');
+      setPassword('');
+      setConfirmPassword('');
+      setEditingProfile(false);
+      setMessage(password ? 'Profil dan password berhasil diperbarui.' : 'Profil berhasil diperbarui.');
     } catch (error) {
       setMessage(error.message || 'Profil gagal diperbarui.');
     } finally {
@@ -252,12 +274,38 @@ export default function Profil() {
         {message && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{message}</p>}
 
         <ProfileGroup title="Data Kependudukan & Bansos">
-          <ActionRow icon="badge" title="Biodata Lengkap Warga" subtitle="NIK, nama, nomor KK, telepon, dan alamat" onClick={() => setBiodataOpen(true)} />
+          {!editingProfile ? (
+            <>
+              <ActionRow icon="badge" title="Biodata Lengkap Warga" subtitle="NIK, nama, nomor KK, telepon, dan alamat" onClick={() => setBiodataOpen(true)} />
+              <ActionRow icon="edit" title="Edit Profil Warga" subtitle="Perbarui nama, KK, telepon, RT, RW, dan alamat" onClick={() => setEditingProfile(true)} />
+            </>
+          ) : (
+            <form onSubmit={saveProfile} className="space-y-3 px-4 py-4">
+              <ProfileInput label="Nama lengkap" field="nama_lengkap" value={form.nama_lengkap} onChange={setForm} />
+              <ProfileInput label="Nomor Kartu Keluarga" field="no_kk" value={form.no_kk} onChange={setForm} inputMode="numeric" maxLength={16} />
+              <ProfileInput label="Nomor telepon" field="no_hp" value={form.no_hp} onChange={setForm} inputMode="tel" />
+              <div className="grid grid-cols-2 gap-3">
+                <ProfileInput label="RT" field="rt" value={form.rt} onChange={setForm} />
+                <ProfileInput label="RW" field="rw" value={form.rw} onChange={setForm} />
+              </div>
+              <ProfileInput label="Alamat lengkap" field="alamat_detail" value={form.alamat_detail} onChange={setForm} />
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+                <button type="button" onClick={() => { setEditingProfile(false); setForm(profileToForm(profile)); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Batal</button>
+                <button type="submit" disabled={saving} className="rounded-lg bg-emerald-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{saving ? 'Menyimpan...' : 'Simpan Profil'}</button>
+              </div>
+            </form>
+          )}
         </ProfileGroup>
 
         <ProfileGroup title="Pengaturan & Keamanan Akun">
-          <DisclosureRow icon="password" title="Ubah PIN / Sandi Warga" subtitle="Minta bantuan perubahan PIN ke petugas" open={activeSection === 'pin'} onClick={() => setActiveSection(activeSection === 'pin' ? '' : 'pin')}>
-            {activeSection === 'pin' && <a href="https://wa.me/6285807078899?text=Halo%20Admin%20Ngrowo%2C%20saya%20memerlukan%20bantuan%20perubahan%20PIN." target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-emerald-800 px-3 text-xs font-semibold text-white"><span className="material-symbols-outlined text-[16px]">chat</span>Hubungi Admin melalui WhatsApp</a>}
+          <DisclosureRow icon="password" title="Ubah Password Warga" subtitle="Ganti password akun secara langsung" open={activeSection === 'pin'} onClick={() => setActiveSection(activeSection === 'pin' ? '' : 'pin')}>
+            {activeSection === 'pin' && (
+              <form onSubmit={saveProfile} className="space-y-3">
+                <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required placeholder="Password baru (minimal 6 karakter)" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-xs focus:border-emerald-600 focus:outline-none" />
+                <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={6} required placeholder="Konfirmasi password baru" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-xs focus:border-emerald-600 focus:outline-none" />
+                <button type="submit" disabled={saving} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-emerald-800 px-3 text-xs font-semibold text-white disabled:opacity-60"><span className="material-symbols-outlined text-[16px]">save</span>{saving ? 'Menyimpan...' : 'Simpan Password'}</button>
+              </form>
+            )}
           </DisclosureRow>
         </ProfileGroup>
 
@@ -300,6 +348,20 @@ function profileToForm(profile) {
     ...Object.fromEntries(PROFILE_FIELDS.map(([field]) => [field, profile?.[field] || ''])),
     notifikasi_otomatis: profile?.notifikasi_otomatis !== false,
   };
+}
+
+function ProfileInput({ label, field, value, onChange, ...props }) {
+  return (
+    <label className="block text-xs font-bold text-slate-700">
+      {label}
+      <input
+        {...props}
+        value={value || ''}
+        onChange={(event) => onChange((previous) => ({ ...previous, [field]: event.target.value }))}
+        className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
+      />
+    </label>
+  );
 }
 
 function ProfileGroup({ title, children }) {

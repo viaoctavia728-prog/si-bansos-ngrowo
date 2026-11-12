@@ -12,7 +12,12 @@ from app.models.audit_log import AuditLog
 from app.models.fcm_device_token import FcmDeviceToken
 from app.models.notification import NotificationHistory
 from app.models.user import User
-from app.schemas.notifications import FcmNotificationCreate, FcmTargetNotificationCreate, FcmTokenRegistration
+from app.schemas.notifications import (
+    FcmNotificationCreate,
+    FcmTargetNotificationCreate,
+    FcmTokenRegistration,
+    NotificationUpdate,
+)
 
 router = APIRouter()
 
@@ -226,6 +231,45 @@ def get_notifications(
         }
         for n in notifs
     ]
+
+
+@router.put("/{id_notification}")
+def update_notification(
+    id_notification: int,
+    data: NotificationUpdate,
+    db: Session = Depends(get_db),
+    current_admin: dict = Depends(get_current_admin),
+):
+    notif = db.query(NotificationHistory).filter(NotificationHistory.id_notification == id_notification).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Pengumuman tidak ditemukan.")
+    notif.title = data.title
+    notif.body = data.body
+    db.add(AuditLog(
+        id_user=current_admin.get("id_user"),
+        aktivitas=f"Mengubah pengumuman: {data.title}",
+    ))
+    db.commit()
+    return {"status": "updated", "id_notification": notif.id_notification}
+
+
+@router.delete("/{id_notification}")
+def delete_notification(
+    id_notification: int,
+    db: Session = Depends(get_db),
+    current_admin: dict = Depends(get_current_admin),
+):
+    notif = db.query(NotificationHistory).filter(NotificationHistory.id_notification == id_notification).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Pengumuman tidak ditemukan.")
+    title = notif.title
+    db.delete(notif)
+    db.add(AuditLog(
+        id_user=current_admin.get("id_user"),
+        aktivitas=f"Menghapus pengumuman: {title}",
+    ))
+    db.commit()
+    return {"status": "deleted", "id_notification": id_notification}
 
 
 @router.patch("/{id_notification}/read")
