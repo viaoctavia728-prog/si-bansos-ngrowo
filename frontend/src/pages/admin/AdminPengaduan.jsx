@@ -242,7 +242,7 @@ export default function AdminPengaduan() {
     setEditCatatan(item.catatan_admin || '');
     const pelapor = personById[item.id_user];
     setEditJenisBansos(item.program_terkait || 'Bantuan Sosial');
-    setEditDesil('');
+    setEditDesil(item.desil ? String(item.desil) : '');
     setEditPeriode(new Date().getFullYear());
     setEditNikPenerima(item.nik_terlapor || pelapor?.nik || '');
     setModalFeedback(null);
@@ -300,6 +300,15 @@ export default function AdminPengaduan() {
         status_laporan: editStatus,
         catatan_admin: editCatatan,
       };
+      if (editDesil) {
+        const desil = Number(editDesil);
+        if (!Number.isInteger(desil) || desil < 1 || desil > 10) {
+          setModalFeedback({ type: 'error', message: 'Desil harus berupa angka 1–10.' });
+          setIsUpdating(false);
+          return;
+        }
+        payload.desil = desil;
+      }
       if (editStatus === 'selesai') {
         if (!editDesil) {
           setModalFeedback({ type: 'error', message: 'Isi desil penerima (1–10) untuk menetapkan bantuan.' });
@@ -1412,6 +1421,25 @@ export default function AdminPengaduan() {
                   />
                 </div>
 
+                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                  <label className="block text-xs font-bold text-slate-700 mb-1" htmlFor="edit-desil">
+                    Desil Kelayakan Warga (1–10)
+                  </label>
+                  <input
+                    id="edit-desil"
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={editDesil}
+                    onChange={(e) => setEditDesil(e.target.value)}
+                    placeholder="Kosongkan jika tidak ada perubahan"
+                    className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
+                  />
+                  <p className="mt-1 text-[10px] text-amber-800">
+                    Perubahan disimpan ke data warga dan seluruh data penerima bansos terkait.
+                  </p>
+                </div>
+
                 {editStatus === 'selesai' && (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-3">
                     <div className="flex items-start gap-2">
@@ -1433,18 +1461,6 @@ export default function AdminPengaduan() {
                             .filter((v, i, arr) => v && arr.indexOf(v) === i)
                             .map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Desil (1–10)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={editDesil}
-                          onChange={(e) => setEditDesil(e.target.value)}
-                          placeholder="Contoh: 3"
-                          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:outline-none"
-                        />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">Periode Tahun</label>

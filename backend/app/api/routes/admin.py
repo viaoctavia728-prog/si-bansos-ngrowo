@@ -20,6 +20,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.bansos import DataBansos
+from app.models.eligible_resident import EligibleResident
 from app.models.pengaduan import PengaduanBansos
 from app.models.user import User
 from app.schemas.auth import UserProfileUpdate, UserResponse
@@ -266,7 +267,23 @@ def get_semua_pengaduan(
         query = query.filter(User.rt == rt)
     if rw:
         query = query.filter(User.rw == rw)
-    return query.order_by(PengaduanBansos.created_at.desc()).all()
+    reports = query.order_by(PengaduanBansos.created_at.desc()).all()
+    responses = []
+    for report in reports:
+        target_nik = report.nik_terlapor
+        if not target_nik and report.pelapor:
+            target_nik = report.pelapor.nik
+        resident = (
+            db.query(EligibleResident)
+            .filter(EligibleResident.nik == target_nik)
+            .first()
+            if target_nik
+            else None
+        )
+        response = PengaduanResponse.model_validate(report)
+        response.desil = resident.desil if resident else None
+        responses.append(response)
+    return responses
 
 
 @router.get("/pengaduan/rekap-pdf")
@@ -460,6 +477,30 @@ def _generate_nomor_tiket() -> str:
     return f"ADU-{tanggal}-{acak}"
 
 
+def _update_desil_for_nik(db: Session, nik: str, desil: int) -> None:
+    resident = db.query(EligibleResident).filter(EligibleResident.nik == nik).first()
+    if resident:
+        resident.desil = desil
+
+    db.query(DataBansos).filter(DataBansos.nik_penerima == nik).update(
+        {"desil": desil},
+        synchronize_session=False,
+    )
+
+
+def _get_pengaduan_target_nik(
+    db: Session,
+    pengaduan: PengaduanBansos,
+    data_update: PengaduanAdminUpdate,
+) -> str | None:
+    if data_update.nik_penerima:
+        return data_update.nik_penerima
+    if pengaduan.nik_terlapor:
+        return pengaduan.nik_terlapor
+    pelapor = db.query(User).filter(User.id_user == pengaduan.id_user).first()
+    return pelapor.nik if pelapor else None
+
+
 def _apply_bantuan_from_pengaduan(db: Session, pengaduan: PengaduanBansos, data_update: PengaduanAdminUpdate):
     """Tetapkan warga sebagai penerima bantuan + desil saat laporan disetujui."""
     if data_update.desil is None:
@@ -506,6 +547,7 @@ def _apply_bantuan_from_pengaduan(db: Session, pengaduan: PengaduanBansos, data_
                 desil=data_update.desil,
             )
         )
+    _update_desil_for_nik(db, target_nik, data_update.desil)
     return {"jenis_bansos": jenis, "desil": data_update.desil, "periode_tahun": periode, "nik": target_nik}
 
 
@@ -576,6 +618,17 @@ def update_status_pengaduan(
             setattr(pengaduan, field, payload[field])
 
     bantuan_info = None
+    if data_update.desil is not None:
+        target_nik = _get_pengaduan_target_nik(db, pengaduan, data_update)
+        if target_nik:
+            _update_desil_for_nik(db, target_nik, data_update.desil)
+            db.add(
+                AuditLog(
+                    id_user=current_admin.get("id_user") if isinstance(current_admin, dict) else 1,
+                    aktivitas=f"Admin memperbarui Desil {target_nik} menjadi {data_update.desil} "
+                    f"melalui pengaduan {pengaduan.nomor_tiket}",
+                )
+            )
     if pengaduan.status_laporan == "selesai":
         bantuan_info = _apply_bantuan_from_pengaduan(db, pengaduan, data_update)
 

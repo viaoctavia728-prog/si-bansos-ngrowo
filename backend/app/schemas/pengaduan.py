@@ -70,6 +70,7 @@ class PengaduanResponse(BaseModel):
   is_anonymous: bool
   status_laporan: str
   catatan_admin: Optional[str] = None
+  desil: Optional[int] = None
   created_at: Optional[datetime] = None
 
   class Config:

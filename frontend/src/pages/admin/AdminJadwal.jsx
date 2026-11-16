@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
+import AdminNotification from './AdminNotification';
 
 const WEEK_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const MONTH_NAMES = [
@@ -208,20 +209,13 @@ export default function AdminJadwal() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Manajemen Jadwal Penyaluran Bansos
+            Manajemen Jadwal &amp; Broadcast Bansos
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-3xl leading-relaxed">
             Kelola agenda pembagian bantuan sosial secara dinamis berbasis tanggal berjalan dan informasikan langsung kepada warga Desa Ngrowo.
           </p>
         </div>
         <div className="flex items-center gap-2.5 self-start md:self-auto">
-          <Link
-            to="/admin/notifikasi"
-            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs sm:text-sm font-bold text-[#166534] hover:bg-emerald-100 transition-colors shadow-xs"
-          >
-            <span className="material-symbols-outlined text-[18px]">notifications_active</span>
-            Siarkan ke Warga
-          </Link>
           <button
             type="button"
             onClick={() => {
@@ -594,6 +588,10 @@ export default function AdminJadwal() {
           </div>
         </div>
       )}
+
+      <section id="broadcast" className="border-t border-slate-200 pt-6">
+        <AdminNotification />
+      </section>
     </div>
   );
 }

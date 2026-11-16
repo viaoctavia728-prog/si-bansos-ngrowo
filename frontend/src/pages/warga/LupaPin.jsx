@@ -1,10 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const ADMIN_WHATSAPP = '6285807078899';
+
 export default function LupaPin() {
+  const [nik, setNik] = React.useState('');
+
   const handleSubmit = (event) => {
     event.preventDefault();
-    window.alert('Silakan hubungi Admin Desa untuk reset PIN secara manual.');
+    const message = [
+      'Halo Admin Desa Ngrowo, saya meminta bantuan reset PIN akun SI-BANSOS.',
+      `NIK: ${nik}`,
+      'Mohon verifikasi identitas saya sebelum PIN direset.',
+    ].join('\n');
+    window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -36,12 +45,17 @@ export default function LupaPin() {
             </label>
             <div className="relative flex items-center">
               <span className="material-symbols-outlined absolute left-4 text-slate-400 text-[20px]">id_card</span>
-              <input 
+              <input
                 id="nik_reset"
-                required 
-                maxLength="16" 
-                className="gov-input pl-12" 
-                placeholder="Masukkan 16 digit NIK" 
+                required
+                maxLength="16"
+                minLength="16"
+                pattern="\d{16}"
+                inputMode="numeric"
+                value={nik}
+                onChange={(event) => setNik(event.target.value.replace(/\D/g, '').slice(0, 16))}
+                className="gov-input pl-12"
+                placeholder="Masukkan 16 digit NIK"
               />
             </div>
           </div>
@@ -56,7 +70,7 @@ export default function LupaPin() {
 
         {/* Bantuan WhatsApp Admin */}
         <a 
-          href="https://wa.me/6285807078899" 
+          href={`https://wa.me/${ADMIN_WHATSAPP}`}
           target="_blank" 
           rel="noopener noreferrer"
           className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-center text-[14px] font-semibold text-[#2E7D32] hover:text-[#256828]"

@@ -9,7 +9,6 @@ import AdminWarga from './AdminWarga';
 import AdminAuditLog from './AdminAuditLog';
 import AdminPenerima from './AdminPenerima';
 import AdminJadwal from './AdminJadwal';
-import AdminNotification from './AdminNotification';
 import AdminProfil from './AdminProfil';
 
 function AdminLoginRoute() {
@@ -42,8 +41,8 @@ export default function AdminPortal() {
         <Route path="warga" element={<AdminWarga />} />
         <Route path="penerima" element={<AdminPenerima />} />
         <Route path="jadwal" element={<AdminJadwal />} />
-        <Route path="notifikasi" element={<AdminNotification />} />
-        <Route path="notifications" element={<AdminNotification />} />
+        <Route path="notifikasi" element={<Navigate to="/admin/jadwal#broadcast" replace />} />
+        <Route path="notifications" element={<Navigate to="/admin/jadwal#broadcast" replace />} />
         <Route path="audit-log" element={<AdminAuditLog />} />
         <Route path="audit-logs" element={<AdminAuditLog />} />
         <Route path="profil" element={<AdminProfil />} />

@@ -32,8 +32,7 @@ export default function AdminLayout() {
     { to: '/admin/warga', label: 'Kelola Warga', icon: 'groups', aliases: ['/admin/warga'] },
     { to: '/admin/penerima', label: 'Data Penerima', icon: 'folder_shared', aliases: ['/admin/penerima'] },
     { to: '/admin/pengaduan', label: 'Pengaduan', icon: 'assignment', aliases: ['/admin/pengaduan'] },
-    { to: '/admin/jadwal', label: 'Jadwal Bansos', icon: 'calendar_month', aliases: ['/admin/jadwal'] },
-    { to: '/admin/notifikasi', label: 'Broadcast Notifikasi', icon: 'notifications_active', aliases: ['/admin/notifikasi'] },
+    { to: '/admin/jadwal', label: 'Jadwal & Broadcast', icon: 'calendar_month', aliases: ['/admin/jadwal', '/admin/notifikasi'] },
     { to: '/admin/audit-logs', label: 'Audit Log', icon: 'history_edu', aliases: ['/admin/audit-logs', '/admin/audit-log'] },
     { to: '/admin/profil', label: 'Profil Admin', icon: 'account_circle', aliases: ['/admin/profil'] },
   ];

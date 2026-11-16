@@ -2,6 +2,7 @@ import json
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from datetime import datetime
@@ -99,6 +100,14 @@ def send_fcm_to_token(
             raise HTTPException(status_code=410, detail="Token perangkat sudah tidak berlaku.") from exc
         raise HTTPException(status_code=502, detail="Firebase gagal mengirim notifikasi.") from exc
 
+    db.add(
+        NotificationHistory(
+            id_user=device.id_user,
+            title=notification.title,
+            body=notification.body,
+            created_at=datetime.utcnow(),
+        )
+    )
     db.add(
         AuditLog(
             id_user=current_admin.get("id_user"),
@@ -217,9 +226,17 @@ def send_automatic_notification_to_admins(
 @router.get("/warga")
 def get_notifications(
     limit: int = 50,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    notifs = db.query(NotificationHistory).order_by(NotificationHistory.created_at.desc()).limit(limit).all()
+    user_id = current_user.get("id_user")
+    notifs = (
+        db.query(NotificationHistory)
+        .filter(or_(NotificationHistory.id_user.is_(None), NotificationHistory.id_user == user_id))
+        .order_by(NotificationHistory.created_at.desc())
+        .limit(limit)
+        .all()
+    )
     return [
         {
             "id_notification": n.id_notification,
