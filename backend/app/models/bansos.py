@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String
 
 from app.db.base import Base
 
@@ -16,3 +16,4 @@ class DataBansos(Base):
     rt = Column(String(10), nullable=False)
     rw = Column(String(10), nullable=False)
     desil = Column(Integer, nullable=False, default=4)
+    is_active = Column(Boolean, nullable=False, default=True)

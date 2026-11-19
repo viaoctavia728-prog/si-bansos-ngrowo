@@ -231,7 +231,7 @@ export default function Profil() {
         </div>
       </header>
 
-      <main className="warga-content flex flex-1 flex-col gap-4 pb-24 pt-5 sm:gap-5 sm:pt-7 lg:pb-10">
+      <main className="warga-content motion-reveal flex flex-1 flex-col gap-4 pb-24 pt-5 sm:gap-5 sm:pt-7 lg:pb-10">
         <section className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
           <div className="h-20 bg-[radial-gradient(ellipse_at_top,#d9f5df,transparent_72%)]" />
           <div className="-mt-12 flex flex-col items-center px-5 pb-5 text-center">
@@ -290,8 +290,8 @@ export default function Profil() {
               </div>
               <ProfileInput label="Alamat lengkap" field="alamat_detail" value={form.alamat_detail} onChange={setForm} />
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-                <button type="button" onClick={() => { setEditingProfile(false); setForm(profileToForm(profile)); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Batal</button>
-                <button type="submit" disabled={saving} className="rounded-lg bg-emerald-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">{saving ? 'Menyimpan...' : 'Simpan Profil'}</button>
+                <button type="button" onClick={() => { setEditingProfile(false); setForm(profileToForm(profile)); }} className="gov-btn-outline min-h-9 px-3 py-1 text-xs">Batal</button>
+                <button type="submit" disabled={saving} className="gov-btn-primary min-h-9 px-3 py-1 text-xs">{saving ? 'Menyimpan...' : 'Simpan Profil'}</button>
               </div>
             </form>
           )}
@@ -303,7 +303,7 @@ export default function Profil() {
               <form onSubmit={saveProfile} className="space-y-3">
                 <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required placeholder="Password baru (minimal 6 karakter)" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-xs focus:border-emerald-600 focus:outline-none" />
                 <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={6} required placeholder="Konfirmasi password baru" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-xs focus:border-emerald-600 focus:outline-none" />
-                <button type="submit" disabled={saving} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-emerald-800 px-3 text-xs font-semibold text-white disabled:opacity-60"><span className="material-symbols-outlined text-[16px]">save</span>{saving ? 'Menyimpan...' : 'Simpan Password'}</button>
+                <button type="submit" disabled={saving} className="gov-btn-primary min-h-9 px-3 py-1 text-xs"><span className="material-symbols-outlined text-[16px]">save</span>{saving ? 'Menyimpan...' : 'Simpan Password'}</button>
               </form>
             )}
           </DisclosureRow>
@@ -311,7 +311,7 @@ export default function Profil() {
 
         <ProfileGroup title="Pusat Bantuan & Layanan Desa">
           <ActionRow icon="menu_book" title="Panduan Sanggahan Pengaduan Bansos" subtitle="Langkah-langkah mengirim pengaduan" onClick={() => setPanduanOpen(true)} />
-          <a href="https://wa.me/6285807078899" target="_blank" rel="noopener noreferrer" className="flex min-h-[62px] items-center gap-3 border-b border-slate-100 px-4 py-2 hover:bg-emerald-50/50">
+          <a href="https://wa.me/6285806503734" target="_blank" rel="noopener noreferrer" className="flex min-h-[62px] items-center gap-3 border-b border-slate-100 px-4 py-2 hover:bg-emerald-50/50">
             <span className="material-symbols-outlined flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">support_agent</span>
             <span className="min-w-0 flex-1"><span className="block text-xs font-bold">Hubungi Pendamping Sosial</span><span className="mt-0.5 block truncate text-[10px] text-slate-500">WhatsApp layanan warga Ngrowo</span></span>
             <span className="material-symbols-outlined text-[17px] text-slate-400">call</span>
@@ -411,8 +411,8 @@ function ActionRow({ icon, title, subtitle, to, onClick, trailing }) {
 
 function Modal({ title, icon, onClose, children, footer }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
-      <div className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div className="modal-panel modal-panel-flush flex max-h-[90vh] w-full flex-col overflow-hidden sm:max-w-lg" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
           <span className="material-symbols-outlined text-[20px] text-emerald-800">{icon}</span>
           <h2 className="min-w-0 flex-1 truncate text-sm font-bold text-[#0F172A]">{title}</h2>
@@ -465,6 +465,7 @@ function BiodataModal({ profile, onClose }) {
   const rows = [
     ['Nama lengkap', profile?.nama_lengkap],
     ['NIK', profile?.nik],
+    ['Desil kesejahteraan', profile?.desil != null ? `Desil ${profile.desil}` : 'Belum ditetapkan'],
     ['Nomor Kartu Keluarga', profile?.no_kk],
     ['Nomor telepon', profile?.no_hp],
     ['RT', profile?.rt],
@@ -496,7 +497,7 @@ function BiodataModal({ profile, onClose }) {
 function PhotoModal({ profile, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Foto profil" onClick={onClose}>
-      <div className="flex flex-col items-center gap-3" onClick={(event) => event.stopPropagation()}>
+      <div className="animate-slide-up flex flex-col items-center gap-3" onClick={(event) => event.stopPropagation()}>
         {profile?.foto_profil ? (
           <img src={getAssetUrl(profile.foto_profil)} alt={`Foto profil ${profile.nama_lengkap || 'warga'}`} className="max-h-[75vh] max-w-full rounded-2xl object-contain shadow-2xl" />
         ) : (

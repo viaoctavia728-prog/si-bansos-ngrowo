@@ -8,32 +8,42 @@ import { notificationService } from '../../services/api';
 export default function Notifikasi() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [pendingIds, setPendingIds] = useState([]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const list = await notificationService.getNotifications();
-      if (Array.isArray(list)) setNotifications(list);
-    } catch {
-      setNotifications([]);
+      setNotifications(Array.isArray(list) ? list : []);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Notifikasi belum dapat disinkronkan.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchNotifications();
-    const interval = window.setInterval(fetchNotifications, 8000);
+    fetchNotifications(true);
+    const interval = window.setInterval(() => fetchNotifications(), 8000);
     return () => window.clearInterval(interval);
   }, []);
 
   const handleMarkAsRead = async (idNotification) => {
+    setPendingIds((prev) => [...prev, idNotification]);
+    setError('');
     try {
       await notificationService.markAsRead(idNotification);
-    } catch {}
-    setNotifications((prev) =>
-      prev.map((n) => (n.id_notification === idNotification ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
-    );
-    fetchNotifications();
+      const readAt = new Date().toISOString();
+      setNotifications((prev) =>
+        prev.map((n) => (n.id_notification === idNotification ? { ...n, is_read: true, read_at: readAt } : n))
+      );
+    } catch (err) {
+      setError(err.message || 'Status baca gagal disimpan. Silakan coba lagi.');
+    } finally {
+      setPendingIds((prev) => prev.filter((id) => id !== idNotification));
+    }
   };
 
   const unreadCount = notifications.filter((n) => !n.is_read && !n.read_at).length;
@@ -52,6 +62,16 @@ export default function Notifikasi() {
             </div>
             <span className="rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-white">{unreadCount} belum dibaca</span>
           </div>
+
+          {error && (
+            <div role="alert" className="flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 sm:flex-row sm:items-center sm:justify-between">
+              <span>{error}</span>
+              <button type="button" onClick={() => fetchNotifications(true)} className="gov-btn-outline min-h-9 self-start px-3 py-1 text-xs sm:self-auto">
+                <span className="material-symbols-outlined text-[16px]">sync</span>
+                Coba sinkronkan
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center gap-3 rounded-xl bg-white p-6 text-sm font-medium text-slate-500">
@@ -74,7 +94,7 @@ export default function Notifikasi() {
               return (
                 <div
                   key={item.id_notification}
-                  className={`rounded-xl border p-4 transition-colors ${
+                  className={`animate-slide-up rounded-xl border p-4 transition-colors ${
                     !isRead ? 'border-emerald-200 bg-emerald-50/70 shadow-2xs' : 'border-slate-200 bg-white hover:bg-slate-50/70'
                   }`}
                 >
@@ -96,10 +116,13 @@ export default function Notifikasi() {
                       <button
                         type="button"
                         onClick={() => handleMarkAsRead(item.id_notification)}
-                        className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-primary shadow-sm hover:bg-primary-soft"
+                        disabled={pendingIds.includes(item.id_notification)}
+                        className="gov-btn-soft min-h-9 px-3 py-1 text-[11px] disabled:cursor-wait disabled:opacity-60"
                       >
-                        <span className="material-symbols-outlined text-[14px]">done</span>
-                        Tandai Sudah Dibaca
+                        <span className={`material-symbols-outlined text-[15px] ${pendingIds.includes(item.id_notification) ? 'animate-spin' : ''}`}>
+                          {pendingIds.includes(item.id_notification) ? 'progress_activity' : 'done'}
+                        </span>
+                        {pendingIds.includes(item.id_notification) ? 'Menyinkronkan...' : 'Tandai sudah dibaca'}
                       </button>
                     </div>
                   )}

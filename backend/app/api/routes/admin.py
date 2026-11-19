@@ -2,11 +2,10 @@ from datetime import datetime
 from io import BytesIO
 import random
 import string
-from typing import Any, List, Optional, Union
+from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -17,12 +16,22 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_admin
 from app.core.security import hash_password
+from app.core.normalization import normalize_name
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.bansos import DataBansos
 from app.models.eligible_resident import EligibleResident
+from app.models.jadwal_bansos import JadwalBansos
 from app.models.pengaduan import PengaduanBansos
 from app.models.user import User
+from app.schemas.admin import (
+    EligibleResidentCreate,
+    EligibleResidentResponse,
+    EligibleResidentUpdate,
+    JadwalBansosCreate,
+    JadwalBansosUpdate,
+    AdminWargaUpdate,
+)
 from app.schemas.auth import UserProfileUpdate, UserResponse
 from app.schemas.pengaduan import (
     PengaduanAdminCreate,
@@ -36,14 +45,6 @@ router = APIRouter()
 # ==========================================
 # MANAJEMEN JADWAL PENYALURAN BANSOS
 # ==========================================
-BULAN_ID = [
-    "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-]
-
-in_memory_jadwal: List[dict] = []
-
-
 def _format_tanggal_indonesia(value: datetime | None) -> str:
     if not value:
         return "-"
@@ -54,65 +55,14 @@ def _format_tanggal_indonesia(value: datetime | None) -> str:
     return f"{value.day:02d} {bulan_id[value.month]} {value.year}"
 
 
-def generate_default_dynamic_jadwal():
-    now = datetime.now()
-    curr_month_name = BULAN_ID[now.month]
-    curr_year = now.year
-    next_month_idx = now.month + 1 if now.month < 12 else 1
-    next_month_year = curr_year if now.month < 12 else curr_year + 1
-    next_month_name = BULAN_ID[next_month_idx]
-
-    return [
-        {
-            "id": 1,
-            "program": "Bansos Beras CPP 10 Kg",
-            "tanggal": f"15 {curr_month_name} {curr_year}",
-            "iso_date": f"{curr_year}-{now.month:02d}-15",
-            "jam": "08:30 - 14:00 WIB",
-            "lokasi": "Pendopo Balai Desa Ngrowo",
-            "status": "Akan Datang",
-            "persyaratan": ["KTP Asli Penerima", "Kartu Keluarga Asli", "Undangan Ber-Barcode dari RT"],
-        },
-        {
-            "id": 2,
-            "program": f"BLT Dana Desa ({curr_month_name} {curr_year})",
-            "tanggal": f"24 {curr_month_name} {curr_year}",
-            "iso_date": f"{curr_year}-{now.month:02d}-24",
-            "jam": "09:00 - 12:00 WIB",
-            "lokasi": "Ruang Pelayanan Kantor Kelurahan Ngrowo",
-            "status": "Dijadwalkan",
-            "persyaratan": ["KTP Asli", "Fotokopi KK 1 Lembar"],
-        },
-        {
-            "id": 3,
-            "program": "Penyaluran BPNT Sembako",
-            "tanggal": f"05 {next_month_name} {next_month_year}",
-            "iso_date": f"{next_month_year}-{next_month_idx:02d}-05",
-            "jam": "08:00 - 15:00 WIB",
-            "lokasi": "E-Warong Amanah Makmur Ngrowo",
-            "status": "Persiapan",
-            "persyaratan": ["KKS (Kartu Keluarga Sejahtera)", "KTP Elektronik"],
-        },
-    ]
-
-
-class JadwalBansosCreate(BaseModel):
-    id: Optional[int] = None
-    program: str
-    tanggal: str
-    jam: str
-    lokasi: str
-    status: Optional[str] = "Dijadwalkan"
-    persyaratan: Optional[Union[List[str], str]] = []
-    iso_date: Optional[str] = None
-
-
 @router.get("/jadwal")
-def get_jadwal_bansos():
-    base = generate_default_dynamic_jadwal()
-    if in_memory_jadwal:
-        return in_memory_jadwal + base
-    return base
+def get_jadwal_bansos(db: Session = Depends(get_db)):
+    return (
+        db.query(JadwalBansos)
+        .filter(JadwalBansos.is_archived.is_(False))
+        .order_by(JadwalBansos.iso_date.asc(), JadwalBansos.id.asc())
+        .all()
+    )
 
 
 @router.post("/jadwal")
@@ -121,22 +71,70 @@ def create_jadwal_bansos(
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
 ):
-    new_id = len(in_memory_jadwal) + 10
-    item = data.dict() if hasattr(data, "dict") else data.model_dump()
-    item["id"] = new_id
-    if isinstance(item.get("persyaratan"), str):
-        item["persyaratan"] = [p.strip() for p in item["persyaratan"].split(",") if p.strip()]
-    in_memory_jadwal.insert(0, item)
+    item = JadwalBansos(**data.model_dump())
+    db.add(item)
 
     admin_id = current_admin.get("id_user") if isinstance(current_admin, dict) else 1
     db.add(
         AuditLog(
             id_user=admin_id,
-            aktivitas=f"Admin menambahkan jadwal bansos baru: {data.program} pada {data.tanggal}",
+            aktivitas=f"Admin menambahkan jadwal bansos: {data.program} pada {data.tanggal}",
         )
     )
     db.commit()
+    db.refresh(item)
     return item
+
+
+@router.put("/jadwal/{id_jadwal}")
+def update_jadwal_bansos(
+    id_jadwal: int,
+    data: JadwalBansosUpdate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    item = (
+        db.query(JadwalBansos)
+        .filter(JadwalBansos.id == id_jadwal, JadwalBansos.is_archived.is_(False))
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan.")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(item, field, value)
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Admin memperbarui jadwal bansos: {item.program}",
+        )
+    )
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.delete("/jadwal/{id_jadwal}")
+def archive_jadwal_bansos(
+    id_jadwal: int,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    item = (
+        db.query(JadwalBansos)
+        .filter(JadwalBansos.id == id_jadwal, JadwalBansos.is_archived.is_(False))
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan.")
+    item.is_archived = True
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Admin mengarsipkan jadwal bansos: {item.program}",
+        )
+    )
+    db.commit()
+    return {"status": "success", "message": "Jadwal berhasil diarsipkan."}
 
 
 # ==========================================
@@ -149,10 +147,193 @@ def get_warga_terdaftar(
 ):
     return (
         db.query(User)
+        .options(joinedload(User.eligible_resident))
         .filter(User.role.in_(["user", "warga"]))
         .order_by(User.created_at.desc())
         .all()
     )
+
+
+def _eligible_resident_response(resident: EligibleResident) -> dict:
+    return {
+        "id": resident.id,
+        "nik": resident.nik,
+        "nama_lengkap": resident.nama_lengkap,
+        "desil": resident.desil,
+        "is_active": resident.is_active,
+        "registered_user_id": resident.registered_user_id,
+        "account_active": resident.registered_user.is_active if resident.registered_user else None,
+        "account_verified": (
+            resident.registered_user.is_ngrowo_resident and resident.registered_user.is_verified
+            if resident.registered_user
+            else None
+        ),
+    }
+
+
+@router.get("/warga/eligible", response_model=List[EligibleResidentResponse])
+def get_eligible_residents(
+    db: Session = Depends(get_db),
+    _current_admin=Depends(get_current_admin),
+):
+    residents = (
+        db.query(EligibleResident)
+        .options(joinedload(EligibleResident.registered_user))
+        .order_by(EligibleResident.nama_lengkap.asc())
+        .all()
+    )
+    return [_eligible_resident_response(resident) for resident in residents]
+
+
+@router.post("/warga/eligible", response_model=EligibleResidentResponse, status_code=201)
+def create_eligible_resident(
+    data: EligibleResidentCreate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    if db.query(EligibleResident).filter(EligibleResident.nik == data.nik).first():
+        raise HTTPException(status_code=409, detail="NIK sudah ada di daftar warga.")
+    user = db.query(User).filter(User.nik == data.nik, User.role.in_(["user", "warga"])).first()
+    resident = EligibleResident(
+        nik=data.nik,
+        nama_lengkap=data.nama_lengkap,
+        nama_normalized=normalize_name(data.nama_lengkap),
+        desil=data.desil,
+        registered_user_id=user.id_user if user else None,
+    )
+    if user:
+        user.eligible_resident = resident
+    db.query(DataBansos).filter(DataBansos.nik_penerima == data.nik).update(
+        {"desil": data.desil},
+        synchronize_session=False,
+    )
+    db.add(resident)
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Admin menambahkan warga eligible: {data.nama_lengkap} (NIK: {data.nik})",
+        )
+    )
+    db.commit()
+    db.refresh(resident)
+    return _eligible_resident_response(resident)
+
+
+@router.put("/warga/eligible/{id_resident}", response_model=EligibleResidentResponse)
+def update_eligible_resident(
+    id_resident: int,
+    data: EligibleResidentUpdate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    resident = (
+        db.query(EligibleResident)
+        .options(joinedload(EligibleResident.registered_user))
+        .filter(EligibleResident.id == id_resident)
+        .first()
+    )
+    if not resident:
+        raise HTTPException(status_code=404, detail="Data warga eligible tidak ditemukan.")
+
+    changes = data.model_dump(exclude_unset=True)
+    if "nama_lengkap" in changes and changes["nama_lengkap"] is not None:
+        resident.nama_lengkap = changes["nama_lengkap"]
+        resident.nama_normalized = normalize_name(changes["nama_lengkap"])
+        if resident.registered_user:
+            resident.registered_user.nama_lengkap = changes["nama_lengkap"]
+        db.query(DataBansos).filter(DataBansos.nik_penerima == resident.nik).update(
+            {"nama_penerima": changes["nama_lengkap"]},
+            synchronize_session=False,
+        )
+    if "desil" in changes and changes["desil"] is not None:
+        resident.desil = changes["desil"]
+        db.query(DataBansos).filter(DataBansos.nik_penerima == resident.nik).update(
+            {"desil": changes["desil"]},
+            synchronize_session=False,
+        )
+    if "is_active" in changes and changes["is_active"] is not None:
+        resident.is_active = changes["is_active"]
+        if resident.registered_user:
+            resident.registered_user.is_active = changes["is_active"]
+
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Admin memperbarui data warga eligible: {resident.nama_lengkap} (NIK: {resident.nik})",
+        )
+    )
+    db.commit()
+    db.refresh(resident)
+    return _eligible_resident_response(resident)
+
+
+@router.delete("/warga/eligible/{id_resident}")
+def deactivate_eligible_resident(
+    id_resident: int,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    resident = db.query(EligibleResident).filter(EligibleResident.id == id_resident).first()
+    if not resident:
+        raise HTTPException(status_code=404, detail="Data warga eligible tidak ditemukan.")
+    resident.is_active = False
+    if resident.registered_user:
+        resident.registered_user.is_active = False
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Admin menonaktifkan warga eligible: {resident.nama_lengkap} (NIK: {resident.nik})",
+        )
+    )
+    db.commit()
+    return {"status": "success", "message": "Data warga dinonaktifkan tanpa menghapus riwayat."}
+
+
+@router.put("/warga/{id_user}", response_model=UserResponse)
+def update_warga(
+    id_user: int,
+    data: AdminWargaUpdate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    user = (
+        db.query(User)
+        .options(joinedload(User.eligible_resident))
+        .filter(User.id_user == id_user, User.role.in_(["user", "warga"]))
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="Akun warga tidak ditemukan.")
+
+    changes = data.model_dump(exclude_unset=True)
+    desil = changes.pop("desil", None)
+    for field, value in changes.items():
+        setattr(user, field, value)
+    if user.eligible_resident and "nama_lengkap" in changes:
+        user.eligible_resident.nama_lengkap = user.nama_lengkap
+        user.eligible_resident.nama_normalized = normalize_name(user.nama_lengkap)
+        db.query(DataBansos).filter(DataBansos.nik_penerima == user.nik).update(
+            {"nama_penerima": user.nama_lengkap},
+            synchronize_session=False,
+        )
+    if desil is not None:
+        if not user.eligible_resident:
+            raise HTTPException(status_code=409, detail="Akun belum memiliki data warga eligible untuk diperbarui desilnya.")
+        user.eligible_resident.desil = desil
+        db.query(DataBansos).filter(DataBansos.nik_penerima == user.nik).update(
+            {"desil": desil},
+            synchronize_session=False,
+        )
+
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Admin memperbarui data akun warga: {user.nama_lengkap} (NIK: {user.nik})",
+        )
+    )
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.put("/profile/{id_user}", response_model=UserResponse)
@@ -186,6 +367,7 @@ def get_pending_warga(
         db.query(User)
         .filter(
             User.role.in_(["user", "warga"]),
+            User.is_active.is_(True),
             (User.is_ngrowo_resident == False) | (User.is_verified == False),
         )
         .order_by(User.created_at.desc())
@@ -204,14 +386,18 @@ def approve_warga(
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_admin),
 ):
-    user = db.query(User).filter(User.id_user == id_user).first()
+    user = db.query(User).options(joinedload(User.eligible_resident)).filter(
+        User.id_user == id_user,
+        User.role.in_(["user", "warga"]),
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="Data warga tidak ditemukan!")
 
+    user.is_active = True
     user.is_ngrowo_resident = True
     user.is_verified = True
-    db.commit()
-    db.refresh(user)
+    if user.eligible_resident:
+        user.eligible_resident.is_active = True
 
     admin_id = current_admin.get("id_user") if isinstance(current_admin, dict) else 1
     db.add(
@@ -221,6 +407,7 @@ def approve_warga(
         )
     )
     db.commit()
+    db.refresh(user)
     return {"status": "success", "message": f"Warga {user.nama_lengkap} berhasil diverifikasi sebagai penduduk Ngrowo."}
 
 
@@ -238,18 +425,28 @@ def reject_warga(
     if not user:
         raise HTTPException(status_code=404, detail="Data warga tidak ditemukan!")
 
+    if user.role not in {"user", "warga"}:
+        raise HTTPException(status_code=400, detail="Akun ini bukan akun warga.")
+
     nama = user.nama_lengkap
     nik = user.nik
+    user.is_active = False
+    user.is_ngrowo_resident = False
+    user.is_verified = False
+    eligible_resident = db.query(EligibleResident).filter(
+        EligibleResident.registered_user_id == user.id_user
+    ).first()
+    if eligible_resident:
+        eligible_resident.is_active = False
     admin_id = current_admin.get("id_user") if isinstance(current_admin, dict) else 1
     db.add(
         AuditLog(
             id_user=admin_id,
-            aktivitas=f"Admin menolak registrasi warga non-Ngrowo: {nama} (NIK: {nik})",
+            aktivitas=f"Admin menonaktifkan akun warga: {nama} (NIK: {nik})",
         )
     )
-    db.delete(user)
     db.commit()
-    return {"status": "success", "message": f"Pendaftaran warga {nama} ditolak dan dihapus dari sistem."}
+    return {"status": "success", "message": f"Akun warga {nama} dinonaktifkan dan riwayatnya tetap tersimpan."}
 
 
 # ==========================================
@@ -548,7 +745,13 @@ def _apply_bantuan_from_pengaduan(db: Session, pengaduan: PengaduanBansos, data_
             )
         )
     _update_desil_for_nik(db, target_nik, data_update.desil)
-    return {"jenis_bansos": jenis, "desil": data_update.desil, "periode_tahun": periode, "nik": target_nik}
+    return {
+        "jenis_bansos": jenis,
+        "desil": data_update.desil,
+        "periode_tahun": periode,
+        "nik": target_nik,
+        "id_user": target_user.id_user if target_user and target_user.is_active else None,
+    }
 
 
 @router.post("/pengaduan", response_model=PengaduanResponse, status_code=201)
@@ -641,30 +844,27 @@ def update_status_pengaduan(
 
     db.commit()
     db.refresh(pengaduan)
-    try:
-        from app.api.routes.notifications import send_automatic_notification_to_user
+    from app.api.routes.notifications import send_automatic_notification_to_user
 
-        if bantuan_info:
-            send_automatic_notification_to_user(
-                db=db,
-                id_user=pengaduan.id_user,
-                title="Selamat! Anda Ditetapkan Menerima Bantuan",
-                body=(
-                    f"Laporan {pengaduan.nomor_tiket} telah disetujui. Anda terdaftar sebagai penerima "
-                    f"{bantuan_info['jenis_bansos']} periode {bantuan_info['periode_tahun']} "
-                    f"dengan Desil {bantuan_info['desil']}."
-                ),
-            )
-        else:
-            note = f" Catatan petugas: {data_update.catatan_admin}" if data_update.catatan_admin else ""
-            send_automatic_notification_to_user(
-                db=db,
-                id_user=pengaduan.id_user,
-                title="Pembaruan Status Pengaduan Bansos",
-                body=f"Laporan {pengaduan.nomor_tiket} berstatus '{pengaduan.status_laporan}'.{note}",
-            )
-    except Exception:
-        pass
+    notified_beneficiary_id = bantuan_info.get("id_user") if bantuan_info else None
+    if bantuan_info and notified_beneficiary_id is not None:
+        send_automatic_notification_to_user(
+            db=db,
+            id_user=notified_beneficiary_id,
+            title="Selamat! Anda Ditetapkan Menerima Bantuan",
+            body=(
+                f"Anda terdaftar sebagai penerima {bantuan_info['jenis_bansos']} "
+                f"periode {bantuan_info['periode_tahun']} dengan Desil {bantuan_info['desil']}."
+            ),
+        )
+    if notified_beneficiary_id != pengaduan.id_user:
+        note = f" Catatan petugas: {data_update.catatan_admin}" if data_update.catatan_admin else ""
+        send_automatic_notification_to_user(
+            db=db,
+            id_user=pengaduan.id_user,
+            title="Pembaruan Status Pengaduan Bansos",
+            body=f"Laporan {pengaduan.nomor_tiket} berstatus '{pengaduan.status_laporan}'.{note}",
+        )
     return pengaduan
 
 

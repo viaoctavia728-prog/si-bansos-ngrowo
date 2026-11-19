@@ -35,6 +35,18 @@ function resolveScheduleDate(item, fallback = new Date()) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function formatIsoDate(value) {
+  if (!value) return '';
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function localIsoDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export default function AdminJadwal() {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +62,11 @@ export default function AdminJadwal() {
   // Modal State for adding new schedule
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
   const [newSchedule, setNewSchedule] = useState({
     program: '',
     tanggal: '',
+    iso_date: '',
     jam: '08:30 - 12:00 WIB',
     lokasi: 'Pendopo Balai Desa Ngrowo',
     persyaratan: 'KTP Asli Penerima, Kartu Keluarga (KK), Undangan RT',
@@ -130,29 +144,54 @@ export default function AdminJadwal() {
     }
   }, [feedback]);
 
-  const handleCreateSchedule = async (e) => {
+  const openNewSchedule = () => {
+    setEditingSchedule(null);
+    setNewSchedule({
+      program: '',
+      tanggal: formatIsoDate(localIsoDate(today)),
+      iso_date: localIsoDate(today),
+      jam: '08:30 - 12:00 WIB',
+      lokasi: 'Pendopo Balai Desa Ngrowo',
+      persyaratan: 'KTP Asli Penerima, Kartu Keluarga (KK), Undangan RT',
+      status: 'Dijadwalkan',
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const openEditSchedule = (item) => {
+    setEditingSchedule(item);
+    setNewSchedule({
+      program: item.program || '',
+      tanggal: item.tanggal || formatIsoDate(item.iso_date),
+      iso_date: item.iso_date || buildIsoDate(item.tanggal),
+      jam: item.jam || '',
+      lokasi: item.lokasi || '',
+      persyaratan: Array.isArray(item.persyaratan) ? item.persyaratan.join(', ') : item.persyaratan || '',
+      status: item.status || 'Dijadwalkan',
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveSchedule = async (e) => {
     e.preventDefault();
     try {
       setIsSaving(true);
       setFeedback(null);
       const reqPayload = {
         ...newSchedule,
-        iso_date: newSchedule.iso_date || buildIsoDate(newSchedule.tanggal, displayedMonth),
+        tanggal: formatIsoDate(newSchedule.iso_date),
         persyaratan: typeof newSchedule.persyaratan === 'string'
           ? newSchedule.persyaratan.split(',').map((p) => p.trim()).filter(Boolean)
           : newSchedule.persyaratan,
       };
-      await adminService.createJadwal(reqPayload);
-      setFeedback({ type: 'success', message: `Jadwal '${newSchedule.program}' berhasil dibuat dan disimpan!` });
+      if (editingSchedule) {
+        await adminService.updateJadwal(editingSchedule.id, reqPayload);
+      } else {
+        await adminService.createJadwal(reqPayload);
+      }
+      setFeedback({ type: 'success', message: `Jadwal '${newSchedule.program}' berhasil ${editingSchedule ? 'diperbarui' : 'disimpan'} secara permanen.` });
       setIsAddModalOpen(false);
-      setNewSchedule({
-        program: '',
-        tanggal: '',
-        jam: '08:30 - 12:00 WIB',
-        lokasi: 'Pendopo Balai Desa Ngrowo',
-        persyaratan: 'KTP Asli Penerima, Kartu Keluarga (KK), Undangan RT',
-        status: 'Dijadwalkan',
-      });
+      setEditingSchedule(null);
       await loadSchedules();
     } catch (err) {
       const msg = err.status === 404
@@ -161,6 +200,18 @@ export default function AdminJadwal() {
       setFeedback({ type: 'error', message: msg });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleArchiveSchedule = async (item) => {
+    if (!window.confirm(`Arsipkan jadwal '${item.program}'? Riwayat tidak akan dihapus.`)) return;
+    try {
+      setFeedback(null);
+      await adminService.archiveJadwal(item.id);
+      setFeedback({ type: 'success', message: `Jadwal '${item.program}' berhasil diarsipkan.` });
+      await loadSchedules();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'Jadwal gagal diarsipkan.' });
     }
   };
 
@@ -193,7 +244,7 @@ export default function AdminJadwal() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 motion-reveal">
       {/* 1. BREADCRUMB */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-semibold text-slate-500">
         <Link to="/admin/dashboard" className="flex items-center gap-1 hover:text-slate-800 transition-colors">
@@ -218,14 +269,8 @@ export default function AdminJadwal() {
         <div className="flex items-center gap-2.5 self-start md:self-auto">
           <button
             type="button"
-            onClick={() => {
-              setNewSchedule((prev) => ({
-                ...prev,
-                tanggal: prev.tanggal || `${today.getDate()} ${monthName}`,
-              }));
-              setIsAddModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#166534] hover:bg-[#166534] px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs"
+            onClick={openNewSchedule}
+            className="gov-btn-primary"
           >
             <span className="material-symbols-outlined text-[18px]">add_circle</span>
             Tambah Jadwal
@@ -266,7 +311,7 @@ export default function AdminJadwal() {
       {/* 3. CALENDAR + SCHEDULE LIST (2 COLUMNS) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Dynamic Calendar Widget (5 cols) */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+        <div className="motion-card lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
@@ -365,7 +410,7 @@ export default function AdminJadwal() {
         </div>
 
         {/* Schedule List (7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+        <div className="motion-card lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
@@ -437,7 +482,7 @@ export default function AdminJadwal() {
             ) : (
               <div className="divide-y divide-slate-100 mt-2 space-y-2">
                 {displayedSchedules.map((item, index) => (
-                  <div key={item.id || index} className="pt-3 pb-3 flex flex-col gap-2.5">
+                  <div key={item.id || index} className="motion-row pt-3 pb-3 flex flex-col gap-2.5" style={{ '--stagger-index': Math.min(index, 8) }}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
@@ -452,18 +497,26 @@ export default function AdminJadwal() {
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleBroadcastSchedule(item, index)}
-                        disabled={broadcastingId !== null}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors shrink-0 shadow-2xs disabled:opacity-50"
-                        title="Kirim notifikasi real-time jadwal ini ke warga"
-                      >
-                        <span className={`material-symbols-outlined text-[15px] ${broadcastingId === (item.id ?? index) ? 'animate-spin' : ''}`}>
-                          {broadcastingId === (item.id ?? index) ? 'progress_activity' : 'send'}
-                        </span>
-                        {broadcastingId === (item.id ?? index) ? 'Mengirim...' : 'Broadcast'}
-                      </button>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <button type="button" onClick={() => openEditSchedule(item)} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50" title="Edit jadwal">
+                          <span className="material-symbols-outlined text-[15px]">edit</span>Edit
+                        </button>
+                        <button type="button" onClick={() => handleArchiveSchedule(item)} className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-50" title="Arsipkan jadwal">
+                          <span className="material-symbols-outlined text-[15px]">archive</span>Arsip
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBroadcastSchedule(item, index)}
+                          disabled={broadcastingId !== null}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-2xs transition-colors hover:bg-blue-100 disabled:opacity-50"
+                          title="Kirim notifikasi jadwal ini ke warga"
+                        >
+                          <span className={`material-symbols-outlined text-[15px] ${broadcastingId === (item.id ?? index) ? 'animate-spin' : ''}`}>
+                            {broadcastingId === (item.id ?? index) ? 'progress_activity' : 'send'}
+                          </span>
+                          {broadcastingId === (item.id ?? index) ? 'Mengirim...' : 'Broadcast'}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100 text-xs text-slate-600 space-y-1">
@@ -491,20 +544,21 @@ export default function AdminJadwal() {
 
       {/* 4. MODAL ADD NEW SCHEDULE */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setIsAddModalOpen(false); setEditingSchedule(null); } }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="schedule-form-title" className="modal-panel motion-modal max-w-lg overflow-hidden p-0">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
-              <h3 className="text-base font-extrabold text-slate-900">Buat Jadwal Penyaluran Baru</h3>
+              <h3 id="schedule-form-title" className="text-base font-extrabold text-slate-900">{editingSchedule ? 'Perbarui Jadwal Penyaluran' : 'Buat Jadwal Penyaluran Baru'}</h3>
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={() => { setIsAddModalOpen(false); setEditingSchedule(null); }}
                 className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center"
+                aria-label="Tutup formulir jadwal"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleCreateSchedule} className="p-6 overflow-y-auto space-y-4 text-xs">
+            <form onSubmit={handleSaveSchedule} className="p-6 overflow-y-auto space-y-4 text-xs">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nama Program Bantuan</label>
                 <input
@@ -522,10 +576,9 @@ export default function AdminJadwal() {
                   <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Pelaksanaan</label>
                   <input
                     required
-                    type="text"
-                    value={newSchedule.tanggal}
-                    onChange={(e) => setNewSchedule({ ...newSchedule, tanggal: e.target.value })}
-                    placeholder={`Contoh: 28 ${monthName}`}
+                    type="date"
+                    value={newSchedule.iso_date}
+                    onChange={(e) => setNewSchedule({ ...newSchedule, iso_date: e.target.value, tanggal: formatIsoDate(e.target.value) })}
                     className="h-10 w-full rounded-xl border border-slate-300 px-3 text-xs focus:border-emerald-600 focus:outline-none"
                   />
                 </div>
@@ -568,7 +621,7 @@ export default function AdminJadwal() {
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={() => { setIsAddModalOpen(false); setEditingSchedule(null); }}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Batal
@@ -581,7 +634,7 @@ export default function AdminJadwal() {
                   <span className={`material-symbols-outlined text-[17px] ${isSaving ? 'animate-spin' : ''}`}>
                     {isSaving ? 'progress_activity' : 'save'}
                   </span>
-                  {isSaving ? 'Menyimpan...' : 'Simpan Jadwal'}
+                  {isSaving ? 'Menyimpan...' : editingSchedule ? 'Simpan Perubahan' : 'Simpan Jadwal'}
                 </button>
               </div>
             </form>

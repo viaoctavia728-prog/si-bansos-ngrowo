@@ -1,4 +1,5 @@
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 from app.db.base import Base
 
@@ -12,3 +13,10 @@ class EligibleResident(Base):
     nama_normalized = Column(String(100), nullable=False)
     registered_user_id = Column(Integer, ForeignKey("users.id_user"), nullable=True)
     desil = Column(Integer, nullable=False, default=4)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    registered_user = relationship(
+        "User",
+        back_populates="eligible_resident",
+        foreign_keys=[registered_user_id],
+    )

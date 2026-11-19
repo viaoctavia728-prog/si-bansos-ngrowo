@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const ADMIN_WHATSAPP = '6285807078899';
+const ADMIN_WHATSAPP = '6285806503734';
 
 export default function LupaPin() {
   const [nik, setNik] = React.useState('');

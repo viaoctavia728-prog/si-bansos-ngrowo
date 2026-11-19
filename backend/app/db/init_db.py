@@ -8,7 +8,6 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models.user import User
-from app.models.bansos import DataBansos
 from app.models.eligible_resident import EligibleResident
 import app.models  # noqa: F401 - load models before create_all
 
@@ -19,13 +18,14 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
             Base.metadata.create_all(bind=engine)
             ensure_username_column()
             ensure_user_status_columns()
+            ensure_resident_active_columns()
             ensure_notification_preference_column()
+            ensure_notification_archive_column()
             ensure_desil_columns()
             drop_dusun_columns()
             seed_default_admin()
             activate_eligible_citizens()
             seed_missing_usernames()
-            seed_demo_desil_and_bansos()
             return
         except Exception:
             if attempt == max_retries:
@@ -68,11 +68,30 @@ def ensure_user_status_columns():
                 connection.execute(text(f"ALTER TABLE users ADD COLUMN {column} {definition}"))
 
 
+def ensure_resident_active_columns():
+    for table in ("users", "eligible_residents", "data_bansos"):
+        columns = {column["name"] for column in inspect(engine).get_columns(table)}
+        if "is_active" not in columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE")
+                )
+
+
 def ensure_notification_preference_column():
     columns = {column["name"] for column in inspect(engine).get_columns("users")}
     if "notifikasi_otomatis" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE users ADD COLUMN notifikasi_otomatis BOOLEAN NOT NULL DEFAULT TRUE"))
+
+
+def ensure_notification_archive_column():
+    columns = {column["name"] for column in inspect(engine).get_columns("notification_history")}
+    if "is_archived" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE notification_history ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT FALSE")
+            )
 
 
 def ensure_desil_columns():
@@ -93,39 +112,6 @@ def drop_dusun_columns():
         if "dusun" in columns:
             with engine.begin() as connection:
                 connection.execute(text(f"ALTER TABLE {table} DROP COLUMN dusun"))
-
-
-def seed_demo_desil_and_bansos():
-    db: Session = SessionLocal()
-    try:
-        residents = db.query(EligibleResident).order_by(EligibleResident.id).all()
-        if not residents:
-            return
-
-        for index, resident in enumerate(residents):
-            resident.desil = (index % 10) + 1
-
-        existing_niks = {row.nik_penerima for row in db.query(DataBansos.nik_penerima).all()}
-        demo_recipients = residents[:20]
-        for index, resident in enumerate(demo_recipients):
-            if resident.nik in existing_niks:
-                continue
-            db.add(
-                DataBansos(
-                    nik_penerima=resident.nik,
-                    nama_penerima=resident.nama_lengkap,
-                    no_kk=None,
-                    jenis_bansos="Bansos Beras CPP",
-                    periode_tahun=2026,
-                    status_penerima="aktif",
-                    rt=f"{(index % 5) + 1:03d}",
-                    rw=f"{(index % 5) + 1:03d}",
-                    desil=resident.desil,
-                )
-            )
-        db.commit()
-    finally:
-        db.close()
 
 
 def seed_default_admin():
@@ -158,15 +144,20 @@ def seed_default_admin():
 def activate_eligible_citizens():
     db: Session = SessionLocal()
     try:
-        users = (
-            db.query(User)
+        changed = False
+        resident_accounts = (
+            db.query(User, EligibleResident)
             .join(EligibleResident, EligibleResident.nik == User.nik)
             .filter(User.role.in_(["user", "warga"]))
             .all()
         )
-        changed = False
-        for user in users:
-            if not user.is_ngrowo_resident or not user.is_verified:
+        for user, resident in resident_accounts:
+            if resident.registered_user_id != user.id_user:
+                resident.registered_user_id = user.id_user
+                changed = True
+            if user.is_active and resident.is_active and (
+                not user.is_ngrowo_resident or not user.is_verified
+            ):
                 user.is_ngrowo_resident = True
                 user.is_verified = True
                 changed = True

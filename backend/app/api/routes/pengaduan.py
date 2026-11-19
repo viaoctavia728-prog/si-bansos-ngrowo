@@ -117,10 +117,16 @@ def buat_pengaduan(
 
 
 @router.get("/tracking/{nomor_tiket}", response_model=PengaduanResponse)
-def tracking_pengaduan(nomor_tiket: str, db: Session = Depends(get_db)):
+def tracking_pengaduan(
+    nomor_tiket: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     pengaduan = db.query(PengaduanBansos).filter(PengaduanBansos.nomor_tiket == nomor_tiket).first()
     if not pengaduan:
         raise HTTPException(status_code=404, detail="Nomor Tiket tidak ditemukan!")
+    if pengaduan.id_user != current_user.get("id_user"):
+        raise HTTPException(status_code=403, detail="Laporan hanya dapat dilacak oleh pemilik akun.")
     return _response_pengaduan(pengaduan)
 
 

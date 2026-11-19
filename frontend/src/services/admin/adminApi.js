@@ -6,6 +6,31 @@ export const adminService = {
     return response.data;
   },
 
+  async updateWarga(idUser, payload) {
+    const response = await adminApiClient.put(`/admin/warga/${idUser}`, payload);
+    return response.data;
+  },
+
+  async getEligibleResidents() {
+    const response = await adminApiClient.get('/admin/warga/eligible');
+    return response.data;
+  },
+
+  async createEligibleResident(payload) {
+    const response = await adminApiClient.post('/admin/warga/eligible', payload);
+    return response.data;
+  },
+
+  async updateEligibleResident(idResident, payload) {
+    const response = await adminApiClient.put(`/admin/warga/eligible/${idResident}`, payload);
+    return response.data;
+  },
+
+  async deactivateEligibleResident(idResident) {
+    const response = await adminApiClient.delete(`/admin/warga/eligible/${idResident}`);
+    return response.data;
+  },
+
   async getPengaduan(params = {}) {
     const response = await adminApiClient.get('/admin/pengaduan', { params });
     return response.data;
@@ -48,8 +73,8 @@ export const adminService = {
     return response.data;
   },
 
-  async getAuditLogs() {
-    const response = await adminApiClient.get('/admin/audit-logs');
+  async getAuditLogs(params = {}) {
+    const response = await adminApiClient.get('/admin/audit-logs', { params });
     return response.data;
   },
 
@@ -95,7 +120,22 @@ export const adminService = {
   },
 
   async getPenerimaBansos(params = {}) {
-    const response = await adminApiClient.get('/bansos/penerima', { params });
+    const response = await adminApiClient.get('/bansos/admin/penerima', { params });
+    return response.data;
+  },
+
+  async createPenerimaBansos(payload) {
+    const response = await adminApiClient.post('/bansos', payload);
+    return response.data;
+  },
+
+  async updatePenerimaBansos(idBansos, payload) {
+    const response = await adminApiClient.put(`/bansos/admin/penerima/${idBansos}`, payload);
+    return response.data;
+  },
+
+  async archivePenerimaBansos(idBansos) {
+    const response = await adminApiClient.delete(`/bansos/admin/penerima/${idBansos}`);
     return response.data;
   },
 
@@ -143,6 +183,16 @@ export const adminService = {
       }
       throw err;
     }
+  },
+
+  async updateJadwal(idJadwal, payload) {
+    const response = await adminApiClient.put(`/admin/jadwal/${idJadwal}`, payload);
+    return response.data;
+  },
+
+  async archiveJadwal(idJadwal) {
+    const response = await adminApiClient.delete(`/admin/jadwal/${idJadwal}`);
+    return response.data;
   },
 
   async getProfile() {
@@ -196,7 +246,7 @@ export const adminService = {
   },
 
   async getNotifications() {
-    const response = await adminApiClient.get('/notifications');
+    const response = await adminApiClient.get('/notifications/admin');
     return response.data;
   },
 
@@ -207,6 +257,11 @@ export const adminService = {
 
   async deleteNotification(idNotification) {
     const response = await adminApiClient.delete(`/notifications/${idNotification}`);
+    return response.data;
+  },
+
+  async archiveNotification(idNotification) {
+    const response = await adminApiClient.patch(`/notifications/${idNotification}/archive`);
     return response.data;
   },
 };

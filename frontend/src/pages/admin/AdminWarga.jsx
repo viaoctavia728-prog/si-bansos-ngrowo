@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
+import AdminEligibleResidents from './AdminEligibleResidents';
 
 export default function AdminWarga() {
   const { globalSearch } = useOutletContext() || {};
@@ -13,13 +14,18 @@ export default function AdminWarga() {
   const [filterVerified, setFilterVerified] = useState('all');
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [activeTab, setActiveTab] = useState('accounts');
+  const [editingWarga, setEditingWarga] = useState(null);
+  const [wargaForm, setWargaForm] = useState({});
+  const [savingWarga, setSavingWarga] = useState(false);
 
   const loadWarga = async () => {
     try {
       setLoading(true);
       setError('');
       const data = await adminService.getWarga();
-      setWargaList(Array.isArray(data) ? data : []);
+      if (!Array.isArray(data)) throw new Error('Format data akun warga dari server tidak valid.');
+      setWargaList(data);
     } catch (err) {
       setError(err.message || 'Gagal memuat data warga.');
     } finally {
@@ -40,10 +46,9 @@ export default function AdminWarga() {
   }, [wargaList]);
 
   const stats = useMemo(() => {
-    const total = wargaList.length;
-    const verified = wargaList.filter((w) => w.is_ngrowo_resident && w.is_verified).length;
-    const pending = total - verified;
-    return { total, verified, pending };
+    const active = wargaList.filter((w) => w.is_active);
+    const verified = active.filter((w) => w.is_ngrowo_resident && w.is_verified).length;
+    return { total: active.length, verified, pending: active.length - verified };
   }, [wargaList]);
 
   const filteredWarga = useMemo(() => {
@@ -96,7 +101,7 @@ export default function AdminWarga() {
   };
 
   const handleReject = async (idUser, nama) => {
-    if (!window.confirm(`Tolak pendaftaran warga non-Ngrowo untuk ${nama}? Akun akan dihapus dari sistem.`)) return;
+    if (!window.confirm(`Nonaktifkan akun ${nama}? Akun tidak dapat masuk, tetapi data dan riwayat tetap disimpan.`)) return;
     try {
       setActionLoadingId(idUser);
       setFeedback(null);
@@ -113,8 +118,44 @@ export default function AdminWarga() {
     }
   };
 
+  const openEditWarga = (person) => {
+    setEditingWarga(person);
+    setWargaForm({
+      nama_lengkap: person.nama_lengkap || '',
+      no_kk: person.no_kk || '',
+      no_hp: person.no_hp || '',
+      rt: person.rt || '',
+      rw: person.rw || '',
+      alamat_detail: person.alamat_detail || '',
+      desil: person.desil ?? '',
+    });
+    setError('');
+  };
+
+  const saveWarga = async (event) => {
+    event.preventDefault();
+    if (!editingWarga) return;
+    try {
+      setSavingWarga(true);
+      setFeedback(null);
+      await adminService.updateWarga(editingWarga.id_user, {
+        ...wargaForm,
+        no_kk: wargaForm.no_kk || null,
+        no_hp: wargaForm.no_hp || null,
+        desil: wargaForm.desil === '' ? null : Number(wargaForm.desil),
+      });
+      setEditingWarga(null);
+      setFeedback({ type: 'success', message: `Data ${wargaForm.nama_lengkap} berhasil diperbarui.` });
+      await loadWarga();
+    } catch (saveError) {
+      setError(saveError.message || 'Data warga gagal diperbarui.');
+    } finally {
+      setSavingWarga(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 motion-reveal">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -168,21 +209,32 @@ export default function AdminWarga() {
         </div>
       )}
 
+      <div role="tablist" aria-label="Jenis data warga" className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        <button type="button" role="tab" aria-selected={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} className={`rounded-lg px-4 py-2 text-xs font-bold transition ${activeTab === 'accounts' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
+          <span className="inline-flex items-center gap-2"><span className="material-symbols-outlined text-base">manage_accounts</span>Akun warga</span>
+        </button>
+        <button type="button" role="tab" aria-selected={activeTab === 'eligible'} onClick={() => setActiveTab('eligible')} className={`rounded-lg px-4 py-2 text-xs font-bold transition ${activeTab === 'eligible' ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
+          <span className="inline-flex items-center gap-2"><span className="material-symbols-outlined text-base">groups</span>Daftar warga &amp; desil</span>
+        </button>
+      </div>
+
+      {activeTab === 'eligible' ? <AdminEligibleResidents /> : (
+      <>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+      <div className="motion-stagger grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="gov-card motion-card p-5" style={{ '--stagger-index': 0 }}>
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Akun Terdaftar</span>
           <p className="text-3xl font-black text-slate-900 mt-2">{stats.total}</p>
-          <p className="text-[11px] font-medium text-slate-400 mt-1">Basis data pengguna aktif</p>
+          <p className="text-[11px] font-medium text-slate-400 mt-1">Akun yang dapat digunakan</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+        <div className="gov-card motion-card p-5" style={{ '--stagger-index': 1 }}>
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Penduduk Terverifikasi</span>
           <p className="text-3xl font-black text-[#166534] mt-2">{stats.verified}</p>
           <p className="text-[11px] font-medium text-emerald-600 mt-1">Kependudukan sah SIAK</p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+        <div className="gov-card motion-card p-5" style={{ '--stagger-index': 2 }}>
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Perlu Verifikasi</span>
           <p className="text-3xl font-black text-amber-600 mt-2">{stats.pending}</p>
           <p className="text-[11px] font-medium text-amber-600 mt-1">Pendaftaran baru / luar wilayah</p>
@@ -285,10 +337,10 @@ export default function AdminWarga() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredWarga.map((person) => {
+                {filteredWarga.map((person, index) => {
                   const isVerified = person.is_ngrowo_resident && person.is_verified;
                   return (
-                    <tr key={person.id_user} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={person.id_user} className="motion-row hover:bg-slate-50/70 transition-colors" style={{ '--stagger-index': Math.min(index, 8) }}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-emerald-100 text-[#166534] font-bold flex items-center justify-center text-xs shrink-0">
@@ -317,19 +369,24 @@ export default function AdminWarga() {
                         <span className="font-bold text-slate-800 block text-xs">
                           RT {person.rt || '-'} / RW {person.rw || '-'}
                         </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">Desa Ngrowo</span>
+                        <span className="text-[10px] text-amber-800 block mt-0.5">Desil {person.desil ?? 'belum ditetapkan'}</span>
                       </td>
 
                       <td className="px-5 py-4 text-center whitespace-nowrap">
-                        {isVerified ? (
+                        {isVerified && person.is_active ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-[#166534] border border-emerald-200">
                             <span className="material-symbols-outlined text-[13px]">verified</span>
                             Penduduk Ngrowo
                           </span>
-                        ) : (
+                        ) : person.is_active ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                             <span className="material-symbols-outlined text-[13px]">pending</span>
                             Perlu Verifikasi
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="material-symbols-outlined text-[13px]">person_off</span>
+                            Akun Nonaktif
                           </span>
                         )}
                       </td>
@@ -339,8 +396,9 @@ export default function AdminWarga() {
                       </td>
 
                       <td className="px-5 py-4 text-center whitespace-nowrap">
-                        {!isVerified ? (
-                          <div className="flex items-center justify-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+                          {!isVerified && person.is_active ? (
+                            <>
                             <button
                               type="button"
                               onClick={() => handleApprove(person.id_user, person.nama_lengkap)}
@@ -355,14 +413,30 @@ export default function AdminWarga() {
                               onClick={() => handleReject(person.id_user, person.nama_lengkap)}
                               disabled={actionLoadingId === person.id_user}
                               className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] border border-rose-200 transition-colors disabled:opacity-50"
-                              title="Tolak pendaftaran"
+                              title="Nonaktifkan akun"
                             >
-                              Tolak
+                              Nonaktifkan
                             </button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 font-medium">Sudah Terverifikasi</span>
-                        )}
+                            </>
+                          ) : !isVerified ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(person.id_user, person.nama_lengkap)}
+                              disabled={actionLoadingId === person.id_user}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] disabled:opacity-50"
+                            >
+                              Aktifkan &amp; verifikasi
+                            </button>
+                          ) : <span className="text-[11px] text-emerald-800 font-semibold">Terverifikasi</span>}
+                          <button
+                            type="button"
+                            onClick={() => openEditWarga(person)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+                            title="Edit data warga"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit</span>Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -377,6 +451,41 @@ export default function AdminWarga() {
           <span>Desa Ngrowo, Bojonegoro</span>
         </div>
       </div>
+      </>
+      )}
+
+      {editingWarga && (
+        <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingWarga(null); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="edit-warga-title" className="modal-panel motion-modal max-w-lg">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-800">Pembaruan akun</p><h3 id="edit-warga-title" className="mt-1 text-lg font-extrabold text-slate-900">Edit data warga</h3></div>
+              <button type="button" onClick={() => setEditingWarga(null)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Tutup formulir"><span className="material-symbols-outlined">close</span></button>
+            </div>
+            {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800">{error}</p>}
+            <form onSubmit={saveWarga} className="space-y-3">
+              <label className="block text-xs font-semibold text-slate-700">Nama lengkap<input required minLength="2" maxLength="100" value={wargaForm.nama_lengkap || ''} onChange={(event) => setWargaForm((value) => ({ ...value, nama_lengkap: event.target.value }))} className="gov-input mt-1" /></label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-semibold text-slate-700">NIK<input readOnly value={editingWarga.nik} className="gov-input mt-1 bg-slate-100 font-mono" /></label>
+                <label className="block text-xs font-semibold text-slate-700">Nomor KK<input maxLength="16" value={wargaForm.no_kk || ''} onChange={(event) => setWargaForm((value) => ({ ...value, no_kk: event.target.value }))} className="gov-input mt-1 font-mono" /></label>
+                <label className="block text-xs font-semibold text-slate-700">Nomor telepon<input maxLength="15" value={wargaForm.no_hp || ''} onChange={(event) => setWargaForm((value) => ({ ...value, no_hp: event.target.value }))} className="gov-input mt-1" /></label>
+                <label className="block text-xs font-semibold text-slate-700">Desil
+                  <select value={wargaForm.desil} onChange={(event) => setWargaForm((value) => ({ ...value, desil: event.target.value }))} className="gov-input mt-1">
+                    <option value="">Belum ditetapkan</option>
+                    {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Desil {value}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">RT<input maxLength="10" value={wargaForm.rt || ''} onChange={(event) => setWargaForm((value) => ({ ...value, rt: event.target.value }))} className="gov-input mt-1" /></label>
+                <label className="block text-xs font-semibold text-slate-700">RW<input maxLength="10" value={wargaForm.rw || ''} onChange={(event) => setWargaForm((value) => ({ ...value, rw: event.target.value }))} className="gov-input mt-1" /></label>
+              </div>
+              <label className="block text-xs font-semibold text-slate-700">Alamat lengkap<textarea rows={2} maxLength="255" value={wargaForm.alamat_detail || ''} onChange={(event) => setWargaForm((value) => ({ ...value, alamat_detail: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/15" /></label>
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button type="button" onClick={() => setEditingWarga(null)} className="gov-btn-outline">Batal</button>
+                <button type="submit" disabled={savingWarga} className="gov-btn-primary"><span className={`material-symbols-outlined text-base ${savingWarga ? 'animate-spin' : ''}`}>{savingWarga ? 'progress_activity' : 'save'}</span>{savingWarga ? 'Menyimpan...' : 'Simpan perubahan'}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

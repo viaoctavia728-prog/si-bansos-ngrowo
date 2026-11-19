@@ -160,8 +160,8 @@ export default function Login() {
                             }`}
                     >
                         {/* Ambient glowing orbs */}
-                        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[500px] md:w-[700px] h-[300px] sm:h-[500px] md:h-[700px] bg-emerald-400/15 rounded-full blur-[100px] pointer-events-none"></div>
-                        <div className="absolute bottom-10 right-10 w-60 sm:w-80 h-60 sm:h-80 bg-teal-400/10 rounded-full blur-3xl pointer-events-none"></div>
+                        <div className="motion-orb absolute top-1/4 left-1/4 w-[300px] sm:w-[500px] md:w-[700px] h-[300px] sm:h-[500px] md:h-[700px] bg-emerald-400/15 rounded-full blur-[100px] pointer-events-none"></div>
+                        <div className="motion-orb motion-orb-delay absolute bottom-10 right-10 w-60 sm:w-80 h-60 sm:h-80 bg-teal-400/10 rounded-full blur-3xl pointer-events-none"></div>
                         {/* Subtle decorative dot grid */}
                         <div className="absolute inset-0 opacity-[0.035] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
                     </div>
@@ -169,11 +169,11 @@ export default function Login() {
 
                 {/* Central Hero Content */}
                 <main className="relative z-20 flex-1 flex flex-col items-center justify-center text-center px-4 sm:px-6 py-6 sm:py-10 my-auto">
-                    <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
+                    <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center motion-hero">
 
                         {/* OFFICIAL EMBLEM BADGE (SESUAI GAMBAR LOGO) */}
                         <div className="flex flex-col items-center mb-5 sm:mb-7">
-                            <div className="inline-flex items-center justify-center p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-white/50 shadow-[0_12px_35px_rgba(0,0,0,0.3)] gap-3 sm:gap-5 transition-transform hover:scale-[1.02]">
+                            <div className="motion-pop-in inline-flex items-center justify-center p-2.5 sm:p-3.5 bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-white/50 shadow-[0_12px_35px_rgba(0,0,0,0.3)] gap-3 sm:gap-5 transition-transform hover:scale-[1.02]">
                                 <div className="w-12 h-14 sm:w-16 sm:h-18 md:w-20 md:h-22 flex items-center justify-center p-1">
                                     <img
                                         src={logoBojonegoro}
@@ -200,18 +200,18 @@ export default function Login() {
 
                         {/* Slide Tagline */}
                         <div className="mb-2 sm:mb-3">
-                            <span className="inline-block text-[10px] sm:text-xs font-bold tracking-widest text-emerald-200 uppercase px-3 py-1 bg-white/10 rounded-full border border-white/10">
+                            <span key={`tag-${currentSlide}`} className="motion-pop-in inline-block text-[10px] sm:text-xs font-bold tracking-widest text-emerald-200 uppercase px-3 py-1 bg-white/10 rounded-full border border-white/10">
                                 {SLIDES[currentSlide].tag}
                             </span>
                         </div>
 
                         {/* Slide Title */}
-                        <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-3 sm:mb-5 drop-shadow-lg leading-tight max-w-3xl">
+                        <h1 key={currentSlide} className="motion-title text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-3 sm:mb-5 drop-shadow-lg leading-tight max-w-3xl">
                             {SLIDES[currentSlide].title}
                         </h1>
 
                         {/* Slide Desc */}
-                        <p className="text-sm sm:text-base md:text-xl text-emerald-100/90 mb-8 sm:mb-10 drop-shadow font-normal max-w-2xl mx-auto leading-relaxed px-2">
+                        <p key={`description-${currentSlide}`} className="motion-pop-in text-sm sm:text-base md:text-xl text-emerald-100/90 mb-8 sm:mb-10 drop-shadow font-normal max-w-2xl mx-auto leading-relaxed px-2">
                             {SLIDES[currentSlide].desc}
                         </p>
 
@@ -221,7 +221,7 @@ export default function Login() {
                             className="w-full xs:w-auto bg-white active:scale-95 text-primary font-extrabold text-sm sm:text-base md:text-lg py-3 sm:py-4 px-8 sm:px-12 rounded-full shadow-lift hover:bg-emerald-50 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer mx-auto"
                         >
                             <span>Akses Layanan Bansos</span>
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="motion-icon w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                             </svg>
                         </button>

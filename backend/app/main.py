@@ -77,8 +77,8 @@ from app.db.session import get_db
 from app.api.deps import get_current_admin
 
 @app.get("/jadwal")
-def get_jadwal_alias():
-    return admin.get_jadwal_bansos()
+def get_jadwal_alias(db=Depends(get_db)):
+    return admin.get_jadwal_bansos(db)
 
 
 @app.post("/jadwal")
@@ -91,5 +91,5 @@ def post_jadwal_alias(
 
 
 @app.get("/api/jadwal")
-def get_jadwal():
-    return admin.get_jadwal_bansos()
+def get_jadwal(db=Depends(get_db)):
+    return admin.get_jadwal_bansos(db)

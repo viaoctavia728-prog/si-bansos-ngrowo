@@ -7,20 +7,26 @@ export default function AdminOverview() {
   const [warga, setWarga] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dataAvailable, setDataAvailable] = useState(false);
   const [error, setError] = useState('');
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError('');
+      setDataAvailable(false);
       const [pengaduanRes, wargaRes, auditRes] = await Promise.all([
-        adminService.getPengaduan().catch(() => []),
-        adminService.getWarga().catch(() => []),
-        adminService.getAuditLogs().catch(() => []),
+        adminService.getPengaduan(),
+        adminService.getWarga(),
+        adminService.getAuditLogs(),
       ]);
-      setItems(Array.isArray(pengaduanRes) ? pengaduanRes : []);
-      setWarga(Array.isArray(wargaRes) ? wargaRes : []);
-      setAuditLogs(Array.isArray(auditRes) ? auditRes : []);
+      if (![pengaduanRes, wargaRes, auditRes].every(Array.isArray)) {
+        throw new Error('Format data ringkasan dari server tidak valid.');
+      }
+      setItems(pengaduanRes);
+      setWarga(wargaRes);
+      setAuditLogs(auditRes);
+      setDataAvailable(true);
     } catch (err) {
       setError(err.message || 'Gagal memuat data statistik dashboard.');
     } finally {
@@ -49,7 +55,7 @@ export default function AdminOverview() {
   }, [items]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 motion-reveal">
       {/* Page Title & Refresh */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -81,7 +87,7 @@ export default function AdminOverview() {
       )}
 
       {/* STAT CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="motion-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Laporan Masuk"
           value={stats.total}
@@ -89,6 +95,8 @@ export default function AdminOverview() {
           icon="folder"
           tone="blue"
           loading={loading}
+          available={dataAvailable}
+          staggerIndex={0}
         />
         <StatCard
           label="Perlu Tindak Lanjut"
@@ -97,6 +105,8 @@ export default function AdminOverview() {
           icon="schedule"
           tone="amber"
           loading={loading}
+          available={dataAvailable}
+          staggerIndex={1}
         />
         <StatCard
           label="Sedang Diproses"
@@ -105,6 +115,8 @@ export default function AdminOverview() {
           icon="autorenew"
           tone="indigo"
           loading={loading}
+          available={dataAvailable}
+          staggerIndex={2}
         />
         <StatCard
           label="Laporan Selesai"
@@ -113,6 +125,8 @@ export default function AdminOverview() {
           icon="check_circle"
           tone="green"
           loading={loading}
+          available={dataAvailable}
+          staggerIndex={3}
         />
       </div>
 
@@ -134,7 +148,9 @@ export default function AdminOverview() {
             </Link>
           </div>
 
-          <div className="divide-y divide-slate-100 mt-2">
+          {!dataAvailable && !loading ? (
+            <div className="py-12 text-center text-xs text-rose-700">Statistik tidak tersedia. Periksa koneksi lalu segarkan data.</div>
+          ) : <div className="divide-y divide-slate-100 mt-2">
             {[
               { label: 'Menunggu Tinjauan (Pending)', value: stats.pending, color: 'bg-amber-500', text: 'text-amber-800' },
               { label: 'Sedang Proses Verifikasi', value: stats.proses, color: 'bg-blue-600', text: 'text-blue-800' },
@@ -157,11 +173,11 @@ export default function AdminOverview() {
                 </div>
               );
             })}
-          </div>
+          </div>}
 
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span>Total basis data kependudukan terdaftar:</span>
-            <span className="font-bold text-slate-800">{warga.length} Jiwa</span>
+            <span className="font-bold text-slate-800">{dataAvailable ? warga.filter((person) => person.is_active).length : '—'} Jiwa</span>
           </div>
         </div>
 
@@ -186,6 +202,8 @@ export default function AdminOverview() {
                 <span className="material-symbols-outlined text-3xl animate-spin text-slate-300">progress_activity</span>
                 <p className="mt-2">Memuat daftar laporan...</p>
               </div>
+            ) : !dataAvailable ? (
+              <div className="py-12 text-center text-xs text-rose-700">Data laporan tidak tersedia. Coba segarkan kembali.</div>
             ) : recentReports.length === 0 ? (
               <div className="py-12 text-center text-slate-400">
                 <span className="material-symbols-outlined text-4xl text-slate-300">inbox</span>
@@ -194,8 +212,8 @@ export default function AdminOverview() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {recentReports.map((item) => (
-                  <div key={item.id_laporan} className="py-3 flex items-center justify-between gap-3">
+                {recentReports.map((item, index) => (
+                  <div key={item.id_laporan} className="motion-row py-3 flex items-center justify-between gap-3" style={{ '--stagger-index': index }}>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs font-bold text-[#166534]">{item.nomor_tiket}</span>
@@ -235,7 +253,7 @@ export default function AdminOverview() {
             </div>
             <div>
               <p className="text-xs font-bold text-slate-800">Manajemen Pengaduan</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{stats.pending} perlu ditinjau</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{dataAvailable ? `${stats.pending} perlu ditinjau` : 'Data tidak tersedia'}</p>
             </div>
           </Link>
 
@@ -248,7 +266,7 @@ export default function AdminOverview() {
             </div>
             <div>
               <p className="text-xs font-bold text-slate-800">Kelola Data Warga</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{warga.length} akun terdaftar</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{dataAvailable ? warga.filter((person) => person.is_active).length : '—'} akun aktif</p>
             </div>
           </Link>
 
@@ -274,7 +292,7 @@ export default function AdminOverview() {
             </div>
             <div>
               <p className="text-xs font-bold text-slate-800">Catatan Rekam Jejak</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{auditLogs.length} aksi tercatat</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{dataAvailable ? auditLogs.length : '—'} aksi tercatat</p>
             </div>
           </Link>
 
@@ -309,7 +327,7 @@ export default function AdminOverview() {
   );
 }
 
-function StatCard({ label, value, subtext, icon, tone, loading }) {
+function StatCard({ label, value, subtext, icon, tone, loading, available, staggerIndex }) {
   const toneClasses = {
     blue: {
       bg: 'bg-blue-50/70',
@@ -336,7 +354,7 @@ function StatCard({ label, value, subtext, icon, tone, loading }) {
   const currentTone = toneClasses[tone] || toneClasses.blue;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+    <div className="gov-card motion-card flex flex-col justify-between p-5" style={{ '--stagger-index': staggerIndex }}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold text-slate-500 tracking-wide">{label}</span>
         <div className={`h-10 w-10 rounded-xl flex items-center justify-center border ${currentTone.bg} ${currentTone.border} ${currentTone.text}`}>
@@ -346,6 +364,8 @@ function StatCard({ label, value, subtext, icon, tone, loading }) {
       <div className="mt-4">
         {loading ? (
           <div className="h-8 w-16 bg-slate-100 animate-pulse rounded-md"></div>
+        ) : !available ? (
+          <p className="text-3xl font-extrabold text-slate-400">—</p>
         ) : (
           <p className="text-3xl font-extrabold text-slate-900 tracking-tight">{value}</p>
         )}

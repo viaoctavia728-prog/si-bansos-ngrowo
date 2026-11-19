@@ -78,7 +78,8 @@ export const notificationService = {
     try {
       const response = await citizenApiClient.get('/notifications');
       return response.data;
-    } catch {
+    } catch (error) {
+      if (error.status !== 404 && error.status !== 405) throw error;
       const fallback = await citizenApiClient.get('/api/notifications');
       return fallback.data;
     }
@@ -88,7 +89,8 @@ export const notificationService = {
     try {
       const response = await citizenApiClient.patch(`/notifications/${idNotification}/read`);
       return response.data;
-    } catch {
+    } catch (error) {
+      if (error.status !== 404 && error.status !== 405) throw error;
       const fallback = await citizenApiClient.post(`/notifications/${idNotification}/read`);
       return fallback.data;
     }
