@@ -5,6 +5,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models.user import User
@@ -129,6 +130,9 @@ def seed_demo_desil_and_bansos():
 
 
 def seed_default_admin():
+    initial_password = get_settings().admin_initial_password.strip()
+    if not initial_password:
+        return
     db: Session = SessionLocal()
     try:
         admin = db.query(User).filter(User.nik == "admin").first()
@@ -146,7 +150,7 @@ def seed_default_admin():
             no_hp="000000000000",
             rt="00",
             rw="00",
-            password_hash=hash_password("admin"),
+            password_hash=hash_password(initial_password),
             role="admin",
         )
         db.add(default_admin)

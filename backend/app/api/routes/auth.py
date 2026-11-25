@@ -22,6 +22,12 @@ router = APIRouter()
 PROFILE_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 
+@router.get("/admin-contact")
+def get_public_admin_contact(db: Session = Depends(get_db)):
+    admin = db.query(User).filter(User.role == "admin").order_by(User.id_user.asc()).first()
+    return {"no_hp": admin.no_hp if admin and admin.no_hp else None}
+
+
 @router.post("/portal-access")
 async def verify_staff_portal_pin(request: Request):
     payload = await request.json()
@@ -40,15 +46,11 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         .with_for_update()
         .first()
     )
-    if not eligible_resident or eligible_resident.nama_normalized != normalize_name(user_data.nama_lengkap):
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Pendaftaran ditolak, Anda bukan warga Desa Ngrowo.\n"
-                "Tunggu konfirmasi perangkat desa setempat."
-            ),
-        )
-    if eligible_resident.registered_user_id is not None:
+    is_pre_registered = bool(
+        eligible_resident
+        and eligible_resident.nama_normalized == normalize_name(user_data.nama_lengkap)
+    )
+    if is_pre_registered and eligible_resident.registered_user_id is not None:
         raise HTTPException(
             status_code=409,
             detail="NIK ini sudah digunakan untuk registrasi.",
@@ -66,7 +68,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     new_user = User(
         nik=user_data.nik,
         username=username,
-        nama_lengkap=eligible_resident.nama_lengkap,
+        nama_lengkap=eligible_resident.nama_lengkap if is_pre_registered else user_data.nama_lengkap,
         no_kk=user_data.no_kk,
         no_hp=user_data.no_hp,
         alamat_detail=user_data.alamat_detail,
@@ -74,15 +76,17 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         rt=user_data.rt,
         rw=user_data.rw,
         role="user",
-        # NIK yang sudah masuk daftar eligible_residents telah diverifikasi
-        # oleh operator data, sehingga tidak perlu persetujuan admin kedua.
-        is_ngrowo_resident=True,
-        is_verified=True,
+        # Data pada daftar awal 100 warga telah diverifikasi operator.
+        # Pendaftar di luar daftar tetap boleh membuat akun, tetapi harus
+        # menunggu verifikasi admin sebelum dapat login.
+        is_ngrowo_resident=is_pre_registered,
+        is_verified=is_pre_registered,
     )
     db.add(new_user)
     try:
         db.flush()
-        eligible_resident.registered_user_id = new_user.id_user
+        if is_pre_registered:
+            eligible_resident.registered_user_id = new_user.id_user
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -90,7 +94,12 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return {
-        "message": "Registrasi berhasil",
+        "message": (
+            "Registrasi berhasil. Akun dapat langsung digunakan."
+            if is_pre_registered
+            else "Registrasi berhasil. Akun menunggu verifikasi admin sebelum dapat digunakan."
+        ),
+        "verification_status": "verified" if is_pre_registered else "pending",
         "data": {
             "id_user": new_user.id_user,
             "nik": new_user.nik,

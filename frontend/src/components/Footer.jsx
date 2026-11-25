@@ -11,8 +11,8 @@ export default function Footer() {
   return (
     <>
       {/* Footer utama (desktop) - layout terpusat */}
-      <footer className="mt-10 hidden border-t border-slate-200 bg-white lg:block">
-        <div className="warga-content py-4 text-center">
+      <footer className="mt-10 block border-t border-slate-200 bg-white pb-20 lg:pb-0">
+        <div className="warga-content px-4 py-4 text-center sm:px-0">
           <p className="text-xs text-slate-500">&copy; 2026 Pemerintah Kelurahan Ngrowo. Hak cipta dilindungi.</p>
           <p className="mt-1 text-[11px] text-slate-400">Transparan &middot; Akuntabel &middot; Tepat Sasaran</p>
         </div>

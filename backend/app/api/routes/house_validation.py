@@ -36,4 +36,7 @@ def validate_house(
     except GeminiNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail="Layanan Gemini belum dikonfigurasi.") from exc
     except GeminiAssessmentError as exc:
-        raise HTTPException(status_code=502, detail="Gemini gagal menilai foto. Silakan coba lagi.") from exc
+        raise HTTPException(
+            status_code=502,
+            detail=f"Gemini gagal menilai foto. Periksa API key/model Gemini. Detail: {exc}",
+        ) from exc

@@ -34,6 +34,11 @@ export default function Profil() {
   const [message, setMessage] = useState('');
   const [pushMessage, setPushMessage] = useState('');
   const [pushLoading, setPushLoading] = useState(false);
+  const [adminContact, setAdminContact] = useState('');
+
+  useEffect(() => {
+    authService.getAdminContact().then((response) => setAdminContact(response?.no_hp || '')).catch(() => {});
+  }, []);
   const [loading, setLoading] = useState(true);
   const [biodataOpen, setBiodataOpen] = useState(false);
   const [panduanOpen, setPanduanOpen] = useState(false);
@@ -311,7 +316,7 @@ export default function Profil() {
 
         <ProfileGroup title="Pusat Bantuan & Layanan Desa">
           <ActionRow icon="menu_book" title="Panduan Sanggahan Pengaduan Bansos" subtitle="Langkah-langkah mengirim pengaduan" onClick={() => setPanduanOpen(true)} />
-          <a href="https://wa.me/6285807078899" target="_blank" rel="noopener noreferrer" className="flex min-h-[62px] items-center gap-3 border-b border-slate-100 px-4 py-2 hover:bg-emerald-50/50">
+          <a href={adminContact ? `https://wa.me/${adminContact.replace(/^0/, '62')}` : undefined} target="_blank" rel="noopener noreferrer" className={`flex min-h-[62px] items-center gap-3 border-b border-slate-100 px-4 py-2 hover:bg-emerald-50/50 ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}>
             <span className="material-symbols-outlined flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">support_agent</span>
             <span className="min-w-0 flex-1"><span className="block text-xs font-bold">Hubungi Pendamping Sosial</span><span className="mt-0.5 block truncate text-[10px] text-slate-500">WhatsApp layanan warga Ngrowo</span></span>
             <span className="material-symbols-outlined text-[17px] text-slate-400">call</span>

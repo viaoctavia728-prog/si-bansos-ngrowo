@@ -13,6 +13,12 @@ export default function AdminWarga() {
   const [filterVerified, setFilterVerified] = useState('all');
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [editingWarga, setEditingWarga] = useState(null);
+  const [editForm, setEditForm] = useState({ nama_lengkap: '', no_kk: '', no_hp: '', rt: '001', rw: '001', alamat_detail: '', username: '', password_baru: '', konfirmasi_password: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const loadWarga = async () => {
     try {
@@ -108,6 +114,59 @@ export default function AdminWarga() {
         ? `Endpoint penolakan warga tidak ditemukan di server (404 Not Found). Pastikan backend aktif.`
         : (err.message || 'Gagal menolak pendaftaran.');
       setFeedback({ type: 'error', message: msg });
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const openEdit = (person) => {
+    setEditingWarga(person);
+    setResetPasswordOpen(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setEditForm({
+      nama_lengkap: person.nama_lengkap || '', no_kk: person.no_kk || '', no_hp: person.no_hp || '',
+      rt: person.rt || '001', rw: person.rw || '001', alamat_detail: person.alamat_detail || '',
+      username: person.username || '', password_baru: '', konfirmasi_password: '',
+    });
+    setFeedback(null);
+  };
+
+  const handleSaveEdit = async (event) => {
+    event.preventDefault();
+    if (!editingWarga) return;
+    try {
+      setSavingEdit(true);
+      if ((editForm.password_baru || editForm.konfirmasi_password) && editForm.password_baru !== editForm.konfirmasi_password) {
+        throw new Error('Konfirmasi password tidak sama.');
+      }
+      if (editForm.password_baru && editForm.password_baru.length < 6) {
+        throw new Error('Password baru minimal 6 karakter.');
+      }
+      const { password_baru, konfirmasi_password, ...profile } = editForm;
+      await adminService.updateWarga(editingWarga.id_user, profile);
+      if (password_baru || konfirmasi_password) {
+        await adminService.resetPasswordWarga(editingWarga.id_user, { password_baru, konfirmasi_password });
+      }
+      setEditingWarga(null);
+      setFeedback({ type: 'success', message: `Data warga ${editForm.nama_lengkap} berhasil diperbarui.` });
+      await loadWarga();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'Gagal memperbarui data warga.' });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteWarga = async (person) => {
+    if (!window.confirm(`Hapus akun warga ${person.nama_lengkap}? Data pengaduan warga ini juga dapat ikut terpengaruh.`)) return;
+    try {
+      setActionLoadingId(person.id_user);
+      await adminService.deleteWarga(person.id_user);
+      setFeedback({ type: 'success', message: `Akun warga ${person.nama_lengkap} berhasil dihapus.` });
+      await loadWarga();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'Gagal menghapus akun warga.' });
     } finally {
       setActionLoadingId(null);
     }
@@ -339,8 +398,17 @@ export default function AdminWarga() {
                       </td>
 
                       <td className="px-5 py-4 text-center whitespace-nowrap">
-                        {!isVerified ? (
-                          <div className="flex items-center justify-center gap-1.5">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {isVerified && (
+                            <button type="button" onClick={() => openEdit(person)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" title="Edit data dan reset password">
+                              <span className="material-symbols-outlined text-[17px]">edit</span>
+                            </button>
+                          )}
+                          <button type="button" onClick={() => handleDeleteWarga(person)} disabled={actionLoadingId === person.id_user} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50" title="Hapus akun warga">
+                            <span className="material-symbols-outlined text-[17px]">delete</span>
+                          </button>
+                          {!isVerified ? (
+                            <div className="flex items-center justify-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleApprove(person.id_user, person.nama_lengkap)}
@@ -359,10 +427,9 @@ export default function AdminWarga() {
                             >
                               Tolak
                             </button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 font-medium">Sudah Terverifikasi</span>
-                        )}
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -377,6 +444,46 @@ export default function AdminWarga() {
           <span>Desa Ngrowo, Bojonegoro</span>
         </div>
       </div>
+
+      {editingWarga && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <form onSubmit={handleSaveEdit} className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div><h3 className="text-lg font-black text-slate-900">Edit Data Warga</h3><p className="mt-1 text-xs text-slate-500">NIK: {editingWarga.nik}</p></div>
+              <button type="button" onClick={() => setEditingWarga(null)} className="text-slate-400 hover:text-slate-700"><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="grid gap-4 py-5 sm:grid-cols-2">
+              {[
+                ['nama_lengkap', 'Nama Lengkap'], ['no_kk', 'No. KK'], ['no_hp', 'No. HP'], ['username', 'Username'],
+                ['rt', 'RT'], ['rw', 'RW'], ['alamat_detail', 'Alamat Detail'],
+              ].map(([name, label]) => (
+                <label key={name} className={`text-xs font-bold text-slate-600 ${name === 'alamat_detail' ? 'sm:col-span-2' : ''}`}>
+                  {label}
+                  <input value={editForm[name]} onChange={(e) => setEditForm((prev) => ({ ...prev, [name]: e.target.value }))} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal focus:border-emerald-600 focus:outline-none" required={['nama_lengkap', 'no_kk', 'no_hp'].includes(name)} />
+                </label>
+              ))}
+              <div className={`sm:col-span-2 rounded-xl border p-4 ${resetPasswordOpen ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div><p className="text-xs font-bold text-slate-800">Password Warga</p></div>
+                  <button type="button" onClick={() => setResetPasswordOpen((open) => !open)} className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-bold text-amber-800 hover:bg-amber-100">
+                    {resetPasswordOpen ? 'Tutup Reset Password' : 'Lupa Password? Perbarui'}
+                  </button>
+                </div>
+                {resetPasswordOpen && (
+                  <>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="relative block"><span className="sr-only">Password baru</span><input type={showNewPassword ? 'text' : 'password'} minLength="6" placeholder="Password baru" value={editForm.password_baru} onChange={(e) => setEditForm((prev) => ({ ...prev, password_baru: e.target.value }))} className="h-10 w-full rounded-lg border border-amber-200 bg-white px-3 pr-10 text-sm focus:border-amber-500 focus:outline-none" /><button type="button" onClick={() => setShowNewPassword((show) => !show)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-label={showNewPassword ? 'Sembunyikan password baru' : 'Lihat password baru'}><span className="material-symbols-outlined text-[18px]">{showNewPassword ? 'visibility_off' : 'visibility'}</span></button></label>
+                      <label className="relative block"><span className="sr-only">Konfirmasi password baru</span><input type={showConfirmPassword ? 'text' : 'password'} minLength="6" placeholder="Konfirmasi password baru" value={editForm.konfirmasi_password} onChange={(e) => setEditForm((prev) => ({ ...prev, konfirmasi_password: e.target.value }))} className="h-10 w-full rounded-lg border border-amber-200 bg-white px-3 pr-10 text-sm focus:border-amber-500 focus:outline-none" /><button type="button" onClick={() => setShowConfirmPassword((show) => !show)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500" aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Lihat konfirmasi password'}><span className="material-symbols-outlined text-[18px]">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span></button></label>
+                    </div>
+                    <p className="mt-2 text-[11px] text-amber-800">Berikan password baru hanya kepada warga yang bersangkutan.</p>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={() => setEditingWarga(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600">Batal</button><button type="submit" disabled={savingEdit} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}</button></div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

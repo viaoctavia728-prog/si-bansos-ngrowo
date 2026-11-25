@@ -1,9 +1,14 @@
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
+import logging
+import time
 
 from app.core.config import get_settings
 from app.schemas.house_validation import HouseConditionAssessment
+
+
+FALLBACK_MODELS = ("gemini-3.5-flash", "gemini-3-flash-preview")
 
 
 class GeminiNotConfiguredError(Exception):
@@ -11,7 +16,8 @@ class GeminiNotConfiguredError(Exception):
 
 
 class GeminiAssessmentError(Exception):
-    pass
+    def __init__(self, message: str = "Gemini gagal menilai foto"):
+        super().__init__(message)
 
 
 ASSESSMENT_PROMPT = """PERAN DAN KONTEKS
@@ -102,20 +108,42 @@ def assess_house_photo(image_bytes: bytes, mime_type: str) -> HouseConditionAsse
 
     try:
         client = genai.Client(api_key=settings.gemini_api_key)
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=[ASSESSMENT_PROMPT, types.Part.from_bytes(data=image_bytes, mime_type=mime_type)],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                max_output_tokens=500,
-                temperature=0.2,
-            ),
-        )
+        response = None
+        last_error = None
+        models = tuple(dict.fromkeys((settings.gemini_model, *FALLBACK_MODELS)))
+        for model in models:
+            for attempt in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model=model,
+                        contents=[ASSESSMENT_PROMPT, types.Part.from_bytes(data=image_bytes, mime_type=mime_type)],
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            max_output_tokens=1500,
+                            temperature=0.2,
+                        ),
+                    )
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    status_code = getattr(exc, "status_code", None)
+                    if status_code == 503 and attempt == 0:
+                        time.sleep(1.5)
+                        continue
+                    break
+            if response is not None:
+                break
+        if response is None and last_error is not None:
+            raise last_error
         response_text = extract_response_text(response)
         if not response_text:
             raise GeminiAssessmentError
         return HouseConditionAssessment.model_validate_json(response_text)
-    except (GeminiAssessmentError, ValidationError):
+    except GeminiAssessmentError:
         raise
+    except ValidationError as exc:
+        logging.getLogger(__name__).warning("Gemini returned invalid assessment JSON: %s", exc)
+        raise GeminiAssessmentError("Gemini mengirim hasil JSON yang tidak lengkap. Silakan coba lagi.") from exc
     except Exception as exc:
-        raise GeminiAssessmentError from exc
+        logging.getLogger(__name__).exception("Gemini house assessment failed")
+        raise GeminiAssessmentError(str(exc)) from exc

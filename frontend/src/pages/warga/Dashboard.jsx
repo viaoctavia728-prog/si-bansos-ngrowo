@@ -13,6 +13,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [bansosData, setBansosData] = useState([]);
+  const [desil, setDesil] = useState(null);
+  const [adminContact, setAdminContact] = useState('');
   const [userReports, setUserReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
@@ -48,15 +50,21 @@ export default function Dashboard() {
         console.error('Error fetching user profile:', err);
       }
       try {
-        const [bansosRes, reportsRes] = await Promise.all([
+        const [bansosRes, desilRes, reportsRes, contactRes] = await Promise.all([
           user.nik ? bansosService.cekBansosByNik(user.nik) : Promise.resolve([]),
+          bansosService.getDesilSaya().catch(() => null),
           user.id_user ? pengaduanService.getByUser(user.id_user) : Promise.resolve([]),
+          authService.getAdminContact().catch(() => null),
         ]);
         setBansosData(Array.isArray(bansosRes) ? bansosRes : []);
+        setDesil(desilRes?.desil ?? null);
+        setAdminContact(contactRes?.no_hp || '');
         setUserReports(Array.isArray(reportsRes) ? reportsRes : []);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setBansosData([]);
+        setDesil(null);
+        setAdminContact('');
         setUserReports([]);
       } finally {
         setIsLoading(false);
@@ -334,7 +342,7 @@ export default function Dashboard() {
                             </div>
                             <div>
                               <p className="text-xs font-medium text-slate-600">Desil Kesejahteraan</p>
-                              <p className="text-sm font-bold text-primary">Desil {activeBansos.desil ?? '-'}</p>
+                              <p className="text-sm font-bold text-primary">Desil {desil ?? activeBansos.desil ?? '-'}</p>
                             </div>
                           </div>
                           <Link to="/cek-bansos" className="inline-flex items-center gap-1 self-start text-xs font-bold text-primary hover:text-primary-dark sm:self-auto">
@@ -352,6 +360,9 @@ export default function Dashboard() {
                           <p className="mt-1 text-xs leading-relaxed text-slate-600">
                             NIK Anda saat ini belum tercatat dalam alokasi bantuan sosial aktif. Anda dapat memeriksa kuota bansos kelurahan atau mengajukan usulan mandiri.
                           </p>
+                          {desil !== null && (
+                            <p className="mt-2 text-sm font-bold text-primary">Desil Kesejahteraan: {desil}</p>
+                          )}
                           <Link to="/cek-bansos" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-dark">
                             Cek Database Bansos <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
                           </Link>
@@ -451,11 +462,11 @@ export default function Dashboard() {
                     <p className="text-sm leading-relaxed text-slate-600">
                       Butuh bantuan seputar data DTKS atau pencairan bantuan? Hubungi nomor resmi kelurahan.
                     </p>
-                    <a href="tel:085807078899" className="gov-btn-outline w-full">
+                    <a href={adminContact ? `tel:${adminContact}` : undefined} className={`gov-btn-outline w-full ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}>
                       <span className="material-symbols-outlined text-[18px] text-primary">call</span>
                       Hubungi Kantor Desa
                     </a>
-                    <a href="https://wa.me/6285807078899" target="_blank" rel="noopener noreferrer" className="gov-btn-primary w-full">
+                    <a href={adminContact ? `https://wa.me/${adminContact.replace(/^0/, '62')}` : undefined} target="_blank" rel="noopener noreferrer" className={`gov-btn-primary w-full ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}>
                       <span className="material-symbols-outlined text-[18px]">chat</span>
                       WhatsApp Admin
                     </a>

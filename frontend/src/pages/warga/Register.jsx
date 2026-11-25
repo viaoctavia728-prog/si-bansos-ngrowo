@@ -29,6 +29,7 @@ export default function Register({ embedded = false, onClose, onSuccess }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorField, setErrorField] = useState('');
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState('verified');
   const [secondsRemaining, setSecondsRemaining] = useState(10);
 
   // Saat ada kesalahan, gulir ke atas dan fokuskan peringatan agar langsung terlihat
@@ -116,7 +117,7 @@ export default function Register({ embedded = false, onClose, onSuccess }) {
     setIsLoading(true);
 
     try {
-      await authService.register({
+      const result = await authService.register({
         nik: formData.nik,
         nama_lengkap: formData.nama_lengkap,
         no_kk: formData.no_kk,
@@ -126,6 +127,7 @@ export default function Register({ embedded = false, onClose, onSuccess }) {
         rw: formData.rw,
       });
 
+      setVerificationStatus(result?.verification_status || 'verified');
       setRegistrationComplete(true);
     } catch (err) {
       showError(err.message || 'Pendaftaran gagal. Periksa kembali data yang diisi.');
@@ -140,26 +142,30 @@ export default function Register({ embedded = false, onClose, onSuccess }) {
         <main className={embedded ? 'flex flex-col gap-4' : 'warga-content flex flex-col gap-4'}>
           <section className="gov-card px-5 py-6 sm:px-7">
             <div className="flex flex-col items-center text-center">
-              <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-[#F0FDF4] text-[#166534]">
-                <span className="material-symbols-outlined text-[34px]">check_circle</span>
+              <div className={`mb-3 flex h-16 w-16 items-center justify-center rounded-full ${verificationStatus === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-[#F0FDF4] text-[#166534]'}`}>
+                <span className="material-symbols-outlined text-[34px]">{verificationStatus === 'pending' ? 'pending' : 'check_circle'}</span>
               </div>
-              <span className="rounded-full bg-[#F0FDF4] px-3 py-1 text-[11px] font-bold uppercase text-[#166534]">
-                Pendaftaran Akun Berhasil
+              <span className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase ${verificationStatus === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-[#F0FDF4] text-[#166534]'}`}>
+                {verificationStatus === 'pending' ? 'Menunggu Verifikasi Admin' : 'Pendaftaran Akun Berhasil'}
               </span>
               <h1 className="mt-3 text-xl font-bold leading-tight sm:text-2xl">
-                Selamat, Akun Warga Anda Telah Berhasil Didaftarkan!
+                {verificationStatus === 'pending'
+                  ? 'Data Anda berhasil dikirim untuk diverifikasi admin.'
+                  : 'Selamat, Akun Warga Anda Telah Berhasil Didaftarkan!'}
               </h1>
               <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
-                Data pendaftaran Anda berhasil disimpan. Gunakan NIK dan kata sandi yang baru dibuat untuk masuk.
+                {verificationStatus === 'pending'
+                  ? 'Akun belum dapat digunakan untuk login sampai admin menyetujui data pendaftaran Anda.'
+                  : 'Data pendaftaran Anda berhasil disimpan. Gunakan NIK dan kata sandi yang baru dibuat untuk masuk.'}
               </p>
             </div>
 
             <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-bold text-[#0F172A]">Ringkasan Akun Terdaftar</h2>
-                <span className="inline-flex items-center gap-1 rounded-md bg-[#F0FDF4] px-2 py-1 text-[10px] font-bold text-[#166534]">
-                  <span className="material-symbols-outlined text-[13px]">verified</span>
-                  Akun Terdaftar
+                <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold ${verificationStatus === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-[#F0FDF4] text-[#166534]'}`}>
+                  <span className="material-symbols-outlined text-[13px]">{verificationStatus === 'pending' ? 'pending' : 'verified'}</span>
+                  {verificationStatus === 'pending' ? 'Menunggu Verifikasi' : 'Akun Terdaftar'}
                 </span>
               </div>
               <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">

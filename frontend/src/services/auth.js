@@ -15,6 +15,11 @@ function persistCitizenSession(data) {
 }
 
 export const authService = {
+  async getAdminContact() {
+    const response = await citizenApiClient.get('/admin-contact');
+    return response.data;
+  },
+
   async login(nik, password) {
     const response = await citizenApiClient.post('/login', { nik, password });
     return persistCitizenSession(response.data);

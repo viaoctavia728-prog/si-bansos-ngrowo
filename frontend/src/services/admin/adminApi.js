@@ -6,6 +6,21 @@ export const adminService = {
     return response.data;
   },
 
+  async updateWarga(idUser, payload) {
+    const response = await adminApiClient.put(`/admin/warga/${idUser}`, payload);
+    return response.data;
+  },
+
+  async resetPasswordWarga(idUser, payload) {
+    const response = await adminApiClient.put(`/admin/warga/${idUser}/password`, payload);
+    return response.data;
+  },
+
+  async deleteWarga(idUser) {
+    const response = await adminApiClient.delete(`/admin/warga/${idUser}`);
+    return response.data;
+  },
+
   async getPengaduan(params = {}) {
     const response = await adminApiClient.get('/admin/pengaduan', { params });
     return response.data;
@@ -50,6 +65,14 @@ export const adminService = {
 
   async getAuditLogs() {
     const response = await adminApiClient.get('/admin/audit-logs');
+    return response.data;
+  },
+
+  async getAuditLogRekapPdf(params = {}) {
+    const response = await adminApiClient.get('/admin/audit-logs/rekap-pdf', {
+      params,
+      responseType: 'blob',
+    });
     return response.data;
   },
 
@@ -99,6 +122,21 @@ export const adminService = {
     return response.data;
   },
 
+  async createPenerimaBansos(payload) {
+    const response = await adminApiClient.post('/bansos', payload);
+    return response.data;
+  },
+
+  async updatePenerimaBansos(id, payload) {
+    const response = await adminApiClient.put(`/bansos/penerima/${id}`, payload);
+    return response.data;
+  },
+
+  async deletePenerimaBansos(id) {
+    const response = await adminApiClient.delete(`/bansos/penerima/${id}`);
+    return response.data;
+  },
+
   async getWilayah() {
     try {
       const response = await adminApiClient.get('/wilayah');
@@ -143,6 +181,16 @@ export const adminService = {
       }
       throw err;
     }
+  },
+
+  async updateJadwal(id, payload) {
+    const response = await adminApiClient.put(`/admin/jadwal/${id}`, payload);
+    return response.data;
+  },
+
+  async deleteJadwal(id) {
+    const response = await adminApiClient.delete(`/admin/jadwal/${id}`);
+    return response.data;
   },
 
   async getProfile() {

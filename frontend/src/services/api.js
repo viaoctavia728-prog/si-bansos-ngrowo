@@ -1,6 +1,11 @@
 import { citizenApiClient } from './apiClient';
 
 export const bansosService = {
+  async getDesilSaya() {
+    const response = await citizenApiClient.get('/bansos/desil-saya');
+    return response.data;
+  },
+
   async cekBansosByNik(nik) {
     try {
       const response = await citizenApiClient.get(`/cek-bansos/${nik}`);

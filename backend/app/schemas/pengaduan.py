@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class PengaduanCreate(BaseModel):
@@ -13,6 +13,13 @@ class PengaduanCreate(BaseModel):
   lokasi_spesifik: Optional[str] = Field(default=None, max_length=255)
   bukti_foto: Optional[str] = Field(default=None, max_length=255)
   is_anonymous: Optional[bool] = False
+
+  @field_validator("nik_terlapor", mode="before")
+  @classmethod
+  def normalize_nik(cls, v):
+      if not v or not str(v).strip():
+          return None
+      return str(v).strip()
 
 
 class BuktiFotoUpload(BaseModel):

@@ -33,6 +33,15 @@ from app.schemas.pengaduan import (
 router = APIRouter()
 
 
+class AdminPasswordReset(BaseModel):
+    password_baru: str
+    konfirmasi_password: str
+
+
+class AdminWargaUpdate(UserProfileUpdate):
+    pass
+
+
 # ==========================================
 # MANAJEMEN JADWAL PENYALURAN BANSOS
 # ==========================================
@@ -139,6 +148,43 @@ def create_jadwal_bansos(
     return item
 
 
+@router.put("/jadwal/{jadwal_id}")
+def update_jadwal_bansos(
+    jadwal_id: int,
+    data: JadwalBansosCreate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    item = next((entry for entry in in_memory_jadwal if entry.get("id") == jadwal_id), None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan atau merupakan jadwal bawaan.")
+    updates = data.model_dump() if hasattr(data, "model_dump") else data.dict()
+    updates["id"] = jadwal_id
+    if isinstance(updates.get("persyaratan"), str):
+        updates["persyaratan"] = [p.strip() for p in updates["persyaratan"].split(",") if p.strip()]
+    item.update(updates)
+    admin_id = current_admin.get("id_user") if isinstance(current_admin, dict) else 1
+    db.add(AuditLog(id_user=admin_id, aktivitas=f"Admin memperbarui jadwal bansos: {data.program}"))
+    db.commit()
+    return item
+
+
+@router.delete("/jadwal/{jadwal_id}")
+def delete_jadwal_bansos(
+    jadwal_id: int,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    index = next((index for index, entry in enumerate(in_memory_jadwal) if entry.get("id") == jadwal_id), None)
+    if index is None:
+        raise HTTPException(status_code=404, detail="Jadwal tidak ditemukan atau merupakan jadwal bawaan.")
+    deleted = in_memory_jadwal.pop(index)
+    admin_id = current_admin.get("id_user") if isinstance(current_admin, dict) else 1
+    db.add(AuditLog(id_user=admin_id, aktivitas=f"Admin menghapus jadwal bansos: {deleted.get('program', '-') }"))
+    db.commit()
+    return {"status": "success", "message": "Jadwal berhasil dihapus."}
+
+
 # ==========================================
 # KELOLA & VERIFIKASI WARGA
 # ==========================================
@@ -153,6 +199,72 @@ def get_warga_terdaftar(
         .order_by(User.created_at.desc())
         .all()
     )
+
+
+@router.put("/warga/{id_user}", response_model=UserResponse)
+def update_warga(
+    id_user: int,
+    profile: AdminWargaUpdate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    user = db.query(User).filter(User.id_user == id_user, User.role.in_(["user", "warga"])).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Data warga tidak ditemukan.")
+    for field, value in profile.model_dump(exclude_unset=True).items():
+        if field == "password":
+            user.password_hash = hash_password(value)
+        else:
+            setattr(user, field, value.strip() if isinstance(value, str) else value)
+    db.add(AuditLog(
+        id_user=current_admin.get("id_user"),
+        aktivitas=f"Admin memperbarui data warga: {user.nama_lengkap} (NIK: {user.nik})",
+    ))
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.put("/warga/{id_user}/password")
+def reset_password_warga(
+    id_user: int,
+    data: AdminPasswordReset,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    if len(data.password_baru) < 6 or len(data.password_baru.encode("utf-8")) > 72:
+        raise HTTPException(status_code=422, detail="Password warga harus 6 sampai 72 byte.")
+    if data.password_baru != data.konfirmasi_password:
+        raise HTTPException(status_code=422, detail="Konfirmasi password tidak sama.")
+    user = db.query(User).filter(User.id_user == id_user, User.role.in_(["user", "warga"])).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Data warga tidak ditemukan.")
+    user.password_hash = hash_password(data.password_baru)
+    db.add(AuditLog(
+        id_user=current_admin.get("id_user"),
+        aktivitas=f"Admin mereset password warga: {user.nama_lengkap} (NIK: {user.nik})",
+    ))
+    db.commit()
+    return {"status": "success", "message": "Password warga berhasil diperbarui."}
+
+
+@router.delete("/warga/{id_user}")
+def delete_warga(
+    id_user: int,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    user = db.query(User).filter(User.id_user == id_user, User.role.in_(["user", "warga"])).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Data warga tidak ditemukan.")
+    nama, nik = user.nama_lengkap, user.nik
+    db.add(AuditLog(
+        id_user=current_admin.get("id_user"),
+        aktivitas=f"Admin menghapus akun warga: {nama} (NIK: {nik})",
+    ))
+    db.delete(user)
+    db.commit()
+    return {"status": "success", "message": "Akun warga berhasil dihapus."}
 
 
 @router.put("/profile/{id_user}", response_model=UserResponse)
@@ -210,6 +322,9 @@ def approve_warga(
 
     user.is_ngrowo_resident = True
     user.is_verified = True
+    eligible_resident = db.query(EligibleResident).filter(EligibleResident.nik == user.nik).first()
+    if eligible_resident and eligible_resident.registered_user_id is None:
+        eligible_resident.registered_user_id = user.id_user
     db.commit()
     db.refresh(user)
 
@@ -469,6 +584,95 @@ def get_audit_logs(
     current_admin=Depends(get_current_admin),
 ):
     return db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(limit).all()
+
+
+@router.get("/audit-logs/rekap-pdf")
+def export_rekap_audit_pdf(
+    search: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _current_admin=Depends(get_current_admin),
+):
+    logs = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(500).all()
+    keyword = (search or "").strip().lower()
+
+    def category_for(activity: str) -> str:
+        text = (activity or "").lower()
+        if any(value in text for value in ("status", "laporan", "tiket")):
+            return "Pengaduan"
+        if any(value in text for value in ("warga", "registrasi", "verifikasi")):
+            return "Warga"
+        if any(value in text for value in ("notifikasi", "broadcast")):
+            return "Notifikasi"
+        return "Sistem"
+
+    records = []
+    for log in logs:
+        log_category = category_for(log.aktivitas)
+        searchable = f"{log.aktivitas or ''} {log.id_user or ''} {log.timestamp or ''}".lower()
+        if category and category.lower() != "all" and log_category.lower() != category.lower():
+            continue
+        if keyword and keyword not in searchable:
+            continue
+        records.append((log, log_category))
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.3 * cm,
+        bottomMargin=1.3 * cm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("AuditTitle", parent=styles["Heading2"], alignment=1, fontName="Helvetica-Bold", leading=16)
+    subtitle_style = ParagraphStyle("AuditSubtitle", parent=styles["Normal"], alignment=1, fontSize=9, leading=12)
+    cell_style = ParagraphStyle("AuditCell", parent=styles["Normal"], fontSize=8, leading=9.5)
+    elements = [
+        Paragraph("PEMERINTAH DESA NGROWO", title_style),
+        Paragraph("CATATAN REKAM JEJAK (AUDIT LOG)", title_style),
+        Paragraph(f"Tanggal Cetak: {_format_tanggal_indonesia(datetime.now())}", subtitle_style),
+        Spacer(1, 8),
+        Paragraph(
+            f"Filter Aktif: Kategori {category or 'Semua'} | Pencarian {search or 'Semua'}",
+            cell_style,
+        ),
+        Spacer(1, 6),
+    ]
+    table_data = [[
+        Paragraph("No", cell_style),
+        Paragraph("ID Log", cell_style),
+        Paragraph("Waktu Aktivitas", cell_style),
+        Paragraph("Kategori", cell_style),
+        Paragraph("Pelaksana / User", cell_style),
+        Paragraph("Uraian Tindakan / Kejadian", cell_style),
+    ]]
+    for index, (log, log_category) in enumerate(records, start=1):
+        waktu = log.timestamp.strftime("%d-%m-%Y %H:%M:%S") if log.timestamp else "-"
+        table_data.append([
+            Paragraph(str(index), cell_style),
+            Paragraph(f"#{log.id_log}", cell_style),
+            Paragraph(waktu, cell_style),
+            Paragraph(log_category, cell_style),
+            Paragraph(f"Perangkat #{log.id_user}" if log.id_user else "Sistem / Admin", cell_style),
+            Paragraph(log.aktivitas or "-", cell_style),
+        ])
+    if len(table_data) == 1:
+        table_data.append([Paragraph(value, cell_style) for value in ["-", "-", "-", "-", "-", "Tidak ada data audit"]])
+
+    report_table = Table(table_data, colWidths=[1.0 * cm, 1.8 * cm, 4.0 * cm, 3.0 * cm, 4.0 * cm, 12.0 * cm], repeatRows=1)
+    report_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E2E8F0")),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.black),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (3, -1), "CENTER"),
+    ]))
+    elements.append(report_table)
+    doc.build(elements)
+    buffer.seek(0)
+    filename = f"Rekap_Audit_Log_Ngrowo_{datetime.now().strftime('%Y-%m-%d')}.pdf"
+    return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{filename}"'})
 
 
 def _generate_nomor_tiket() -> str:

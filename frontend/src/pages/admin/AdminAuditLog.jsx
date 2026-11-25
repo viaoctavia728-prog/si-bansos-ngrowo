@@ -27,6 +27,65 @@ export default function AdminAuditLog() {
     loadAuditLogs();
   }, []);
 
+  const buildExportRows = () => {
+    const headers = ['ID Log', 'Waktu Aktivitas', 'Kategori', 'Pelaksana / User', 'Uraian Tindakan / Kejadian'];
+    const rows = filteredLogs.map((log) => {
+      const category = getLogCategory(log.aktivitas);
+      return [
+        `#${log.id_log || ''}`,
+        log.timestamp ? new Date(log.timestamp).toLocaleString('id-ID') : '-',
+        category.label,
+        log.id_user ? `Perangkat #${log.id_user}` : 'Sistem / Admin',
+        log.aktivitas || '-',
+      ];
+    });
+    return { headers, rows };
+  };
+
+  const escapePreviewHtml = (value) => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  const handleExportExcelPreview = () => {
+    if (!filteredLogs.length) return;
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      alert('Popup diblokir browser. Izinkan pop-up untuk membuka pratinjau.');
+      return;
+    }
+    const { headers, rows } = buildExportRows();
+    const csv = `\uFEFF${[headers, ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n')}`;
+    const csvDataUrl = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+    const htmlRows = rows.map((row) => `<tr>${row.map((value) => `<td>${escapePreviewHtml(value)}</td>`).join('')}</tr>`).join('');
+    previewTab.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Preview Rekap Audit Log Ngrowo</title><style>body{font-family:Arial,sans-serif;color:#172033;margin:32px}h1{color:#166534}.meta{color:#64748b;margin-bottom:20px}.actions{display:flex;gap:8px;margin-bottom:20px}button{border:0;border-radius:6px;padding:10px 14px;cursor:pointer;font-weight:700}.save{background:#166534;color:white}.print{background:#e2e8f0;color:#172033}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;vertical-align:top}th{background:#dcfce7;color:#14532d;white-space:nowrap}td{word-break:break-word}@media print{.actions{display:none}body{margin:12px}}</style></head><body><h1>Preview Rekap Audit Log Desa Ngrowo</h1><div class="meta">${escapePreviewHtml(new Date().toLocaleDateString('id-ID'))}</div><div class="actions"><a href="${csvDataUrl}" download="Rekap_Audit_Log_Ngrowo_${new Date().toISOString().slice(0, 10)}.csv"><button class="save" type="button">Simpan Excel (CSV)</button></a><button class="print" type="button" onclick="window.print()">Cetak Preview</button></div><table><thead><tr>${headers.map((header) => `<th>${escapePreviewHtml(header)}</th>`).join('')}</tr></thead><tbody>${htmlRows}</tbody></table></body></html>`);
+    previewTab.document.close();
+  };
+
+  const handleExportPDFPreview = async () => {
+    if (!filteredLogs.length) return;
+    const previewTab = window.open('', '_blank');
+    if (!previewTab) {
+      alert('Popup diblokir browser. Izinkan pop-up untuk membuka pratinjau PDF.');
+      return;
+    }
+    previewTab.document.write('<p style="font-family:Arial;padding:16px">Menyiapkan pratinjau PDF rekap audit log...</p>');
+    previewTab.document.close();
+    try {
+      const pdfBlob = await adminService.getAuditLogRekapPdf({
+        search: (search || globalSearch || '').trim() || undefined,
+        category: filterType !== 'all' ? filterType : undefined,
+      });
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      previewTab.location.href = blobUrl;
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (err) {
+      previewTab.close();
+      alert(err.message || 'Gagal membuka pratinjau PDF.');
+    }
+  };
+
   const getLogCategory = (text) => {
     const lower = (text || '').toLowerCase();
     if (lower.includes('status') || lower.includes('laporan') || lower.includes('tiket')) {
@@ -72,17 +131,18 @@ export default function AdminAuditLog() {
             Rekam jejak transparan dan kronologis seluruh tindakan pengubahan data, update verifikasi, dan aktivitas perangkat desa.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadAuditLogs}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-colors self-start sm:self-auto disabled:opacity-50"
-        >
-          <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>
-            refresh
-          </span>
-          {loading ? 'Memuat...' : 'Segarkan Log'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={handleExportExcelPreview} disabled={!filteredLogs.length} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">
+            <span className="material-symbols-outlined text-[18px]">table_view</span> Export Rekap Excel
+          </button>
+          <button type="button" onClick={handleExportPDFPreview} disabled={!filteredLogs.length} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50">
+            <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span> Export Rekap PDF
+          </button>
+          <button type="button" onClick={loadAuditLogs} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-colors disabled:opacity-50">
+            <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
+            {loading ? 'Memuat...' : 'Segarkan Log'}
+          </button>
+        </div>
       </div>
 
       {error && (

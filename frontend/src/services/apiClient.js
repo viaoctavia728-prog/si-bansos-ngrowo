@@ -32,13 +32,51 @@ function createApiClient({ tokenKeys, sessionKeys }) {
 
       let message = 'Terjadi kesalahan pada sistem.';
       if (error.response) {
-        message = error.response.data?.detail || error.response.data?.message || `Error ${error.response.status}`;
+        const detail = error.response.data?.detail;
+        if (typeof detail === 'string') {
+          message = detail;
+        } else if (Array.isArray(detail)) {
+          const fieldLabels = {
+            deskripsi_kejadian: 'Deskripsi kejadian',
+            nik_terlapor: 'NIK terlapor',
+            kategori_aduan: 'Kategori aduan',
+            program_terkait: 'Program terkait',
+            lokasi_spesifik: 'Lokasi domisili',
+            bukti_foto: 'Foto bukti',
+            nik: 'NIK',
+            password: 'Password',
+            nama_lengkap: 'Nama lengkap',
+          };
+          message = detail
+            .map((item) => {
+              const field = item.loc ? item.loc[item.loc.length - 1] : '';
+              const label = fieldLabels[field] || field;
+
+              if (item.type === 'string_too_short') {
+                const min = item.ctx?.min_length || 1;
+                return `${label ? label + ': ' : ''}Minimal harus ${min} karakter.`;
+              }
+              if (item.type === 'string_too_long') {
+                const max = item.ctx?.max_length || 1;
+                return `${label ? label + ': ' : ''}Maksimal ${max} karakter.`;
+              }
+              if (item.type === 'string_pattern_mismatch') {
+                return `${label ? label + ': ' : ''}Format tidak valid.`;
+              }
+              return label ? `${label}: ${item.msg}` : (item.msg || 'Format data tidak valid');
+            })
+            .join(' | ');
+        } else if (detail && typeof detail === 'object') {
+          message = detail.message || JSON.stringify(detail);
+        } else {
+          message = error.response.data?.message || `Error ${error.response.status}`;
+        }
       } else if (error.request) {
         message = 'Tidak dapat terhubung ke server backend. Pastikan server backend FastAPI dan MySQL sedang berjalan.';
       } else {
         message = error.message;
       }
-      const apiError = new Error(message);
+      const apiError = new Error(typeof message === 'string' ? message : JSON.stringify(message));
       apiError.status = error.response?.status;
       return Promise.reject(apiError);
     },

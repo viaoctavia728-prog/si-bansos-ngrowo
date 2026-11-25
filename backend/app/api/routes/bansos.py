@@ -4,13 +4,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_admin
+from app.api.deps import get_current_admin, get_current_user
 from app.db.session import get_db
 from app.models.bansos import DataBansos
+from app.models.eligible_resident import EligibleResident
+from app.models.user import User
 from app.schemas.bansos import DataBansosCreate, DataBansosPublicResponse, DataBansosResponse
 
 router = APIRouter()
 public_router = APIRouter()
+
+
+@router.get("/desil-saya")
+def get_desil_saya(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user.get("id_user")
+    resident = (
+        db.query(EligibleResident)
+        .join(User, User.nik == EligibleResident.nik)
+        .filter(User.id_user == user_id)
+        .first()
+    )
+    if not resident:
+        raise HTTPException(status_code=404, detail="Data desil warga belum ditemukan.")
+    return {"desil": resident.desil, "nik": resident.nik}
 
 
 def mask_identity_number(value: Optional[str]) -> Optional[str]:
@@ -80,3 +99,38 @@ def tambah_penerima_bansos(
         raise HTTPException(status_code=409, detail="Data penerima bansos bertentangan dengan data yang sudah ada.") from exc
     db.refresh(penerima_baru)
     return penerima_baru
+
+
+@router.put("/penerima/{id_bansos}", response_model=DataBansosResponse)
+def ubah_penerima_bansos(
+    id_bansos: int,
+    data: DataBansosCreate,
+    db: Session = Depends(get_db),
+    _current_admin=Depends(get_current_admin),
+):
+    penerima = db.query(DataBansos).filter(DataBansos.id_bansos == id_bansos).first()
+    if not penerima:
+        raise HTTPException(status_code=404, detail="Data penerima bansos tidak ditemukan.")
+    for field, value in data.model_dump().items():
+        setattr(penerima, field, value)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Data penerima bertentangan dengan data yang sudah ada.") from exc
+    db.refresh(penerima)
+    return penerima
+
+
+@router.delete("/penerima/{id_bansos}")
+def hapus_penerima_bansos(
+    id_bansos: int,
+    db: Session = Depends(get_db),
+    _current_admin=Depends(get_current_admin),
+):
+    penerima = db.query(DataBansos).filter(DataBansos.id_bansos == id_bansos).first()
+    if not penerima:
+        raise HTTPException(status_code=404, detail="Data penerima bansos tidak ditemukan.")
+    db.delete(penerima)
+    db.commit()
+    return {"status": "success", "message": "Data penerima bansos berhasil dihapus."}

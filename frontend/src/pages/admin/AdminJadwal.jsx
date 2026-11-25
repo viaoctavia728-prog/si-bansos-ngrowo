@@ -49,6 +49,7 @@ export default function AdminJadwal() {
 
   // Modal State for adding new schedule
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [newSchedule, setNewSchedule] = useState({
     program: '',
@@ -142,9 +143,14 @@ export default function AdminJadwal() {
           ? newSchedule.persyaratan.split(',').map((p) => p.trim()).filter(Boolean)
           : newSchedule.persyaratan,
       };
-      await adminService.createJadwal(reqPayload);
-      setFeedback({ type: 'success', message: `Jadwal '${newSchedule.program}' berhasil dibuat dan disimpan!` });
+      if (editingScheduleId) {
+        await adminService.updateJadwal(editingScheduleId, reqPayload);
+      } else {
+        await adminService.createJadwal(reqPayload);
+      }
+      setFeedback({ type: 'success', message: `Jadwal '${newSchedule.program}' berhasil ${editingScheduleId ? 'diperbarui' : 'dibuat'}!` });
       setIsAddModalOpen(false);
+      setEditingScheduleId(null);
       setNewSchedule({
         program: '',
         tanggal: '',
@@ -161,6 +167,39 @@ export default function AdminJadwal() {
       setFeedback({ type: 'error', message: msg });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleEditSchedule = (item) => {
+    if (!item.id || item.id < 10) {
+      setFeedback({ type: 'error', message: 'Jadwal bawaan hanya dapat dibroadcast, bukan diedit.' });
+      return;
+    }
+    setEditingScheduleId(item.id);
+    setNewSchedule({
+      program: item.program || '',
+      tanggal: item.tanggal || '',
+      jam: item.jam || '',
+      lokasi: item.lokasi || '',
+      persyaratan: Array.isArray(item.persyaratan) ? item.persyaratan.join(', ') : (item.persyaratan || ''),
+      status: item.status || 'Dijadwalkan',
+      iso_date: item.iso_date || '',
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleDeleteSchedule = async (item) => {
+    if (!item.id || item.id < 10) {
+      setFeedback({ type: 'error', message: 'Jadwal bawaan tidak dapat dihapus.' });
+      return;
+    }
+    if (!window.confirm(`Hapus jadwal '${item.program}'?`)) return;
+    try {
+      await adminService.deleteJadwal(item.id);
+      setFeedback({ type: 'success', message: 'Jadwal berhasil dihapus.' });
+      await loadSchedules();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'Gagal menghapus jadwal.' });
     }
   };
 
@@ -219,6 +258,7 @@ export default function AdminJadwal() {
           <button
             type="button"
             onClick={() => {
+              setEditingScheduleId(null);
               setNewSchedule((prev) => ({
                 ...prev,
                 tanggal: prev.tanggal || `${today.getDate()} ${monthName}`,
@@ -452,18 +492,26 @@ export default function AdminJadwal() {
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleBroadcastSchedule(item, index)}
-                        disabled={broadcastingId !== null}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors shrink-0 shadow-2xs disabled:opacity-50"
-                        title="Kirim notifikasi real-time jadwal ini ke warga"
-                      >
-                        <span className={`material-symbols-outlined text-[15px] ${broadcastingId === (item.id ?? index) ? 'animate-spin' : ''}`}>
-                          {broadcastingId === (item.id ?? index) ? 'progress_activity' : 'send'}
-                        </span>
-                        {broadcastingId === (item.id ?? index) ? 'Mengirim...' : 'Broadcast'}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onClick={() => handleEditSchedule(item)} className="inline-flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200" title="Edit jadwal">
+                          <span className="material-symbols-outlined text-[15px]">edit</span>
+                        </button>
+                        <button type="button" onClick={() => handleDeleteSchedule(item)} className="inline-flex items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100" title="Hapus jadwal">
+                          <span className="material-symbols-outlined text-[15px]">delete</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBroadcastSchedule(item, index)}
+                          disabled={broadcastingId !== null}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors disabled:opacity-50"
+                          title="Kirim notifikasi real-time jadwal ini ke warga"
+                        >
+                          <span className={`material-symbols-outlined text-[15px] ${broadcastingId === (item.id ?? index) ? 'animate-spin' : ''}`}>
+                            {broadcastingId === (item.id ?? index) ? 'progress_activity' : 'send'}
+                          </span>
+                          {broadcastingId === (item.id ?? index) ? 'Mengirim...' : 'Broadcast'}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100 text-xs text-slate-600 space-y-1">
@@ -494,7 +542,7 @@ export default function AdminJadwal() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
-              <h3 className="text-base font-extrabold text-slate-900">Buat Jadwal Penyaluran Baru</h3>
+              <h3 className="text-base font-extrabold text-slate-900">{editingScheduleId ? 'Edit Jadwal Penyaluran' : 'Buat Jadwal Penyaluran Baru'}</h3>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
@@ -581,7 +629,7 @@ export default function AdminJadwal() {
                   <span className={`material-symbols-outlined text-[17px] ${isSaving ? 'animate-spin' : ''}`}>
                     {isSaving ? 'progress_activity' : 'save'}
                   </span>
-                  {isSaving ? 'Menyimpan...' : 'Simpan Jadwal'}
+                  {isSaving ? 'Menyimpan...' : editingScheduleId ? 'Simpan Perubahan' : 'Simpan Jadwal'}
                 </button>
               </div>
             </form>

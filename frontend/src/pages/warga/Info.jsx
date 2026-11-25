@@ -5,6 +5,7 @@ import Footer from '../../components/Footer';
 import WargaSidebar from '../../components/WargaSidebar';
 import WargaMain from '../../components/WargaMain';
 import { jadwalService } from '../../services/api';
+import { authService } from '../../services/auth';
 
 const PROGRAM_REQUIREMENTS = [
   { title: 'Program Keluarga Harapan (PKH)', items: ['KTP dan Kartu Keluarga', 'Terdaftar sebagai keluarga penerima manfaat', 'Mengikuti verifikasi dan pemutakhiran data'] },
@@ -31,6 +32,7 @@ const FAQ_ITEMS = [
 export default function Info() {
   const [schedule, setSchedule] = useState(null);
   const [scheduleError, setScheduleError] = useState('');
+  const [adminContact, setAdminContact] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -42,6 +44,9 @@ export default function Info() {
     }).catch((error) => {
       if (active) setScheduleError(error.message || 'Informasi jadwal belum dapat dimuat.');
     });
+    authService.getAdminContact().then((response) => {
+      if (active) setAdminContact(response?.no_hp || '');
+    }).catch(() => {});
     return () => { active = false; };
   }, []);
 
@@ -138,7 +143,7 @@ export default function Info() {
               <span className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-800">support_agent</span>
               <div><h3 className="text-sm font-bold">Bantuan Kelurahan</h3><p className="mt-1 text-xs text-slate-500">Pelayanan hari kerja · 08.00–15.00 WIB</p></div>
             </div>
-            <a href="https://wa.me/6285807078899" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-[#166534] hover:underline"><span className="material-symbols-outlined text-[17px]">chat</span>Hubungi melalui WhatsApp</a>
+            <a href={adminContact ? `https://wa.me/${adminContact.replace(/^0/, '62')}` : undefined} target="_blank" rel="noopener noreferrer" className={`mt-4 inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-[#166534] hover:underline ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}><span className="material-symbols-outlined text-[17px]">chat</span>Hubungi melalui WhatsApp</a>
           </section>
         </div>
       </main>

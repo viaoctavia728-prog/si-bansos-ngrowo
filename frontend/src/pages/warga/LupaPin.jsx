@@ -1,10 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-
-const ADMIN_WHATSAPP = '6285807078899';
+import { authService } from '../../services/auth';
 
 export default function LupaPin() {
   const [nik, setNik] = React.useState('');
+  const [adminContact, setAdminContact] = React.useState('');
+
+  React.useEffect(() => {
+    authService.getAdminContact().then((response) => setAdminContact(response?.no_hp || '')).catch(() => {});
+  }, []);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -13,7 +17,9 @@ export default function LupaPin() {
       `NIK: ${nik}`,
       'Mohon verifikasi identitas saya sebelum PIN direset.',
     ].join('\n');
-    window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    if (adminContact) {
+      window.open(`https://wa.me/${adminContact.replace(/^0/, '62')}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -70,10 +76,10 @@ export default function LupaPin() {
 
         {/* Bantuan WhatsApp Admin */}
         <a 
-          href={`https://wa.me/${ADMIN_WHATSAPP}`}
+          href={adminContact ? `https://wa.me/${adminContact.replace(/^0/, '62')}` : undefined}
           target="_blank" 
           rel="noopener noreferrer"
-          className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-center text-[14px] font-semibold text-[#2E7D32] hover:text-[#256828]"
+          className={`mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-center text-[14px] font-semibold text-[#2E7D32] hover:text-[#256828] ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}
         >
           <span className="material-symbols-outlined text-[18px]">chat</span>
           Chat WhatsApp Admin Desa

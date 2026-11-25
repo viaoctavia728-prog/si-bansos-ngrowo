@@ -81,15 +81,33 @@ export default function Pengaduan() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setErrorMsg('');
+
+    if (!domisiliRw || !domisiliRt) {
+      setErrorMsg('Pilih RW dan RT domisili warga terlebih dahulu.');
+      return;
+    }
+
+    const cleanNik = (nikTerlapor || '').trim();
+    if (cleanNik && !/^\d{16}$/.test(cleanNik)) {
+      setErrorMsg('NIK Terlapor harus terdiri dari 16 digit angka (atau kosongkan jika tidak tahu).');
+      return;
+    }
+
+    const cleanDesc = (description || '').trim();
+    if (cleanDesc.length < 10) {
+      setErrorMsg('Deskripsi kejadian / alasan minimal harus 10 karakter.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const buktiFotoUrl = buktiFoto ? await pengaduanService.uploadBukti(buktiFoto) : null;
       const payload = {
-        nik_terlapor: nikTerlapor || null,
+        nik_terlapor: cleanNik || null,
         kategori_aduan: jenisAduan,
         program_terkait: program,
-        deskripsi_kejadian: description,
+        deskripsi_kejadian: cleanDesc,
         lokasi_spesifik: `RT ${domisiliRt} / RW ${domisiliRw}, Kelurahan Ngrowo`,
         bukti_foto: buktiFotoUrl,
         is_anonymous: isAnonim,
@@ -102,7 +120,8 @@ export default function Pengaduan() {
       setBuktiFoto(null);
       if (buktiFotoRef.current) buktiFotoRef.current.value = '';
     } catch (err) {
-      setErrorMsg(err.message || 'Gagal mengirim pengaduan. Silakan coba lagi.');
+      const msg = err?.message || 'Gagal mengirim pengaduan. Silakan coba lagi.';
+      setErrorMsg(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setIsLoading(false);
     }
@@ -320,17 +339,18 @@ export default function Pengaduan() {
                   <label className="text-[15px] font-bold text-[#0F172A]" htmlFor="description">
                     Deskripsi Kejadian / Alasan <span className="text-red-500 font-bold text-[13px]">(Wajib)</span>
                   </label>
-                  <span className="text-xs text-slate-400 font-mono">{description.length}/500</span>
+                  <span className="text-xs text-slate-400 font-mono">{description.length}/500 (Min. 10 karakter)</span>
                 </div>
                 <textarea 
                   id="description" 
                   required 
+                  minLength={10}
                   maxLength="500" 
                   rows="4"
                   value={description} 
                   onChange={(event) => setDescription(event.target.value)} 
                   className="w-full p-3 bg-white border border-slate-200 rounded-xl text-[15px] focus:border-[#166534] focus:outline-none resize-none" 
-                  placeholder="Jelaskan kondisi warga secara jujur, objektif, dan faktual..." 
+                  placeholder="Jelaskan kondisi warga secara jujur, objektif, dan faktual (minimal 10 karakter)..." 
                 />
                 <p className="text-[12px] text-[#166534] flex items-center gap-1 font-medium mt-1">
                   <span className="material-symbols-outlined text-[16px]">info</span>
