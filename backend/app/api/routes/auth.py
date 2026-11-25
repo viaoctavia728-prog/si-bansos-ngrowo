@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.core.storage import MAX_UPLOAD_BYTES, UPLOAD_DIR
 from app.db.session import get_db
+from app.models.bansos import DataBansos
 from app.models.eligible_resident import EligibleResident
 from app.models.user import User
 from app.schemas.auth import UserLogin, UserProfileUpdate, UserRegister, UserResponse
@@ -42,7 +43,7 @@ async def verify_staff_portal_pin(request: Request):
 def register(user_data: UserRegister, db: Session = Depends(get_db)):
     eligible_resident = (
         db.query(EligibleResident)
-        .filter(EligibleResident.nik == user_data.nik)
+        .filter(EligibleResident.nik == user_data.nik, EligibleResident.is_active.is_(True))
         .with_for_update()
         .first()
     )
@@ -188,6 +189,12 @@ async def login(request: Request, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akun dinonaktifkan oleh petugas. Hubungi admin desa untuk bantuan.",
+        )
+
     is_citizen = user.role in {"user", "warga"}
     if is_citizen and not (user.is_ngrowo_resident and user.is_verified):
         raise HTTPException(
@@ -208,6 +215,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
             "nama_lengkap": user.nama_lengkap,
             "role": user.role,
             "notifikasi_otomatis": user.notifikasi_otomatis,
+            "desil": user.desil,
             "rt": user.rt,
             "rw": user.rw,
             "foto_profil": user.foto_profil,
@@ -237,6 +245,13 @@ def update_current_profile(
             user.password_hash = hash_password(value)
         else:
             setattr(user, field, value.strip() if isinstance(value, str) else value)
+    if "nama_lengkap" in profile.model_fields_set and user.eligible_resident:
+        user.eligible_resident.nama_lengkap = user.nama_lengkap
+        user.eligible_resident.nama_normalized = normalize_name(user.nama_lengkap)
+        db.query(DataBansos).filter(DataBansos.nik_penerima == user.nik).update(
+            {"nama_penerima": user.nama_lengkap},
+            synchronize_session=False,
+        )
     db.commit()
     db.refresh(user)
     return user

@@ -113,19 +113,37 @@ export default function Jadwal() {
       {/* KONTEN UTAMA */}
       <main className="flex-1 pb-24 lg:pb-10">
         <div className="flex flex-col w-full">
-          <div className="warga-content flex flex-col gap-4 pt-5 pb-8 sm:gap-5 sm:pt-7">
+          <div className="warga-content motion-reveal flex flex-col gap-4 pt-5 pb-8 sm:gap-5 sm:pt-7">
             
             {/* Status Tahap & Penyaluran */}
-            <div className="flex items-center justify-between gap-2">
+            {loading || allSchedules.length > 0 ? <div className="flex items-center justify-between gap-2">
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
                 <span className="material-symbols-outlined text-[15px]">verified</span>
                 {selectedSchedule?.tahap || (loading ? 'Memuat jadwal...' : 'Jadwal penyaluran')}
               </div>
               <span className="text-[12px] font-medium text-slate-500">Penyaluran Reguler</span>
-            </div>
+            </div> : null}
 
             {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error} <button type="button" onClick={loadSchedule} className="ml-2 font-bold underline">Coba lagi</button></div>}
 
+            {loading && allSchedules.length === 0 ? (
+              <section role="status" className="gov-card flex items-center justify-center gap-3 p-10 text-sm text-slate-600">
+                <span className="material-symbols-outlined animate-spin text-2xl text-emerald-700">progress_activity</span>Memuat jadwal penyaluran...
+              </section>
+            ) : error && allSchedules.length === 0 ? (
+              <section className="gov-card p-8 text-center">
+                <span className="material-symbols-outlined text-4xl text-amber-600">cloud_off</span>
+                <p className="mt-2 text-sm font-bold text-slate-800">Jadwal belum dapat ditampilkan</p>
+                <button type="button" onClick={loadSchedule} className="gov-btn-outline mt-4 min-h-9 text-xs">Coba lagi</button>
+              </section>
+            ) : allSchedules.length === 0 ? (
+              <section className="motion-pop-in gov-card bg-gradient-to-br from-white to-emerald-50/60 p-8 text-center sm:p-12">
+                <span className="material-symbols-outlined text-5xl text-emerald-800">event_available</span>
+                <h2 className="mt-3 text-lg font-extrabold text-slate-900">Belum ada jadwal penyaluran</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">Jadwal resmi akan ditampilkan di sini setelah diterbitkan oleh admin desa. Anda dapat kembali lagi nanti.</p>
+              </section>
+            ) : (
+            <>
             {latestAnnouncement && (
               <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm" aria-label="Pengumuman admin">
                 <div className="flex items-start gap-3">
@@ -148,7 +166,7 @@ export default function Jadwal() {
               </section>
             )}
 
-            <section aria-label="Kalender penyaluran" className="gov-card p-4 sm:p-5">
+            <section aria-label="Kalender penyaluran" className="motion-card gov-card p-4 sm:p-5">
               <div className="mb-3 flex items-center justify-between">
                 <button type="button" onClick={() => setDisplayedMonth(new Date(displayedMonth.getFullYear(), displayedMonth.getMonth() - 1, 1))} aria-label="Bulan sebelumnya" className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined">chevron_left</span></button>
                 <h2 className="text-sm font-bold text-[#0F172A]">{displayedMonth.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</h2>
@@ -173,7 +191,7 @@ export default function Jadwal() {
             </section>
 
             {/* KARTU INFORMASI PAKET BANSOS */}
-            <section className="rounded-2xl p-5 bg-white flex flex-col gap-4 border border-slate-200 shadow-sm">
+            <section className="motion-card rounded-2xl p-5 bg-white flex flex-col gap-4 border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#F0F5F2] text-[#166534]">
@@ -227,14 +245,14 @@ export default function Jadwal() {
             </section>
 
             {/* SESI & KUOTA PENGAMBILAN (PER RT) */}
-            <section className="flex flex-col gap-2.5">
+            <section className="flex flex-col gap-2.5 motion-stagger">
               <div className="flex items-center justify-between">
                 <h3 className="text-[14px] font-bold text-[#0F172A]">Sesi &amp; Kuota Pengambilan (Per RT)</h3>
                 <span className="text-[12px] font-semibold text-[#166534]">Total: {selectedSchedule.total_kpm ?? '-'} KPM</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {selectedSchedule.sesi?.map((session, index) => (
-                  <div key={session.rt} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                  <div key={session.rt} className="motion-card rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm" style={{ '--stagger-index': index }}>
                     <div className="flex items-center justify-between"><span className="text-[13px] font-bold text-[#0F172A]">RT {session.rt}</span><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F0F5F2] text-[10px] font-bold text-[#166534]">{index + 1}</span></div>
                     <div className="mt-2.5 flex items-baseline gap-1"><span className="text-[22px] font-extrabold text-[#166534]">{session.jumlah_kpm}</span><span className="text-[12px] font-medium text-slate-500">KPM</span></div>
                     <div className="mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2 text-[11px] font-medium text-slate-500"><span className="material-symbols-outlined text-[14px]">schedule</span><span>{session.waktu}</span></div>
@@ -245,7 +263,7 @@ export default function Jadwal() {
             </section>
 
             {/* SYARAT WAJIB DIBAWA */}
-            <section className="rounded-2xl p-4 bg-white flex flex-col gap-3 border border-slate-200 shadow-sm">
+            <section className="motion-card rounded-2xl p-4 bg-white flex flex-col gap-3 border border-slate-200 shadow-sm">
               <h3 className="text-[14px] font-bold text-[#0F172A] flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px] text-[#166534]">fact_check</span> 
                 Syarat Wajib Dibawa Saat Hadir
@@ -289,7 +307,7 @@ export default function Jadwal() {
             </div>
 
             {/* PETA LOKASI PENYALURAN */}
-            <section className="rounded-2xl p-4 bg-white flex flex-col gap-3 border border-slate-200 shadow-sm">
+            <section className="motion-card rounded-2xl p-4 bg-white flex flex-col gap-3 border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-[13px] font-bold text-[#0F172A]">Peta Lokasi Penyaluran</span>
                 <a href={MAPS_LINK} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold hover:underline flex items-center gap-1 text-[#166534]">
@@ -305,6 +323,9 @@ export default function Jadwal() {
                 className="h-56 w-full rounded-xl border border-slate-200"
               />
             </section>
+
+            </>
+            )}
 
           </div>
         </div>

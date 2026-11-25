@@ -26,8 +26,19 @@ class User(Base):
     notifikasi_otomatis = Column(Boolean, default=True, nullable=False)
     is_ngrowo_resident = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relasi ke tabel Pengaduan & Wilayah
     pengaduan = relationship("PengaduanBansos", back_populates="pelapor")
     wilayah = relationship("WilayahNgrowo", back_populates="users")
+    eligible_resident = relationship(
+        "EligibleResident",
+        back_populates="registered_user",
+        foreign_keys="EligibleResident.registered_user_id",
+        uselist=False,
+    )
+
+    @property
+    def desil(self):
+        return self.eligible_resident.desil if self.eligible_resident else None

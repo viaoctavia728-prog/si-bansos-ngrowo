@@ -22,7 +22,7 @@ export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo
               else setOpenMobile(true);
             }}
             aria-label="Buka menu navigasi"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+            className="gov-btn-outline h-10 w-10 min-h-10 shrink-0 rounded-lg p-0"
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
@@ -31,7 +31,7 @@ export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo
             <Link
               to={backTo}
               aria-label="Kembali"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+              className="gov-btn-outline h-10 w-10 min-h-10 shrink-0 rounded-lg p-0"
             >
               <span className="material-symbols-outlined">arrow_back</span>
             </Link>
@@ -62,7 +62,7 @@ export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo
             to="/notifikasi"
             aria-label="Buka pengumuman & notifikasi"
             title="Pengumuman & Notifikasi"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-primary"
+            className="gov-btn-outline h-10 w-10 min-h-10 rounded-full p-0"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
           </Link>

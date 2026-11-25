@@ -5,7 +5,6 @@ import Footer from '../../components/Footer';
 import WargaSidebar from '../../components/WargaSidebar';
 import WargaMain from '../../components/WargaMain';
 import { jadwalService } from '../../services/api';
-import { authService } from '../../services/auth';
 
 const PROGRAM_REQUIREMENTS = [
   { title: 'Program Keluarga Harapan (PKH)', items: ['KTP dan Kartu Keluarga', 'Terdaftar sebagai keluarga penerima manfaat', 'Mengikuti verifikasi dan pemutakhiran data'] },
@@ -31,28 +30,29 @@ const FAQ_ITEMS = [
 
 export default function Info() {
   const [schedule, setSchedule] = useState(null);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
   const [scheduleError, setScheduleError] = useState('');
-  const [adminContact, setAdminContact] = useState('');
 
   useEffect(() => {
     let active = true;
     jadwalService.getJadwal().then((response) => {
       if (active) {
         const list = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : response?.data ? [response.data] : [];
-        setSchedule(list[0] || null);
+          const now = new Date();
+          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          setSchedule(list.find((item) => item.iso_date >= today) || list[0] || null);
       }
     }).catch((error) => {
       if (active) setScheduleError(error.message || 'Informasi jadwal belum dapat dimuat.');
+    }).finally(() => {
+        if (active) setScheduleLoading(false);
     });
-    authService.getAdminContact().then((response) => {
-      if (active) setAdminContact(response?.no_hp || '');
-    }).catch(() => {});
     return () => { active = false; };
   }, []);
 
-  const formattedDate = schedule?.tanggal
-    ? new Date(`${schedule.tanggal}T00:00:00`).toLocaleDateString('id-ID', { dateStyle: 'full' })
-    : 'Jadwal belum tersedia';
+  const formattedDate = schedule?.iso_date
+    ? new Date(`${schedule.iso_date}T00:00:00`).toLocaleDateString('id-ID', { dateStyle: 'full' })
+    : schedule?.tanggal || 'Jadwal belum tersedia';
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC] text-slate-900">
@@ -64,14 +64,14 @@ export default function Info() {
         backTo="/"
       />
       <main className="flex-1 pb-24 lg:pb-10">
-        <div className="warga-content flex flex-col gap-4 pt-5 pb-8 sm:gap-5 sm:pt-7">
-          <section className="gov-card border-emerald-200 bg-primary-soft/50 p-5 sm:p-6">
+        <div className="warga-content motion-reveal flex flex-col gap-4 pt-5 pb-8 sm:gap-5 sm:pt-7">
+          <section className="motion-hero gov-card border-emerald-200 bg-primary-soft/50 p-5 sm:p-6">
             <p className="text-[11px] font-bold uppercase text-[#166534]">Kelurahan Ngrowo</p>
             <h2 className="mt-1 text-xl font-bold">Informasi Pelayanan Bansos</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-500">Pantau jadwal penyaluran, periksa data penerima, dan sampaikan pengaduan melalui layanan warga.</p>
           </section>
 
-          <section className="gov-card overflow-hidden">
+          <section className="gov-card motion-card overflow-hidden">
             <div className="gov-section-title">
               <span className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-800">campaign</span>
               <div>
@@ -80,13 +80,15 @@ export default function Info() {
               </div>
             </div>
             <div className="p-4">
-              {scheduleError ? <p role="status" className="text-sm text-amber-800">{scheduleError}</p> : (
+              {scheduleError ? <p role="alert" className="text-sm text-amber-800">{scheduleError}</p> : scheduleLoading ? (
+                <p role="status" className="text-sm text-slate-500">Memuat informasi jadwal...</p>
+              ) : schedule ? (
                 <>
-                  <p className="text-sm font-semibold">{schedule?.program || 'Memuat jadwal...'}</p>
+                  <p className="text-sm font-semibold">{schedule.program}</p>
                   <p className="mt-1 text-xs text-slate-500">{formattedDate}{schedule?.waktu ? ` · ${schedule.waktu}` : ''}</p>
                   <p className="mt-1 text-xs text-slate-500">{schedule?.lokasi || ''}</p>
                 </>
-              )}
+              ) : <p className="text-sm text-slate-500">Belum ada jadwal penyaluran yang diterbitkan admin.</p>}
               <Link to="/jadwal" className="mt-4 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#166534] px-3 text-xs font-semibold text-white hover:bg-[#15803D]">
                 <span className="material-symbols-outlined text-[16px]">calendar_month</span>
                 Lihat semua jadwal
@@ -94,7 +96,7 @@ export default function Info() {
             </div>
           </section>
 
-          <section className="gov-card p-4 sm:p-5">
+          <section className="gov-card motion-card p-4 sm:p-5">
             <h3 className="text-base font-bold text-slate-900">Syarat &amp; Ketentuan Program</h3>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">Pilih program untuk melihat persyaratan yang perlu disiapkan.</p>
             <div className="mt-3 divide-y divide-gray-100 rounded-lg border border-slate-100">
@@ -112,7 +114,7 @@ export default function Info() {
             </div>
           </section>
 
-          <section className="gov-card p-4 sm:p-5">
+          <section className="gov-card motion-card p-4 sm:p-5">
             <h3 className="text-base font-bold text-slate-900">FAQ Bansos</h3>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">Jawaban singkat untuk pertanyaan yang sering ditanyakan warga.</p>
             <div className="mt-3 divide-y divide-gray-100 rounded-lg border border-slate-100">
@@ -143,7 +145,7 @@ export default function Info() {
               <span className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-800">support_agent</span>
               <div><h3 className="text-sm font-bold">Bantuan Kelurahan</h3><p className="mt-1 text-xs text-slate-500">Pelayanan hari kerja · 08.00–15.00 WIB</p></div>
             </div>
-            <a href={adminContact ? `https://wa.me/${adminContact.replace(/^0/, '62')}` : undefined} target="_blank" rel="noopener noreferrer" className={`mt-4 inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-[#166534] hover:underline ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}><span className="material-symbols-outlined text-[17px]">chat</span>Hubungi melalui WhatsApp</a>
+            <a href="https://wa.me/6285806503734" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-[#166534] hover:underline"><span className="material-symbols-outlined text-[17px]">chat</span>Hubungi melalui WhatsApp</a>
           </section>
         </div>
       </main>

@@ -13,10 +13,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [bansosData, setBansosData] = useState([]);
-  const [desil, setDesil] = useState(null);
-  const [adminContact, setAdminContact] = useState('');
   const [userReports, setUserReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [bansosLoaded, setBansosLoaded] = useState(false);
+  const [reportsLoaded, setReportsLoaded] = useState(false);
+  const [dashboardError, setDashboardError] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [pushEnabling, setPushEnabling] = useState(false);
   const [pushMessage, setPushMessage] = useState('');
@@ -25,13 +27,7 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [latestPopupNotif, setLatestPopupNotif] = useState(null);
-  const [dismissedNotifIds, setDismissedNotifIds] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('dismissed_in_app_notifs') || '[]');
-    } catch {
-      return [];
-    }
-  });
+  const [notificationError, setNotificationError] = useState('');
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -41,37 +37,41 @@ export default function Dashboard() {
     }
     setCurrentUser(user);
 
+    let active = true;
     const fetchData = async () => {
       setIsLoading(true);
-      try {
-        const profile = await authService.getProfile();
-        setCurrentUser(profile);
-      } catch (err) {
-        console.error('Error fetching user profile:', err);
+      const results = await Promise.allSettled([
+        authService.getProfile(),
+        user.nik ? bansosService.cekBansosByNik(user.nik) : Promise.reject(new Error('NIK akun tidak tersedia.')),
+        user.id_user ? pengaduanService.getByUser(user.id_user) : Promise.reject(new Error('Identitas akun tidak tersedia.')),
+      ]);
+      if (!active) return;
+      const errors = [];
+      const [profileResult, bansosResult, reportsResult] = results;
+      if (profileResult.status === 'fulfilled') {
+        setCurrentUser(profileResult.value);
+        setProfileLoaded(true);
+      } else {
+        errors.push(profileResult.reason?.message || 'Profil warga gagal dimuat.');
       }
-      try {
-        const [bansosRes, desilRes, reportsRes, contactRes] = await Promise.all([
-          user.nik ? bansosService.cekBansosByNik(user.nik) : Promise.resolve([]),
-          bansosService.getDesilSaya().catch(() => null),
-          user.id_user ? pengaduanService.getByUser(user.id_user) : Promise.resolve([]),
-          authService.getAdminContact().catch(() => null),
-        ]);
-        setBansosData(Array.isArray(bansosRes) ? bansosRes : []);
-        setDesil(desilRes?.desil ?? null);
-        setAdminContact(contactRes?.no_hp || '');
-        setUserReports(Array.isArray(reportsRes) ? reportsRes : []);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setBansosData([]);
-        setDesil(null);
-        setAdminContact('');
-        setUserReports([]);
-      } finally {
-        setIsLoading(false);
+      if (bansosResult.status === 'fulfilled' && Array.isArray(bansosResult.value)) {
+        setBansosData(bansosResult.value);
+        setBansosLoaded(true);
+      } else {
+        errors.push(bansosResult.status === 'rejected' ? bansosResult.reason?.message : 'Format data bansos tidak valid.');
       }
+      if (reportsResult.status === 'fulfilled' && Array.isArray(reportsResult.value)) {
+        setUserReports(reportsResult.value);
+        setReportsLoaded(true);
+      } else {
+        errors.push(reportsResult.status === 'rejected' ? reportsResult.reason?.message : 'Format data pengaduan tidak valid.');
+      }
+      setDashboardError(errors.filter(Boolean).join(' '));
+      setIsLoading(false);
     };
 
-    fetchData();
+    void fetchData();
+    return () => { active = false; };
   }, [navigate]);
 
   useEffect(() => {
@@ -112,14 +112,12 @@ export default function Dashboard() {
       const list = await notificationService.getNotifications();
       if (Array.isArray(list)) {
         setNotifications(list);
-        const dismissed = JSON.parse(localStorage.getItem('dismissed_in_app_notifs') || '[]');
-        const newUnread = list.find((n) => !n.is_read && !dismissed.includes(n.id_notification));
-        if (newUnread) {
-          setLatestPopupNotif(newUnread);
-        }
+        setNotificationError('');
+        const newUnread = list.find((n) => !n.is_read && !n.read_at);
+        setLatestPopupNotif(newUnread || null);
       }
-    } catch {
-      // keep silent on polling error
+    } catch (error) {
+      setNotificationError(error.message || 'Notifikasi belum dapat disinkronkan.');
     }
   };
 
@@ -130,27 +128,26 @@ export default function Dashboard() {
   }, []);
 
   const handleDismissPopup = async (idNotification) => {
-    try {
-      await notificationService.markAsRead(idNotification);
-    } catch {}
-    const updated = [...dismissedNotifIds, idNotification];
-    setDismissedNotifIds(updated);
-    localStorage.setItem('dismissed_in_app_notifs', JSON.stringify(updated));
-    setLatestPopupNotif(null);
-    fetchNotifications();
+    await handleMarkAsRead(idNotification);
   };
 
   const handleMarkAsRead = async (idNotification) => {
     try {
       await notificationService.markAsRead(idNotification);
-    } catch {}
-    setNotifications((prev) =>
-      prev.map((n) => (n.id_notification === idNotification ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
-    );
-    if (latestPopupNotif?.id_notification === idNotification) {
-      setLatestPopupNotif(null);
+      setNotificationError('');
+      const readAt = new Date().toISOString();
+      setNotifications((prev) =>
+        prev.map((n) => (n.id_notification === idNotification ? { ...n, is_read: true, read_at: readAt } : n))
+      );
+      if (latestPopupNotif?.id_notification === idNotification) {
+        setLatestPopupNotif(null);
+      }
+      await fetchNotifications();
+      return true;
+    } catch (error) {
+      setNotificationError(error.message || 'Status baca gagal disimpan. Coba lagi saat koneksi tersedia.');
+      return false;
     }
-    fetchNotifications();
   };
 
   const handleEnablePush = async () => {
@@ -188,7 +185,7 @@ export default function Dashboard() {
               <aside
                 role="region"
                 aria-label="Pengumuman Penting"
-                className="relative overflow-hidden rounded-xl border border-emerald-600 bg-gradient-to-r from-primary-dark via-primary to-primary-hover p-4 text-white shadow-card animate-in fade-in slide-in-from-top-4 duration-300"
+                className="relative animate-slide-up overflow-hidden rounded-xl border border-emerald-600 bg-gradient-to-r from-primary-dark via-primary to-primary-hover p-4 text-white shadow-card"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
@@ -213,9 +210,9 @@ export default function Dashboard() {
                           type="button"
                           onClick={() => {
                             setIsNotifModalOpen(true);
-                            handleMarkAsRead(latestPopupNotif.id_notification);
+                            void handleMarkAsRead(latestPopupNotif.id_notification);
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-emerald-50"
+                          className="gov-btn min-h-9 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-primary hover:bg-emerald-50"
                         >
                           <span className="material-symbols-outlined text-[15px]">visibility</span>
                           Baca Selengkapnya
@@ -223,7 +220,7 @@ export default function Dashboard() {
                         <button
                           type="button"
                           onClick={() => handleDismissPopup(latestPopupNotif.id_notification)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-white/30 bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/20"
+                          className="gov-btn min-h-9 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
                         >
                           Tutup
                         </button>
@@ -242,17 +239,33 @@ export default function Dashboard() {
               </aside>
             )}
 
+            {notificationError && (
+              <div role="alert" className="flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 sm:flex-row sm:items-center sm:justify-between">
+                <span>{notificationError}</span>
+                <button type="button" onClick={() => fetchNotifications()} className="gov-btn-outline min-h-9 self-start px-3 py-1 text-xs sm:self-auto">
+                  <span className="material-symbols-outlined text-[16px]">sync</span>
+                  Coba sinkronkan
+                </button>
+              </div>
+            )}
+            {dashboardError && (
+              <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-950">
+                <span>{dashboardError} Ringkasan yang gagal dimuat tidak ditampilkan sebagai angka nol.</span>
+                <button type="button" onClick={() => window.location.reload()} className="shrink-0 font-bold underline">Muat ulang</button>
+              </div>
+            )}
+
             {/* Hero sambutan & status warga */}
-            <section className="relative overflow-hidden rounded-2xl border border-emerald-900 bg-gradient-to-br from-primary-dark via-primary to-primary-hover px-5 py-6 text-white shadow-card sm:px-8 sm:py-8">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
-              <div className="pointer-events-none absolute -bottom-16 right-1/3 h-40 w-40 rounded-full bg-emerald-300/10 blur-2xl" />
+            <section className="motion-hero relative overflow-hidden rounded-2xl border border-emerald-900 bg-gradient-to-br from-primary-dark via-primary to-primary-hover px-5 py-6 text-white shadow-card sm:px-8 sm:py-8">
+              <div className="motion-orb pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+              <div className="motion-orb motion-orb-delay pointer-events-none absolute -bottom-16 right-1/3 h-40 w-40 rounded-full bg-emerald-300/10 blur-2xl" />
               <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold backdrop-blur">
                     <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
                     Warga Terverifikasi &middot; RT {currentUser?.rt || '001'} / RW {currentUser?.rw || '001'}
                   </span>
-                  <h1 className="mt-3 text-xl font-extrabold leading-tight text-white sm:text-2xl lg:text-3xl">
+                  <h1 className="motion-title mt-3 text-xl font-extrabold leading-tight text-white sm:text-2xl lg:text-3xl">
                     Halo, {currentUser?.nama_lengkap || 'Warga Ngrowo'}
                   </h1>
                   <p className="mt-1.5 max-w-2xl text-sm text-emerald-50/90">
@@ -267,35 +280,47 @@ export default function Dashboard() {
             </section>
 
             {/* Ringkasan statistik */}
-            <section aria-label="Ringkasan bansos dan pengaduan saya" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="gov-card flex items-center gap-3.5 p-4">
+            <section aria-label="Ringkasan bansos, desil, dan pengaduan saya" className="motion-stagger grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="gov-card motion-card flex items-center gap-3.5 p-4" style={{ '--stagger-index': 0 }}>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
                   <span className="material-symbols-outlined text-[24px]">volunteer_activism</span>
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-500">Bansos Saya</p>
-                  <p className="text-2xl font-extrabold leading-tight text-slate-900">{isLoading ? '–' : bansosData.length}</p>
+                  <p className="text-2xl font-extrabold leading-tight text-slate-900">{isLoading ? '–' : bansosLoaded ? bansosData.length : '—'}</p>
                   <p className="text-xs font-medium text-slate-500">program terdata</p>
                 </div>
               </div>
-              <div className="gov-card flex items-center gap-3.5 p-4">
+              <div className="gov-card motion-card flex items-center gap-3.5 p-4" style={{ '--stagger-index': 1 }}>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                   <span className="material-symbols-outlined text-[24px]">assignment</span>
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-500">Pengaduan Saya</p>
-                  <p className="text-2xl font-extrabold leading-tight text-slate-900">{isLoading ? '–' : userReports.length}</p>
+                  <p className="text-2xl font-extrabold leading-tight text-slate-900">{isLoading ? '–' : reportsLoaded ? userReports.length : '—'}</p>
                   <p className="text-xs font-medium text-slate-500">pernah dikirim</p>
                 </div>
               </div>
-              <div className="gov-card flex items-center gap-3.5 p-4">
+              <div className="gov-card motion-card flex items-center gap-3.5 p-4" style={{ '--stagger-index': 2 }}>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
                   <span className="material-symbols-outlined text-[24px]">pending_actions</span>
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-500">Belum Selesai</p>
-                  <p className="text-2xl font-extrabold leading-tight text-slate-900">{isLoading ? '–' : activeReportCount}</p>
+                  <p className="text-2xl font-extrabold leading-tight text-slate-900">{isLoading ? '–' : reportsLoaded ? activeReportCount : '—'}</p>
                   <p className="text-xs font-medium text-slate-500">menunggu / diproses</p>
+                </div>
+              </div>
+              <div className="gov-card motion-card flex items-center gap-3.5 p-4" style={{ '--stagger-index': 3 }}>
+                <div className="motion-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-800">
+                  <span className="material-symbols-outlined text-[24px]">insights</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500">Desil Kesejahteraan</p>
+                  <p className="text-xl font-extrabold leading-tight text-slate-900">
+                    {isLoading ? '–' : !profileLoaded ? '—' : currentUser?.desil != null ? `Desil ${currentUser.desil}` : 'Belum ditetapkan'}
+                  </p>
+                  <p className="text-xs font-medium text-slate-500">Mengacu pada data induk warga</p>
                 </div>
               </div>
             </section>
@@ -315,6 +340,8 @@ export default function Dashboard() {
                         <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
                         Memuat status bantuan sosial Anda...
                       </div>
+                    ) : !bansosLoaded ? (
+                      <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Status bantuan belum dapat dimuat. Coba muat ulang halaman.</div>
                     ) : activeBansos ? (
                       <div className="rounded-lg border border-emerald-200 bg-primary-soft/60 p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -340,10 +367,6 @@ export default function Dashboard() {
                               <p className="text-xs font-medium text-slate-600">Wilayah Penerima Terdaftar</p>
                               <p className="text-sm font-bold text-primary">RT {activeBansos.rt} / RW {activeBansos.rw}</p>
                             </div>
-                            <div>
-                              <p className="text-xs font-medium text-slate-600">Desil Kesejahteraan</p>
-                              <p className="text-sm font-bold text-primary">Desil {desil ?? activeBansos.desil ?? '-'}</p>
-                            </div>
                           </div>
                           <Link to="/cek-bansos" className="inline-flex items-center gap-1 self-start text-xs font-bold text-primary hover:text-primary-dark sm:self-auto">
                             Lihat Rincian <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -360,9 +383,6 @@ export default function Dashboard() {
                           <p className="mt-1 text-xs leading-relaxed text-slate-600">
                             NIK Anda saat ini belum tercatat dalam alokasi bantuan sosial aktif. Anda dapat memeriksa kuota bansos kelurahan atau mengajukan usulan mandiri.
                           </p>
-                          {desil !== null && (
-                            <p className="mt-2 text-sm font-bold text-primary">Desil Kesejahteraan: {desil}</p>
-                          )}
                           <Link to="/cek-bansos" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-dark">
                             Cek Database Bansos <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
                           </Link>
@@ -377,10 +397,12 @@ export default function Dashboard() {
                   <div className="gov-section-title">
                     <span className="material-symbols-outlined text-[20px] text-primary">assignment</span>
                     <h2>Pengaduan Terakhir</h2>
-                    <span className="ml-auto rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{userReports.length} laporan</span>
+                    <span className="ml-auto rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{reportsLoaded ? `${userReports.length} laporan` : 'Data tidak tersedia'}</span>
                   </div>
                   <div className="p-4 sm:p-5">
-                    {hasUserReports ? (
+                    {!reportsLoaded ? (
+                      <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Riwayat pengaduan belum dapat dimuat.</div>
+                    ) : hasUserReports ? (
                       <div className="space-y-2.5">
                         {userReports.slice(0, 3).map((report) => (
                           <div key={report.id_laporan} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
@@ -462,11 +484,11 @@ export default function Dashboard() {
                     <p className="text-sm leading-relaxed text-slate-600">
                       Butuh bantuan seputar data DTKS atau pencairan bantuan? Hubungi nomor resmi kelurahan.
                     </p>
-                    <a href={adminContact ? `tel:${adminContact}` : undefined} className={`gov-btn-outline w-full ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}>
+                    <a href="tel:085806503734" className="gov-btn-outline w-full">
                       <span className="material-symbols-outlined text-[18px] text-primary">call</span>
                       Hubungi Kantor Desa
                     </a>
-                    <a href={adminContact ? `https://wa.me/${adminContact.replace(/^0/, '62')}` : undefined} target="_blank" rel="noopener noreferrer" className={`gov-btn-primary w-full ${!adminContact ? 'pointer-events-none opacity-60' : ''}`}>
+                    <a href="https://wa.me/6285806503734" target="_blank" rel="noopener noreferrer" className="gov-btn-primary w-full">
                       <span className="material-symbols-outlined text-[18px]">chat</span>
                       WhatsApp Admin
                     </a>
@@ -487,9 +509,10 @@ export default function Dashboard() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-notif-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+          className="modal-backdrop"
+          onClick={() => setIsNotifModalOpen(false)}
         >
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 border border-slate-100">
+          <div className="modal-panel modal-panel-flush flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden border border-slate-100" onClick={(event) => event.stopPropagation()}>
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-emerald-900 bg-primary-dark px-5 py-4 text-white">
               <div className="flex items-center gap-2.5">
@@ -513,6 +536,11 @@ export default function Dashboard() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {notificationError && (
+                <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                  {notificationError}
+                </p>
+              )}
               {notifications.length === 0 ? (
                 <div className="py-12 text-center flex flex-col items-center justify-center">
                   <div className="w-14 h-14 rounded-full bg-primary-soft text-primary flex items-center justify-center mb-3">
@@ -587,7 +615,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setIsNotifModalOpen(false)}
-                className="px-4 py-1.5 rounded-lg bg-[#166534] text-xs font-semibold text-white hover:bg-[#15803D]"
+                className="gov-btn-primary min-h-9 rounded-lg px-4 py-1.5 text-xs"
               >
                 Tutup
               </button>

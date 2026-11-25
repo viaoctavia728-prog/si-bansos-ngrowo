@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 
 from app.db.base import Base
 
@@ -14,3 +14,4 @@ class NotificationHistory(Base):
     body = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     read_at = Column(DateTime, nullable=True)
+    is_archived = Column(Boolean, default=False, nullable=False)

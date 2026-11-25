@@ -9,12 +9,16 @@ export default function AdminAuditLog() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
 
   const loadAuditLogs = async () => {
     try {
       setLoading(true);
       setError('');
-      const data = await adminService.getAuditLogs();
+      const data = await adminService.getAuditLogs({ limit: 500 });
       setLogs(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message || 'Gagal memuat rekam jejak audit sistem.');
@@ -107,6 +111,12 @@ export default function AdminAuditLog() {
       if (filterType !== 'all' && category.label.toLowerCase() !== filterType) {
         return false;
       }
+      const timestamp = log.timestamp ? new Date(log.timestamp) : null;
+      const logDate = timestamp
+        ? `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')}`
+        : '';
+      if (dateFrom && (!logDate || logDate < dateFrom)) return false;
+      if (dateTo && (!logDate || logDate > dateTo)) return false;
       if (activeSearch) {
         const text = [
           log.aktivitas,
@@ -117,7 +127,14 @@ export default function AdminAuditLog() {
       }
       return true;
     });
-  }, [logs, search, globalSearch, filterType]);
+  }, [logs, search, globalSearch, filterType, dateFrom, dateTo]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, globalSearch, filterType, dateFrom, dateTo]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
+  const visibleLogs = filteredLogs.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="space-y-6">
@@ -128,7 +145,7 @@ export default function AdminAuditLog() {
             Catatan Rekam Jejak (Audit Log)
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Rekam jejak transparan dan kronologis seluruh tindakan pengubahan data, update verifikasi, dan aktivitas perangkat desa.
+            Filter 500 aktivitas terbaru berdasarkan kata kunci, kategori, dan tanggal. Log tidak dapat diedit atau dihapus agar integritas rekam jejak terjaga.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -170,6 +187,17 @@ export default function AdminAuditLog() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+              Dari
+              <input aria-label="Tanggal mulai audit" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700" />
+            </label>
+            <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+              Sampai
+              <input aria-label="Tanggal akhir audit" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700" />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             {[
               { id: 'all', label: 'Semua Kategori' },
               { id: 'pengaduan', label: 'Pengaduan' },
@@ -190,16 +218,18 @@ export default function AdminAuditLog() {
               </button>
             ))}
 
-            {(search || filterType !== 'all') && (
+            {(search || filterType !== 'all' || dateFrom || dateTo) && (
               <button
                 type="button"
                 onClick={() => {
                   setSearch('');
                   setFilterType('all');
+                  setDateFrom('');
+                  setDateTo('');
                 }}
-                className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:text-slate-800"
+                className="gov-btn-outline min-h-9 px-3 py-1 text-xs"
               >
-                Reset
+                Reset filter
               </button>
             )}
           </div>
@@ -216,8 +246,8 @@ export default function AdminAuditLog() {
         ) : filteredLogs.length === 0 ? (
           <div className="py-16 text-center text-slate-400 px-4">
             <span className="material-symbols-outlined text-4xl text-slate-300">history</span>
-            <p className="text-sm font-bold text-slate-700 mt-2">Belum ada rekam jejak yang tercatat</p>
-            <p className="text-xs text-slate-400 mt-1">Setiap perubahan status dan verifikasi oleh admin akan otomatis tercatat di sini.</p>
+            <p className="text-sm font-bold text-slate-700 mt-2">{logs.length ? 'Tidak ada log yang cocok dengan filter' : 'Belum ada rekam jejak yang tercatat'}</p>
+            <p className="text-xs text-slate-400 mt-1">{logs.length ? 'Coba ubah kata kunci, kategori, atau rentang tanggal.' : 'Setiap perubahan status dan verifikasi oleh admin akan otomatis tercatat di sini.'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -232,7 +262,7 @@ export default function AdminAuditLog() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredLogs.map((entry, index) => {
+                {visibleLogs.map((entry, index) => {
                   const cat = getLogCategory(entry.aktivitas);
                   const toneBadge = {
                     blue: 'bg-blue-50 text-blue-800 border-blue-200',
@@ -244,7 +274,7 @@ export default function AdminAuditLog() {
                   return (
                     <tr key={entry.id_log || index} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-5 py-4 text-center font-mono text-slate-400 text-xs">
-                        #{entry.id_log || index + 1}
+                        #{entry.id_log || ((page - 1) * pageSize) + index + 1}
                       </td>
 
                       <td className="px-5 py-4 whitespace-nowrap">
@@ -281,12 +311,21 @@ export default function AdminAuditLog() {
           </div>
         )}
 
-        <div className="p-4 border-t border-slate-200 bg-slate-50/50 text-xs text-slate-500 flex items-center justify-between">
-          <span>Menampilkan {filteredLogs.length} rekam jejak sistem</span>
-          <span className="flex items-center gap-1 text-[#166534] font-bold">
-            <span className="material-symbols-outlined text-[15px]">security</span>
-            Integritas Audit Terjamin
-          </span>
+        <div className="p-4 border-t border-slate-200 bg-slate-50/50 text-xs text-slate-500 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span>Menampilkan {filteredLogs.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filteredLogs.length)} dari {filteredLogs.length} log hasil filter</span>
+          <div className="flex items-center justify-between gap-4">
+            {pageCount > 1 && (
+              <div className="flex items-center gap-2">
+                <button type="button" className="gov-btn-outline min-h-9 px-3 py-1 text-xs" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>Sebelumnya</button>
+                <span>Halaman {page}/{pageCount}</span>
+                <button type="button" className="gov-btn-outline min-h-9 px-3 py-1 text-xs" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>Berikutnya</button>
+              </div>
+            )}
+            <span className="flex items-center gap-1 text-[#166534] font-bold">
+              <span className="material-symbols-outlined text-[15px]">security</span>
+              Log tidak dapat diedit atau dihapus
+            </span>
+          </div>
         </div>
       </div>
     </div>

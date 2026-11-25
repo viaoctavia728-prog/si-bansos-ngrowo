@@ -17,7 +17,7 @@ const ALL_MASTER_PROGRAMS = [
 
 export default function CekBansos() {
   const currentUser = authService.getCurrentUser();
-  const [searchNik, setSearchNik] = useState(currentUser?.nik || '3524011111110001');
+  const [searchNik, setSearchNik] = useState(currentUser?.nik || '');
   const [dataPenerima, setDataPenerima] = useState([]);
   const [selectedPenerima, setSelectedPenerima] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +29,13 @@ export default function CekBansos() {
     const cleanNik = (nikToSearch || '').trim();
 
     if (!cleanNik) {
-      setErrorMsg('Masukkan NIK yang ingin dicari!');
+      setErrorMsg('NIK akun tidak tersedia. Silakan masuk kembali.');
+      setDataPenerima([]);
+      setSelectedPenerima(null);
+      return;
+    }
+    if (cleanNik !== currentUser?.nik) {
+      setErrorMsg('Untuk menjaga privasi, Anda hanya dapat melihat data milik akun sendiri.');
       setDataPenerima([]);
       setSelectedPenerima(null);
       return;
@@ -40,11 +46,7 @@ export default function CekBansos() {
     setHasSearched(true);
 
     try {
-      let results = await bansosService.cekBansosByNik(cleanNik);
-
-      if (!results || results.length === 0) {
-        results = await bansosService.getPenerimaBansos({ search: cleanNik });
-      }
+      const results = await bansosService.cekBansosByNik(cleanNik);
 
       setDataPenerima(results || []);
       if (results && results.length > 0) {
@@ -85,12 +87,12 @@ export default function CekBansos() {
       {/* KONTEN UTAMA */}
       <main className="flex-1 pb-24 lg:pb-10">
         <div className="flex flex-col w-full">
-          <div className="warga-content flex flex-col gap-4 pt-5 pb-8 sm:gap-5 sm:pt-7">
+          <div className="warga-content motion-reveal flex flex-col gap-4 pt-5 pb-8 sm:gap-5 sm:pt-7">
             
             {/* SEARCH BOX FORM */}
-            <div className="gov-card p-4 sm:p-5">
+            <div className="gov-card motion-card p-4 sm:p-5">
               <label htmlFor="input_cari_nik" className="block text-xs sm:text-sm font-bold text-slate-800 mb-1.5 flex items-center justify-between">
-                <span>Cari Status Bansos Berdasarkan NIK</span>
+                <span>Status Bansos dan Desil Akun Anda</span>
                 <span className="rounded-full border border-emerald-200 bg-primary-soft px-2.5 py-0.5 text-[11px] font-semibold text-primary">Database Resmi</span>
               </label>
               <form 
@@ -108,7 +110,7 @@ export default function CekBansos() {
                     id="input_cari_nik"
                     type="text"
                     value={searchNik}
-                    onChange={(e) => setSearchNik(e.target.value)}
+                    readOnly
                     placeholder="Masukkan 16 digit NIK..."
                     className="w-full pl-10 pr-3 py-2.5 text-sm font-medium text-[#0F172A] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#166534]/10 focus:border-[#166534] transition-all font-mono"
                   />
@@ -116,29 +118,17 @@ export default function CekBansos() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-[#166534] hover:bg-[#166534] active:scale-95 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+                  className="gov-btn-primary min-h-11 shrink-0 px-4 py-2.5"
                 >
                   {isLoading ? (
                     <span className="animate-spin material-symbols-outlined text-[18px]">progress_activity</span>
                   ) : (
                     <span className="material-symbols-outlined text-[18px]">search</span>
                   )}
-                  <span>Cek</span>
+                  <span>Periksa</span>
                 </button>
               </form>
-
-              {/* Quick Sample NIKs */}
-              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto text-[11px] text-slate-500">
-                <span className="shrink-0 font-medium">Contoh NIK:</span>
-                <button 
-                  type="button"
-                  onClick={() => { setSearchNik('3524011111110001'); handleSearch('3524011111110001'); }} 
-                  className="bg-slate-100 hover:bg-emerald-100 hover:text-[#166534] px-2 py-0.5 rounded font-mono transition-colors"
-                >
-                  35240111111100**
-                </button>
-                
-              </div>
+              <p className="mt-2 text-[11px] text-slate-500">Pencarian dibatasi pada data NIK yang terhubung dengan akun Anda.</p>
             </div>
 
             {/* Error Message */}
@@ -153,7 +143,7 @@ export default function CekBansos() {
             {selectedPenerima && (
               <>
                 {/* KARTU NIK & STATUS DTKS */}
-                <div className="bg-[#F9FAFB] border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+                <div className="motion-pop-in bg-[#F9FAFB] border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <span className="material-symbols-outlined text-[#166534] text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                       verified
@@ -171,7 +161,7 @@ export default function CekBansos() {
                 </div>
 
                 {/* KARTU RINGKASAN PENERIMA MANFAAT */}
-                <div className="gov-card p-5 flex flex-col gap-4">
+                <div className="gov-card motion-card p-5 flex flex-col gap-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-xl bg-emerald-50 text-[#166534] flex items-center justify-center">
@@ -237,8 +227,8 @@ export default function CekBansos() {
                 </div>
 
                 {/* DAFTAR PROGRAM BANSOS (DYNAMIC DARI DATABASE) */}
-                <div className="flex flex-col gap-3">
-                  {ALL_MASTER_PROGRAMS.map((program) => {
+                <div className="motion-stagger flex flex-col gap-3">
+                  {ALL_MASTER_PROGRAMS.map((program, index) => {
                     // Cek apakah NIK ini terdaftar pada program ini di database
                     const isReceived = dataPenerima.some(
                       (p) => p.jenis_bansos?.toLowerCase().includes(program.name.toLowerCase())
@@ -250,9 +240,9 @@ export default function CekBansos() {
                     return (
                       <div 
                         key={program.name} 
-                        className={`bg-white border rounded-xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] flex flex-col gap-3 transition-all ${
+                        className={`motion-card rounded-xl border bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] flex flex-col gap-3 transition-all ${
                           isReceived ? 'border-emerald-200 ring-1 ring-emerald-50' : 'border-slate-200 opacity-80'
-                        }`}
+                        }`} style={{ '--stagger-index': index }}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">

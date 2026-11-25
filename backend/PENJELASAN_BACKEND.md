@@ -58,6 +58,8 @@ File ini menjalankan dan mengatur aplikasi FastAPI.
 Tugas utamanya:
 
 - Membuat tabel database saat aplikasi dimulai melalui `create_tables()`.
+- Memastikan kolom migrasi tersedia dan menautkan akun warga ke daftar warga eligible.
+- Menyiapkan akun admin awal bila belum ada; data demo bansos dan jadwal tidak dibuat otomatis.
 - Membuat objek aplikasi FastAPI.
 - Mengatur CORS agar frontend boleh mengakses backend.
 - Mendaftarkan router untuk auth, bansos, pengaduan, admin, notifikasi,
@@ -110,14 +112,12 @@ Buat akun warga dan simpan user_id pada data warga resmi
 
 Mengatur:
 
-- Melihat daftar penerima bansos.
-- Mencari penerima berdasarkan NIK atau nama.
-- Filter berdasarkan RT, RW, dan jenis bantuan.
-- Cek bansos berdasarkan NIK.
-- Menambah data penerima bansos oleh admin.
-- Menyembunyikan sebagian NIK dan nomor KK pada response publik.
+- Menyajikan direktori bantuan publik yang hanya memuat program, periode, status, dan RT/RW.
+- Membatasi cek bansos ke NIK milik akun warga yang sedang login.
+- Menyediakan CRUD penerima bansos untuk admin, dengan arsip nonaktif agar riwayat tetap ada.
+- Mengambil desil warga dari daftar induk `eligible_residents`, bukan dari data bantuan yang mungkin usang.
 
-Data penerima memiliki informasi seperti:
+Data penerima di sisi admin memiliki informasi seperti:
 
 - NIK penerima.
 - Nama penerima.
@@ -130,10 +130,12 @@ Data penerima memiliki informasi seperti:
 Contoh endpoint:
 
 ```text
-GET  /cek-bansos/{nik}
-GET  /bansos/cek/{nik}
-GET  /bansos/penerima
-POST /bansos
+GET    /bansos/penerima                 # direktori publik tanpa identitas/desil
+GET    /bansos/cek/{nik}                # akun hanya dapat mengecek NIK sendiri
+GET    /bansos/admin/penerima            # daftar lengkap untuk admin
+POST   /bansos                           # tambah penerima oleh admin
+PUT    /bansos/admin/penerima/{id}
+DELETE /bansos/admin/penerima/{id}       # arsipkan, bukan hapus permanen
 ```
 
 #### `pengaduan.py`
@@ -152,14 +154,14 @@ Data yang dapat dikirim antara lain:
 
 Program `Desil Tidak Sesuai` digunakan untuk laporan yang membutuhkan
 verifikasi desil atau kesesuaian penerima bantuan.
+Pelacakan tiket membutuhkan login dan hanya dapat dibuka oleh pemilik laporan.
 
 #### `admin.py`
 
 Mengatur operasi khusus admin, seperti:
 
-- Mengelola data warga.
-- Mengelola data penerima.
-- Mengelola jadwal bansos.
+- Mengelola akun warga dan daftar induk warga eligible, termasuk nama dan desil.
+- Mengelola jadwal bansos yang tersimpan di database; penghapusan dilakukan dengan arsip.
 - Melihat dan memperbarui pengaduan.
 - Mengekspor rekap pengaduan ke PDF dengan mode inline (preview tab browser).
 - Melihat audit log.
@@ -177,6 +179,11 @@ Notifikasi digunakan agar informasi dari admin dapat muncul di:
 - Beranda warga.
 - Halaman jadwal.
 - Layanan notifikasi aplikasi.
+
+Status baca disimpan per warga, sehingga membaca pengumuman bersama tidak
+mengubah status baca warga lain. Pengumuman yang sudah dikirim tidak dapat
+diedit; admin dapat mengarsipkannya agar tidak lagi tampil kepada warga tanpa
+menghapus riwayat pengiriman. Pengarsipan juga tercatat di audit log.
 
 #### `wilayah.py`
 
@@ -205,6 +212,7 @@ secara manual oleh petugas.
 Berisi dependency FastAPI yang dipasang pada endpoint tertentu, terutama:
 
 - Mengambil user dari token login.
+- Memastikan akun masih aktif agar token sesi akun nonaktif tidak berlaku.
 - Memastikan user sudah login.
 - Memastikan user memiliki role admin.
 
@@ -232,7 +240,12 @@ DATABASE_URL=mysql+pymysql://USER:PASSWORD@HOST:3306/DATABASE
 SECRET_KEY=ganti_dengan_secret_key_yang_aman
 GEMINI_API_KEY=isi_api_key_dari_google_ai_studio
 GEMINI_MODEL=gemini-3.1-flash-lite
+STAFF_PORTAL_PIN=ganti_dengan_PIN_lokal_yang_unik
 ```
+
+`STAFF_PORTAL_PIN` wajib diisi dengan PIN unik pada file `.env` sebelum
+menjalankan backend. Aplikasi tidak memiliki PIN default agar kredensial tidak
+terbuka melalui repository.
 
 Nama environment variable dibaca oleh `pydantic-settings`. File `.env` tidak
 boleh di-commit ke GitHub karena dapat berisi password database dan API key.
@@ -263,6 +276,7 @@ Model penting:
 - `bansos.py`: data penerima bantuan.
 - `pengaduan.py`: laporan pengaduan warga.
 - `notification.py`: notifikasi atau riwayat informasi admin.
+- `notification_read.py`: status baca notifikasi per warga.
 - `wilayah.py`: data RT/RW.
 - `audit_log.py`: catatan aktivitas penting admin.
 - `fcm_device_token.py`: token perangkat untuk notifikasi Firebase.
@@ -277,6 +291,9 @@ Kolom `desil` disimpan pada:
 Rentang yang digunakan adalah 1 sampai 10. Data desil harus dipakai sebagai
 informasi pendukung dan tidak boleh menjadi satu-satunya dasar keputusan tanpa
 verifikasi sesuai kebijakan desa.
+`eligible_residents` menjadi sumber utama desil yang ditampilkan pada profil
+warga dan panel admin. Perubahan data induk disinkronkan ke data penerima yang
+terkait.
 
 ### `app/db/init_db.py`
 
@@ -284,14 +301,13 @@ File ini menjalankan:
 
 - Pembuatan tabel yang belum ada.
 - Penambahan kolom database yang belum tersedia.
-- Seed admin dan data demo.
-- Pengisian desil warga.
-- Seed contoh penerima bansos.
-- Normalisasi data nama warga.
+- Seed akun admin awal jika belum tersedia.
+- Penautan akun yang sudah ada ke daftar warga eligible berdasarkan NIK.
+- Tidak mengisi data demo atau jadwal contoh saat startup.
 
 Penting: `create_all()` tidak otomatis menambahkan kolom baru pada tabel lama.
-Karena itu fungsi `ensure_desil_columns()` melakukan pemeriksaan dan migrasi
-kolom `desil` secara aman saat startup.
+Karena itu fungsi migrasi startup memeriksa kolom status aktif dan desil pada
+tabel terkait sebelum aplikasi melayani request.
 
 ## 7. Schema request dan response
 
@@ -377,6 +393,7 @@ Folder `backend/tests/` berisi pengujian untuk:
 - API bansos publik.
 - Validasi foto rumah dan parsing response Gemini.
 - Profile dan notifikasi.
+- Sinkronisasi status baca dan pengarsipan notifikasi.
 
 Contoh menjalankan test jika `pytest` tersedia:
 

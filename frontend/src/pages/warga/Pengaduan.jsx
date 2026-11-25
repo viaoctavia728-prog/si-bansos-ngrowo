@@ -24,11 +24,23 @@ export default function Pengaduan() {
   const [description, setDescription] = useState('');
   const [isAnonim, setIsAnonim] = useState(false);
   const [buktiFoto, setBuktiFoto] = useState(null);
+  const [buktiFotoPreview, setBuktiFotoPreview] = useState('');
   const buktiFotoRef = useRef(null);
   
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [createdTicket, setCreatedTicket] = useState(null);
+
+  useEffect(() => {
+    if (!buktiFoto) {
+      setBuktiFotoPreview('');
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(buktiFoto);
+    setBuktiFotoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [buktiFoto]);
 
   useEffect(() => {
     let active = true;
@@ -80,34 +92,32 @@ export default function Pengaduan() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setErrorMsg('');
-
+    if (!jenisAduan || !program) {
+      setErrorMsg('Pilih kategori dan program terkait terlebih dahulu.');
+      return;
+    }
     if (!domisiliRw || !domisiliRt) {
-      setErrorMsg('Pilih RW dan RT domisili warga terlebih dahulu.');
+      setErrorMsg('Pilih RW dan RT domisili Anda.');
       return;
     }
-
-    const cleanNik = (nikTerlapor || '').trim();
-    if (cleanNik && !/^\d{16}$/.test(cleanNik)) {
-      setErrorMsg('NIK Terlapor harus terdiri dari 16 digit angka (atau kosongkan jika tidak tahu).');
+    if (nikTerlapor && !/^\d{16}$/.test(nikTerlapor)) {
+      setErrorMsg('NIK terlapor harus terdiri dari 16 angka.');
       return;
     }
-
-    const cleanDesc = (description || '').trim();
-    if (cleanDesc.length < 10) {
-      setErrorMsg('Deskripsi kejadian / alasan minimal harus 10 karakter.');
+    if (description.trim().length < 10) {
+      setErrorMsg('Jelaskan laporan minimal 10 karakter agar petugas dapat menindaklanjutinya.');
       return;
     }
-
+    setErrorMsg('');
     setIsLoading(true);
 
     try {
       const buktiFotoUrl = buktiFoto ? await pengaduanService.uploadBukti(buktiFoto) : null;
       const payload = {
-        nik_terlapor: cleanNik || null,
+        nik_terlapor: nikTerlapor || null,
         kategori_aduan: jenisAduan,
         program_terkait: program,
-        deskripsi_kejadian: cleanDesc,
+        deskripsi_kejadian: description.trim(),
         lokasi_spesifik: `RT ${domisiliRt} / RW ${domisiliRw}, Kelurahan Ngrowo`,
         bukti_foto: buktiFotoUrl,
         is_anonymous: isAnonim,
@@ -115,13 +125,17 @@ export default function Pengaduan() {
 
       const res = await pengaduanService.buatPengaduan(payload);
       setCreatedTicket(res.nomor_tiket);
+      setJenisAduan('Warga Mampu Terima Bansos');
+      setProgram('PKH');
+      setDomisiliRw(currentUser?.rw || '');
+      setDomisiliRt(currentUser?.rt || '');
       setDescription('');
       setNikTerlapor('');
+      setIsAnonim(false);
       setBuktiFoto(null);
       if (buktiFotoRef.current) buktiFotoRef.current.value = '';
     } catch (err) {
-      const msg = err?.message || 'Gagal mengirim pengaduan. Silakan coba lagi.';
-      setErrorMsg(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      setErrorMsg(err.message || 'Gagal mengirim pengaduan. Silakan coba lagi.');
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +177,7 @@ export default function Pengaduan() {
 
             {/* SUCCESS BANNER DENGAN TIKET RESMI */}
             {createdTicket && (
-              <div className="p-5 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-900 shadow-sm flex flex-col gap-3 animate-fadeIn">
+              <div className="animate-slide-up flex flex-col gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-5 text-emerald-900 shadow-sm">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-full bg-[#166534] text-white flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-[20px]">check</span>
@@ -181,7 +195,7 @@ export default function Pengaduan() {
                   </div>
                   <Link
                     to={`/detail-laporan?tiket=${createdTicket}`}
-                    className="bg-[#166534] hover:bg-[#166534] text-white text-xs font-bold py-2 px-3.5 rounded-lg shadow-xs flex items-center gap-1 transition-all"
+                    className="gov-btn-primary min-h-9 rounded-lg px-3.5 py-1.5 text-xs"
                   >
                     <span>Lacak Laporan</span>
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -190,9 +204,14 @@ export default function Pengaduan() {
               </div>
             )}
 
-            {/* FORM PENGADUAN */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              
+            <section className="gov-card overflow-hidden">
+              <div className="border-b border-slate-100 px-5 py-5 sm:px-7">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Layanan Aspirasi Warga</p>
+                <h2 className="mt-1 text-xl font-extrabold text-slate-900">Form Pengaduan Bansos</h2>
+                <p className="mt-1 text-sm text-slate-600">Lengkapi informasi berikut agar laporan dapat ditinjau petugas.</p>
+              </div>
+              <form id="complaint-form" onSubmit={handleSubmit} className="space-y-4 p-5 sm:p-7">
+                <div className="space-y-4">
               {/* JENIS ADUAN */}
               <section className="gov-card p-5 space-y-3">
                 <div className="flex flex-col">
@@ -273,7 +292,7 @@ export default function Pengaduan() {
 
                 <div className="space-y-1.5">
                   <label className="text-[14px] font-semibold text-[#0F172A]" htmlFor="domisili_rw">
-                    2. Rukun Warga (RW) <span className="text-red-500">*</span>
+                    Rukun Warga (RW) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <select
@@ -295,7 +314,7 @@ export default function Pengaduan() {
 
                 <div className="space-y-1.5">
                   <label className="text-[14px] font-semibold text-[#0F172A]" htmlFor="domisili_rt">
-                    3. Rukun Tetangga (RT) <span className="text-red-500">*</span>
+                    Rukun Tetangga (RT) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <select
@@ -325,9 +344,11 @@ export default function Pengaduan() {
                 <input 
                   id="nik" 
                   type="tel" 
+                  inputMode="numeric"
+                  pattern="[0-9]{16}"
                   maxLength="16" 
                   value={nikTerlapor} 
-                  onChange={(e) => setNikTerlapor(e.target.value)} 
+                  onChange={(e) => setNikTerlapor(e.target.value.replace(/\D/g, '').slice(0, 16))}
                   className="w-full h-12 px-4 bg-white border border-slate-200 rounded-xl text-[#0F172A] text-[15px] focus:border-[#166534] focus:outline-none font-mono" 
                   placeholder="Masukkan 16 digit NIK warga yang disanggah..." 
                 />
@@ -339,22 +360,22 @@ export default function Pengaduan() {
                   <label className="text-[15px] font-bold text-[#0F172A]" htmlFor="description">
                     Deskripsi Kejadian / Alasan <span className="text-red-500 font-bold text-[13px]">(Wajib)</span>
                   </label>
-                  <span className="text-xs text-slate-400 font-mono">{description.length}/500 (Min. 10 karakter)</span>
+                  <span className="text-xs text-slate-400 font-mono">{description.length}/500</span>
                 </div>
                 <textarea 
                   id="description" 
                   required 
-                  minLength={10}
+                  minLength="10"
                   maxLength="500" 
                   rows="4"
                   value={description} 
                   onChange={(event) => setDescription(event.target.value)} 
                   className="w-full p-3 bg-white border border-slate-200 rounded-xl text-[15px] focus:border-[#166534] focus:outline-none resize-none" 
-                  placeholder="Jelaskan kondisi warga secara jujur, objektif, dan faktual (minimal 10 karakter)..." 
+                  placeholder="Jelaskan fakta yang Anda ketahui, kapan terjadi, dan informasi yang membantu petugas melakukan verifikasi..."
                 />
                 <p className="text-[12px] text-[#166534] flex items-center gap-1 font-medium mt-1">
                   <span className="material-symbols-outlined text-[16px]">info</span>
-                  Contoh: Memiliki aset kendaraan roda 4, rumah mewah, atau usaha toko besar.
+                  Sampaikan fakta secara objektif. Hindari dugaan atau informasi yang tidak berkaitan.
                 </p>
               </section>
 
@@ -390,6 +411,25 @@ export default function Pengaduan() {
                     setBuktiFoto(file);
                   }}
                 />
+                {buktiFotoPreview && (
+                  <div className="space-y-2">
+                    <img
+                      src={buktiFotoPreview}
+                      alt="Pratinjau foto bukti pengaduan"
+                      className="max-h-64 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBuktiFoto(null);
+                        if (buktiFotoRef.current) buktiFotoRef.current.value = '';
+                      }}
+                      className="text-sm font-semibold text-red-700 hover:underline"
+                    >
+                      Hapus foto
+                    </button>
+                  </div>
+                )}
               </section>
 
               {/* LAPOR ANONIM */}
@@ -408,34 +448,13 @@ export default function Pengaduan() {
                 </div>
               </label>
 
-              {/* TOMBOL KIRIM */}
-              <button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full h-12 rounded-xl bg-[#166534] hover:bg-[#15803D] font-semibold text-white flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99] cursor-pointer disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                    </svg>
-                    <span>Mengirim Pengaduan...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[20px]">send</span>
-                    <span>Kirim Laporan Pengaduan</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* LINK TRACKING */}
-            <Link to="/detail-laporan" className="block text-center text-sm font-semibold text-[#166534] hover:underline pt-2">
-              Lacak Pengaduan Berdasarkan Nomor Tiket →
-            </Link>
-
+                </div>
+                <button type="submit" disabled={isLoading} className="gov-btn-primary min-h-11 w-full justify-center">
+                  <span className={`material-symbols-outlined text-[18px] ${isLoading ? 'animate-spin' : ''}`}>{isLoading ? 'progress_activity' : 'send'}</span>
+                  {isLoading ? 'Mengirim...' : 'Kirim Pengaduan'}
+                </button>
+              </form>
+            </section>
           </div>
         </div>
       </main>

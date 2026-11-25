@@ -73,6 +73,8 @@ class UserResponse(BaseModel):
     role: str
     is_ngrowo_resident: Optional[bool] = False
     is_verified: Optional[bool] = False
+    is_active: bool = True
+    desil: Optional[int] = Field(default=None, ge=1, le=10)
     notifikasi_otomatis: bool = True
     created_at: Optional[datetime] = None
 

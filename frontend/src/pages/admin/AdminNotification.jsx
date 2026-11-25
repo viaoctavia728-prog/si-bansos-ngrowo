@@ -40,8 +40,8 @@ export default function AdminNotification() {
   const [feedback, setFeedback] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [editingId, setEditingId] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
+  const [archiveTarget, setArchiveTarget] = useState(null);
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     loadRecentLogs();
@@ -78,30 +78,20 @@ export default function AdminNotification() {
     setFeedback(null);
   };
 
-  const handleEditAnnouncement = (announcement) => {
-    setEditingId(announcement.id_notification);
-    setForm((prev) => ({
-      ...prev,
-      title: announcement.title,
-      body: announcement.body,
-      targetType: 'all',
-      targetToken: '',
-    }));
-    setFeedback(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleDeleteAnnouncement = async (idNotification) => {
-    if (!window.confirm('Hapus pengumuman ini dari dashboard warga?')) return;
+  const handleArchiveAnnouncement = async () => {
+    if (!archiveTarget) return;
     try {
-      setDeletingId(idNotification);
-      await adminService.deleteNotification(idNotification);
-      setAnnouncements((prev) => prev.filter((item) => item.id_notification !== idNotification));
-      setFeedback({ type: 'success', message: 'Pengumuman berhasil dihapus.' });
+      setArchiving(true);
+      await adminService.archiveNotification(archiveTarget.id_notification);
+      setAnnouncements((prev) => prev.map((item) => (
+        item.id_notification === archiveTarget.id_notification ? { ...item, is_archived: true } : item
+      )));
+      setFeedback({ type: 'success', message: 'Pengumuman diarsipkan dan tidak lagi tampil di warga. Riwayatnya tetap tersimpan.' });
+      setArchiveTarget(null);
     } catch (err) {
-      setFeedback({ type: 'error', message: err.message || 'Gagal menghapus pengumuman.' });
+      setFeedback({ type: 'error', message: err.message || 'Gagal mengarsipkan pengumuman.' });
     } finally {
-      setDeletingId(null);
+      setArchiving(false);
     }
   };
 
@@ -110,22 +100,6 @@ export default function AdminNotification() {
     try {
       setSending(true);
       setFeedback(null);
-
-      if (editingId) {
-        await adminService.updateNotification(editingId, {
-          title: form.title,
-          body: form.body,
-        });
-        setAnnouncements((prev) => prev.map((item) => (
-          item.id_notification === editingId
-            ? { ...item, title: form.title, body: form.body }
-            : item
-        )));
-        setEditingId(null);
-          setForm((prev) => ({ ...prev, title: '', body: '', targetType: 'all', targetToken: '' }));
-          setFeedback({ type: 'success', message: 'Pengumuman berhasil diperbarui.' });
-          return;
-      }
 
       if (form.targetType === 'token' && form.targetToken) {
         await adminService.sendNotificationToToken({
@@ -144,6 +118,7 @@ export default function AdminNotification() {
         type: 'success',
         message: `Notifikasi berhasil disiarkan! Pesan otomatis tersimpan di database dan langsung muncul secara real-time di dashboard seluruh warga tanpa hambatan izin browser.`,
       });
+      setForm((prev) => ({ ...prev, title: '', body: '', targetType: 'all', targetToken: '' }));
 
       await loadRecentLogs();
       await loadAnnouncements();
@@ -316,22 +291,13 @@ export default function AdminNotification() {
               <button
                 type="submit"
                 disabled={sending}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#166534] hover:bg-[#166534] px-6 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors shadow-xs disabled:opacity-50"
+                className="gov-btn-primary"
               >
                 <span className={`material-symbols-outlined text-[18px] ${sending ? 'animate-spin' : ''}`}>
                   {sending ? 'progress_activity' : 'send'}
                 </span>
-                {sending ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Kirim Notifikasi ke Warga'}
+                {sending ? 'Mengirim...' : 'Kirim Notifikasi ke Warga'}
               </button>
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={() => setEditingId(null)}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-800"
-                >
-                  Batal Edit
-                </button>
-              )}
             </div>
           </form>
         </div>
@@ -352,7 +318,7 @@ export default function AdminNotification() {
               <div className="h-4 w-24 bg-slate-800 rounded-full mx-auto mb-4"></div>
 
               {/* Push notification banner */}
-              <div className="bg-white/95 backdrop-blur rounded-2xl p-3 shadow-lg border border-slate-100/50 animate-in fade-in">
+              <div className="animate-slide-up rounded-2xl border border-slate-100/50 bg-white/95 p-3 shadow-lg backdrop-blur">
                 <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
                   <div className="flex items-center gap-1.5 font-bold text-[#166534]">
                     <span className="material-symbols-outlined text-[13px]">shield</span>
@@ -395,27 +361,29 @@ export default function AdminNotification() {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-            <h3 className="text-sm font-extrabold text-slate-900 mb-1">Kelola Pengumuman Warga</h3>
-            <p className="text-[11px] text-slate-500 mb-3">Pengumuman yang tampil di dashboard warga.</p>
+            <h3 className="text-sm font-extrabold text-slate-900 mb-1">Riwayat Pengumuman Warga</h3>
+            <p className="text-[11px] text-slate-500 mb-3">Arsipkan untuk menarik pengumuman dari daftar warga tanpa menghapus riwayat pengirimannya.</p>
             {announcements.length === 0 ? (
               <p className="text-xs text-slate-400 py-4 text-center">Belum ada pengumuman.</p>
             ) : (
               <div className="space-y-2">
                 {announcements.map((announcement) => (
-                  <div key={announcement.id_notification} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <div key={announcement.id_notification} className={`rounded-xl border p-3 ${announcement.is_archived ? 'border-slate-200 bg-slate-100/70' : 'border-slate-100 bg-slate-50'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-800">{announcement.title}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-xs font-bold text-slate-800">{announcement.title}</p>
+                          {announcement.is_archived && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">Diarsipkan</span>}
+                        </div>
                         <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{announcement.body}</p>
+                        <p className="mt-1 text-[10px] text-slate-400">{announcement.created_at ? new Date(announcement.created_at).toLocaleString('id-ID') : 'Waktu tidak tersedia'}</p>
                       </div>
-                      <div className="flex shrink-0 gap-1">
-                        <button type="button" onClick={() => handleEditAnnouncement(announcement)} className="rounded-lg p-1.5 text-blue-700 hover:bg-blue-50" title="Edit pengumuman">
-                          <span className="material-symbols-outlined text-[17px]">edit</span>
+                      {!announcement.is_archived && (
+                        <button type="button" onClick={() => setArchiveTarget(announcement)} className="gov-btn-outline min-h-9 shrink-0 gap-1.5 px-2.5 py-1 text-[11px] text-amber-800 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900" title="Arsipkan pengumuman">
+                          <span className="material-symbols-outlined text-[16px]">archive</span>
+                          Arsipkan
                         </button>
-                        <button type="button" disabled={deletingId === announcement.id_notification} onClick={() => handleDeleteAnnouncement(announcement.id_notification)} className="rounded-lg p-1.5 text-rose-700 hover:bg-rose-50 disabled:opacity-50" title="Hapus pengumuman">
-                          <span className="material-symbols-outlined text-[17px]">delete</span>
-                        </button>
-                      </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -424,6 +392,28 @@ export default function AdminNotification() {
           </div>
         </div>
       </div>
+      {archiveTarget && (
+        <div className="modal-backdrop" role="presentation" onClick={() => !archiving && setArchiveTarget(null)}>
+          <section className="modal-panel mx-auto max-w-lg" role="dialog" aria-modal="true" aria-labelledby="archive-notification-title" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">archive</span>
+              <div>
+                <h3 id="archive-notification-title" className="text-base font-bold text-slate-900">Arsipkan pengumuman?</h3>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                  “{archiveTarget.title}” tidak akan muncul lagi di halaman warga. Riwayat dan isi pengumuman tetap tersimpan.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" disabled={archiving} onClick={() => setArchiveTarget(null)} className="gov-btn-outline">Batal</button>
+              <button type="button" disabled={archiving} onClick={handleArchiveAnnouncement} className="gov-btn-primary bg-amber-700 hover:bg-amber-800">
+                <span className={`material-symbols-outlined text-[18px] ${archiving ? 'animate-spin' : ''}`}>{archiving ? 'progress_activity' : 'archive'}</span>
+                {archiving ? 'Mengarsipkan...' : 'Ya, arsipkan'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

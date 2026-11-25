@@ -12,12 +12,12 @@ from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.fcm_device_token import FcmDeviceToken
 from app.models.notification import NotificationHistory
+from app.models.notification_read import NotificationRead
 from app.models.user import User
 from app.schemas.notifications import (
     FcmNotificationCreate,
     FcmTargetNotificationCreate,
     FcmTokenRegistration,
-    NotificationUpdate,
 )
 
 router = APIRouter()
@@ -233,41 +233,85 @@ def get_notifications(
     notifs = (
         db.query(NotificationHistory)
         .filter(or_(NotificationHistory.id_user.is_(None), NotificationHistory.id_user == user_id))
+        .filter(NotificationHistory.is_archived.is_(False))
         .order_by(NotificationHistory.created_at.desc())
         .limit(limit)
         .all()
     )
+    read_rows = (
+        db.query(NotificationRead)
+        .filter(
+            NotificationRead.id_user == user_id,
+            NotificationRead.id_notification.in_([notif.id_notification for notif in notifs]),
+        )
+        .all()
+    ) if notifs else []
+    read_by_notification = {row.id_notification: row.read_at for row in read_rows}
     return [
         {
             "id_notification": n.id_notification,
             "title": n.title,
             "body": n.body,
             "created_at": n.created_at.isoformat() if n.created_at else None,
-            "read_at": n.read_at.isoformat() if n.read_at else None,
-            "is_read": n.read_at is not None,
+            "read_at": (
+                read_by_notification[n.id_notification].isoformat()
+                if n.id_notification in read_by_notification
+                else n.read_at.isoformat()
+                if n.id_user == user_id and n.read_at
+                else None
+            ),
+            "is_read": n.id_notification in read_by_notification or (n.id_user == user_id and n.read_at is not None),
         }
         for n in notifs
+    ]
+
+
+@router.get("/admin")
+def get_admin_notifications(
+    db: Session = Depends(get_db),
+    _current_admin: dict = Depends(get_current_admin),
+):
+    notifs = db.query(NotificationHistory).order_by(NotificationHistory.created_at.desc()).limit(500).all()
+    return [
+        {
+            "id_notification": notif.id_notification,
+            "title": notif.title,
+            "body": notif.body,
+            "created_at": notif.created_at.isoformat() if notif.created_at else None,
+            "is_archived": notif.is_archived,
+        }
+        for notif in notifs
     ]
 
 
 @router.put("/{id_notification}")
 def update_notification(
     id_notification: int,
-    data: NotificationUpdate,
+    _current_admin: dict = Depends(get_current_admin),
+):
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Notifikasi yang sudah dikirim tidak dapat diedit. Arsipkan lalu kirim koreksi sebagai notifikasi baru.",
+    )
+
+
+@router.patch("/{id_notification}/archive")
+def archive_notification(
+    id_notification: int,
     db: Session = Depends(get_db),
     current_admin: dict = Depends(get_current_admin),
 ):
     notif = db.query(NotificationHistory).filter(NotificationHistory.id_notification == id_notification).first()
     if not notif:
         raise HTTPException(status_code=404, detail="Pengumuman tidak ditemukan.")
-    notif.title = data.title
-    notif.body = data.body
-    db.add(AuditLog(
-        id_user=current_admin.get("id_user"),
-        aktivitas=f"Mengubah pengumuman: {data.title}",
-    ))
-    db.commit()
-    return {"status": "updated", "id_notification": notif.id_notification}
+    if not notif.is_archived:
+        notif.is_archived = True
+        db.add(AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Mengarsipkan pengumuman: {notif.title}",
+        ))
+        db.commit()
+    return {"status": "archived", "id_notification": id_notification}
 
 
 @router.delete("/{id_notification}")
@@ -279,24 +323,29 @@ def delete_notification(
     notif = db.query(NotificationHistory).filter(NotificationHistory.id_notification == id_notification).first()
     if not notif:
         raise HTTPException(status_code=404, detail="Pengumuman tidak ditemukan.")
-    title = notif.title
-    db.delete(notif)
-    db.add(AuditLog(
-        id_user=current_admin.get("id_user"),
-        aktivitas=f"Menghapus pengumuman: {title}",
-    ))
-    db.commit()
-    return {"status": "deleted", "id_notification": id_notification}
+    return archive_notification(id_notification, db, current_admin)
 
 
 @router.patch("/{id_notification}/read")
 @router.post("/{id_notification}/read")
 def mark_notification_read(
     id_notification: int,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     notif = db.query(NotificationHistory).filter(NotificationHistory.id_notification == id_notification).first()
-    if notif:
-        notif.read_at = datetime.utcnow()
+    user_id = current_user.get("id_user")
+    if not notif or notif.is_archived or (notif.id_user is not None and notif.id_user != user_id):
+        raise HTTPException(status_code=404, detail="Notifikasi tidak ditemukan.")
+    read_record = (
+        db.query(NotificationRead)
+        .filter(
+            NotificationRead.id_notification == id_notification,
+            NotificationRead.id_user == user_id,
+        )
+        .first()
+    )
+    if not read_record:
+        db.add(NotificationRead(id_notification=id_notification, id_user=user_id, read_at=datetime.utcnow()))
         db.commit()
     return {"status": "success"}
