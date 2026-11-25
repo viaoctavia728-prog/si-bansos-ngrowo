@@ -6,8 +6,7 @@ import WargaSidebar from '../../components/WargaSidebar';
 import WargaMain from '../../components/WargaMain';
 import { authService } from '../../services/auth';
 import { getAssetUrl } from '../../services/apiClient';
-import { bansosService, pengaduanService, notificationService } from '../../services/api';
-import { enablePushNotifications, isFcmConfigured, listenForPushMessages } from '../../services/firebase';
+import { bansosService, pengaduanService } from '../../services/api';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -20,14 +19,6 @@ export default function Dashboard() {
   const [reportsLoaded, setReportsLoaded] = useState(false);
   const [dashboardError, setDashboardError] = useState('');
   const [now, setNow] = useState(() => new Date());
-  const [pushEnabling, setPushEnabling] = useState(false);
-  const [pushMessage, setPushMessage] = useState('');
-
-  // In-App Database Notifications state
-  const [notifications, setNotifications] = useState([]);
-  const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
-  const [latestPopupNotif, setLatestPopupNotif] = useState(null);
-  const [notificationError, setNotificationError] = useState('');
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -91,84 +82,10 @@ export default function Dashboard() {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    let unsubscribe = () => {};
-    listenForPushMessages((notification) => {
-      setPushMessage(`${notification.title}${notification.body ? `: ${notification.body}` : ''}`);
-    }).then((stopListening) => {
-      if (active) unsubscribe = stopListening;
-      else stopListening();
-    }).catch(() => {});
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, []);
-
-  // In-App Notification Polling & Fetch
-  const fetchNotifications = async () => {
-    try {
-      const list = await notificationService.getNotifications();
-      if (Array.isArray(list)) {
-        setNotifications(list);
-        setNotificationError('');
-        const newUnread = list.find((n) => !n.is_read && !n.read_at);
-        setLatestPopupNotif(newUnread || null);
-      }
-    } catch (error) {
-      setNotificationError(error.message || 'Notifikasi belum dapat disinkronkan.');
-    }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
-    const interval = window.setInterval(fetchNotifications, 8000); // Polling real-time setiap 8 detik
-    return () => window.clearInterval(interval);
-  }, []);
-
-  const handleDismissPopup = async (idNotification) => {
-    await handleMarkAsRead(idNotification);
-  };
-
-  const handleMarkAsRead = async (idNotification) => {
-    try {
-      await notificationService.markAsRead(idNotification);
-      setNotificationError('');
-      const readAt = new Date().toISOString();
-      setNotifications((prev) =>
-        prev.map((n) => (n.id_notification === idNotification ? { ...n, is_read: true, read_at: readAt } : n))
-      );
-      if (latestPopupNotif?.id_notification === idNotification) {
-        setLatestPopupNotif(null);
-      }
-      await fetchNotifications();
-      return true;
-    } catch (error) {
-      setNotificationError(error.message || 'Status baca gagal disimpan. Coba lagi saat koneksi tersedia.');
-      return false;
-    }
-  };
-
-  const handleEnablePush = async () => {
-    try {
-      setPushEnabling(true);
-      setPushMessage('');
-      await enablePushNotifications();
-      setPushMessage('Notifikasi berhasil diaktifkan pada perangkat ini.');
-    } catch (err) {
-      setPushMessage(err.message || 'Notifikasi belum dapat diaktifkan.');
-    } finally {
-      setPushEnabling(false);
-    }
-  };
-
   const activeBansos = bansosData.length > 0 ? bansosData[0] : null;
 
   const hasUserReports = userReports.length > 0;
   const activeReportCount = userReports.filter((report) => report.status_laporan !== 'selesai' && report.status_laporan !== 'ditolak').length;
-  const unreadCount = notifications.filter((n) => !n.is_read && !n.read_at).length;
-
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC] text-slate-900">
       <WargaSidebar />
@@ -180,74 +97,6 @@ export default function Dashboard() {
         <div className="warga-shell pt-5 sm:pt-7">
 
           <div className="flex flex-col gap-5 sm:gap-6">
-            {/* Pop-up / Banner Pengumuman Real-time dari Admin */}
-            {latestPopupNotif && (
-              <aside
-                role="region"
-                aria-label="Pengumuman Penting"
-                className="relative animate-slide-up overflow-hidden rounded-xl border border-emerald-600 bg-gradient-to-r from-primary-dark via-primary to-primary-hover p-4 text-white shadow-card"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/15 text-amber-300">
-                      <span className="material-symbols-outlined text-[24px]">campaign</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-900">
-                          Pengumuman Baru
-                        </span>
-                        <span className="text-[10px] text-emerald-100">
-                          {latestPopupNotif.created_at
-                            ? new Date(latestPopupNotif.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'
-                            : 'Baru Saja'}
-                        </span>
-                      </div>
-                      <h2 className="mt-1 text-sm font-bold leading-snug text-white sm:text-base">{latestPopupNotif.title}</h2>
-                      <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs leading-relaxed text-emerald-100/90">{latestPopupNotif.body}</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsNotifModalOpen(true);
-                            void handleMarkAsRead(latestPopupNotif.id_notification);
-                          }}
-                          className="gov-btn min-h-9 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-primary hover:bg-emerald-50"
-                        >
-                          <span className="material-symbols-outlined text-[15px]">visibility</span>
-                          Baca Selengkapnya
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDismissPopup(latestPopupNotif.id_notification)}
-                          className="gov-btn min-h-9 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
-                        >
-                          Tutup
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDismissPopup(latestPopupNotif.id_notification)}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white/80 transition hover:bg-white/20 hover:text-white"
-                    title="Tutup banner pengumuman"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
-                  </button>
-                </div>
-              </aside>
-            )}
-
-            {notificationError && (
-              <div role="alert" className="flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 sm:flex-row sm:items-center sm:justify-between">
-                <span>{notificationError}</span>
-                <button type="button" onClick={() => fetchNotifications()} className="gov-btn-outline min-h-9 self-start px-3 py-1 text-xs sm:self-auto">
-                  <span className="material-symbols-outlined text-[16px]">sync</span>
-                  Coba sinkronkan
-                </button>
-              </div>
-            )}
             {dashboardError && (
               <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-950">
                 <span>{dashboardError} Ringkasan yang gagal dimuat tidak ditampilkan sebagai angka nol.</span>
@@ -502,127 +351,6 @@ export default function Dashboard() {
 
       <Footer />
       </WargaMain>
-
-      {/* MODAL / DRAWER PENGUMUMAN & NOTIFIKASI WARGA */}
-      {isNotifModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-notif-title"
-          className="modal-backdrop"
-          onClick={() => setIsNotifModalOpen(false)}
-        >
-          <div className="modal-panel modal-panel-flush flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden border border-slate-100" onClick={(event) => event.stopPropagation()}>
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-emerald-900 bg-primary-dark px-5 py-4 text-white">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white">
-                  <span className="material-symbols-outlined text-[20px]">campaign</span>
-                </div>
-                <div>
-                  <h3 id="modal-notif-title" className="text-base font-bold text-white">Pengumuman &amp; Notifikasi</h3>
-                  <p className="text-[11px] text-emerald-100/90">Pesan dan informasi resmi Pemerintah Desa Ngrowo</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsNotifModalOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-                title="Tutup"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {notificationError && (
-                <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-                  {notificationError}
-                </p>
-              )}
-              {notifications.length === 0 ? (
-                <div className="py-12 text-center flex flex-col items-center justify-center">
-                  <div className="w-14 h-14 rounded-full bg-primary-soft text-primary flex items-center justify-center mb-3">
-                    <span className="material-symbols-outlined text-[28px]">notifications_off</span>
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800">Belum Ada Pengumuman</h4>
-                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                    Pengumuman bansos, jadwal pembagian, dan informasi desa akan langsung muncul di sini secara otomatis.
-                  </p>
-                </div>
-              ) : (
-                notifications.map((item) => {
-                  const isRead = !!item.read_at || !!item.is_read;
-                  return (
-                    <div
-                      key={item.id_notification}
-                      className={`p-3.5 rounded-xl transition-colors border ${
-                        !isRead
-                          ? 'bg-emerald-50/70 border-emerald-200 shadow-2xs'
-                          : 'bg-white border-slate-100 hover:bg-slate-50/70'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          {!isRead && (
-                            <span className="flex h-2 w-2 rounded-full bg-emerald-600"></span>
-                          )}
-                          <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">
-                            Pemberitahuan Desa
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-500">
-                          {item.created_at
-                            ? new Date(item.created_at).toLocaleString('id-ID', {
-                                day: 'numeric',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : 'Baru saja'}
-                        </span>
-                      </div>
-
-                      <h4 className="text-sm font-bold text-[#0F172A] mt-1">{item.title}</h4>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed whitespace-pre-line">
-                        {item.body}
-                      </p>
-
-                      {!isRead && (
-                        <div className="mt-2.5 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => handleMarkAsRead(item.id_notification)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary-dark bg-white px-2.5 py-1 rounded-md border border-emerald-200 shadow-sm hover:bg-primary-soft"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">done</span>
-                            Tandai Sudah Dibaca
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="border-t border-slate-100 bg-slate-50/90 px-5 py-3 flex items-center justify-between">
-              <span className="text-[11px] text-slate-500">
-                Total {notifications.length} info ({unreadCount} belum dibaca)
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsNotifModalOpen(false)}
-                className="gov-btn-primary min-h-9 rounded-lg px-4 py-1.5 text-xs"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

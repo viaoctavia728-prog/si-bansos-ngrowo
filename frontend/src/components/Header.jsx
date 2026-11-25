@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import logoNgrowo from '../images/logo ngrowo.png';
 import { authService } from '../services/auth';
 import { getAssetUrl } from '../services/apiClient';
 import { useWargaLayout } from './WargaLayoutContext';
+import NotificationDrawer from './NotificationDrawer';
 
 export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo, action }) {
   const { collapsed, toggle, setOpenMobile } = useWargaLayout();
+  const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
   const user = authService.getCurrentUser();
   const initials = user?.nama_lengkap?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'W';
 
@@ -58,14 +61,16 @@ export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo
 
         <div className="flex items-center gap-2">
           {action}
-          <Link
-            to="/notifikasi"
+          <button
+            type="button"
+            onClick={() => setNotificationDrawerOpen(true)}
             aria-label="Buka pengumuman & notifikasi"
+            aria-expanded={notificationDrawerOpen}
             title="Pengumuman & Notifikasi"
             className="gov-btn-outline h-10 w-10 min-h-10 rounded-full p-0"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
-          </Link>
+          </button>
           <Link
             to="/profil"
             aria-label="Buka profil warga"
@@ -81,6 +86,7 @@ export default function Header({ title, eyebrow = 'Layanan Mandiri Desa', backTo
           </Link>
         </div>
       </div>
+      <NotificationDrawer open={notificationDrawerOpen} onClose={() => setNotificationDrawerOpen(false)} />
     </header>
   );
 }

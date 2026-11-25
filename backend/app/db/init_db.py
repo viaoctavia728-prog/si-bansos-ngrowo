@@ -22,6 +22,7 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
             ensure_resident_active_columns()
             ensure_notification_preference_column()
             ensure_notification_archive_column()
+            ensure_notification_dismissal_column()
             ensure_desil_columns()
             drop_dusun_columns()
             seed_default_admin()
@@ -93,6 +94,13 @@ def ensure_notification_archive_column():
             connection.execute(
                 text("ALTER TABLE notification_history ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT FALSE")
             )
+
+
+def ensure_notification_dismissal_column():
+    columns = {column["name"] for column in inspect(engine).get_columns("notification_reads")}
+    if "dismissed_at" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE notification_reads ADD COLUMN dismissed_at DATETIME NULL"))
 
 
 def ensure_desil_columns():

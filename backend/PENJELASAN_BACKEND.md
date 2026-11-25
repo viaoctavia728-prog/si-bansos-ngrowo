@@ -241,11 +241,18 @@ SECRET_KEY=ganti_dengan_secret_key_yang_aman
 GEMINI_API_KEY=isi_api_key_dari_google_ai_studio
 GEMINI_MODEL=gemini-3.1-flash-lite
 STAFF_PORTAL_PIN=ganti_dengan_PIN_lokal_yang_unik
+# Opsional: password awal untuk membuat akun admin pada database baru.
+ADMIN_INITIAL_PASSWORD=ganti_dengan_password_awal_yang_kuat
 ```
 
 `STAFF_PORTAL_PIN` wajib diisi dengan PIN unik pada file `.env` sebelum
 menjalankan backend. Aplikasi tidak memiliki PIN default agar kredensial tidak
 terbuka melalui repository.
+
+`ADMIN_INITIAL_PASSWORD` bersifat opsional dan hanya digunakan saat membuat
+akun admin pertama pada database yang belum memiliki akun tersebut. Nilai
+kosong menonaktifkan pembuatan akun admin awal; mengganti nilai ini tidak
+mengubah password akun admin yang sudah ada.
 
 Nama environment variable dibaca oleh `pydantic-settings`. File `.env` tidak
 boleh di-commit ke GitHub karena dapat berisi password database dan API key.

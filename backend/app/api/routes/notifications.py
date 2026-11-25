@@ -230,10 +230,18 @@ def get_notifications(
     db: Session = Depends(get_db),
 ):
     user_id = current_user.get("id_user")
+    dismissed_ids = (
+        db.query(NotificationRead.id_notification)
+        .filter(
+            NotificationRead.id_user == user_id,
+            NotificationRead.dismissed_at.isnot(None),
+        )
+    )
     notifs = (
         db.query(NotificationHistory)
         .filter(or_(NotificationHistory.id_user.is_(None), NotificationHistory.id_user == user_id))
         .filter(NotificationHistory.is_archived.is_(False))
+        .filter(~NotificationHistory.id_notification.in_(dismissed_ids))
         .order_by(NotificationHistory.created_at.desc())
         .limit(limit)
         .all()
@@ -264,6 +272,49 @@ def get_notifications(
         }
         for n in notifs
     ]
+
+
+@router.delete("/{id_notification}/dismiss")
+def dismiss_notification(
+    id_notification: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = current_user.get("id_user")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Token pengguna tidak valid.")
+
+    notification = db.query(NotificationHistory).filter(
+        NotificationHistory.id_notification == id_notification
+    ).first()
+    if (
+        not notification
+        or notification.is_archived
+        or (notification.id_user is not None and notification.id_user != user_id)
+    ):
+        raise HTTPException(status_code=404, detail="Notifikasi tidak ditemukan.")
+
+    now = datetime.utcnow()
+    read_record = (
+        db.query(NotificationRead)
+        .filter(
+            NotificationRead.id_notification == id_notification,
+            NotificationRead.id_user == user_id,
+        )
+        .first()
+    )
+    if read_record:
+        read_record.read_at = read_record.read_at or now
+        read_record.dismissed_at = read_record.dismissed_at or now
+    else:
+        db.add(NotificationRead(
+            id_notification=id_notification,
+            id_user=user_id,
+            read_at=now,
+            dismissed_at=now,
+        ))
+    db.commit()
+    return {"status": "dismissed", "id_notification": id_notification}
 
 
 @router.get("/admin")

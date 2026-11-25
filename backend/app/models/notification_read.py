@@ -19,3 +19,4 @@ class NotificationRead(Base):
         primary_key=True,
     )
     read_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    dismissed_at = Column(DateTime, nullable=True)

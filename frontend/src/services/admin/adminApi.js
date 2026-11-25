@@ -195,26 +195,6 @@ export const adminService = {
     return response.data;
   },
 
-  async getProfile() {
-    try {
-      const response = await adminApiClient.get('/auth/me');
-      return response.data;
-    } catch {
-      const fallback = await adminApiClient.get('/me');
-      return fallback.data;
-    }
-  },
-
-  async updateProfile(idUser, payload) {
-    try {
-      const response = await adminApiClient.put(`/admin/profile/${idUser}`, payload);
-      return response.data;
-    } catch {
-      const response = await adminApiClient.put(`/user/${idUser}`, payload);
-      return response.data;
-    }
-  },
-
   async sendNotification(payload) {
     const paths = ['/notifications/fcm/send', '/api/notifications/fcm/send', '/notifications/send'];
     let lastError;

@@ -19,3 +19,8 @@ def test_staff_portal_pin_is_required(monkeypatch):
 def test_staff_portal_pin_is_trimmed():
     settings = Settings(staff_portal_pin="  local-pin  ")
     assert settings.staff_portal_pin == "local-pin"
+
+
+def test_admin_initial_password_is_optional():
+    settings = Settings(staff_portal_pin="local-pin", _env_file=None)
+    assert settings.admin_initial_password == ""

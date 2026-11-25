@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { adminAuthService } from '../../services/admin/adminAuth';
 import logoNgrowo from '../../images/logo ngrowo.png';
@@ -6,21 +6,8 @@ import logoNgrowo from '../../images/logo ngrowo.png';
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [currentUser, setCurrentUser] = useState(() => adminAuthService.getCurrentUser());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
-
-  useEffect(() => {
-    const handleProfileUpdated = (event) => {
-      if (event?.detail) {
-        setCurrentUser(event.detail);
-      } else {
-        setCurrentUser(adminAuthService.getCurrentUser());
-      }
-    };
-    window.addEventListener('admin-profile-updated', handleProfileUpdated);
-    return () => window.removeEventListener('admin-profile-updated', handleProfileUpdated);
-  }, []);
 
   const handleLogout = () => {
     adminAuthService.logout();
@@ -34,7 +21,6 @@ export default function AdminLayout() {
     { to: '/admin/pengaduan', label: 'Pengaduan', icon: 'assignment', aliases: ['/admin/pengaduan'] },
     { to: '/admin/jadwal', label: 'Jadwal & Broadcast', icon: 'calendar_month', aliases: ['/admin/jadwal', '/admin/notifikasi'] },
     { to: '/admin/audit-logs', label: 'Audit Log', icon: 'history_edu', aliases: ['/admin/audit-logs', '/admin/audit-log'] },
-    { to: '/admin/profil', label: 'Profil Admin', icon: 'account_circle', aliases: ['/admin/profil'] },
   ];
 
   const isLinkActive = (item) => {
@@ -45,9 +31,6 @@ export default function AdminLayout() {
       return location.pathname.startsWith(alias);
     });
   };
-
-  const adminName = currentUser?.nama_lengkap || 'Pak Bambang';
-  const adminRole = currentUser?.role === 'admin' ? 'Sekdes Ngrowo' : 'Perangkat Desa';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex font-sans antialiased">
@@ -148,7 +131,7 @@ export default function AdminLayout() {
             </div>
           </div>
 
-          {/* User profile & Notification right side */}
+          {/* Notification control */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {/* Notification bell */}
             <Link
@@ -161,20 +144,6 @@ export default function AdminLayout() {
               <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
             </Link>
 
-            {/* Profile chip (Clickable to /admin/profil) */}
-            <Link
-              to="/admin/profil"
-              className="flex items-center gap-3 pl-2 sm:border-l sm:border-slate-200 hover:opacity-85 transition-opacity group cursor-pointer"
-              title="Buka Pengaturan Profil Admin"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#166534] text-white font-bold shadow-xs group-hover:ring-2 group-hover:ring-emerald-400 transition-all">
-                <span className="material-symbols-outlined text-[20px]">account_circle</span>
-              </div>
-              <div className="hidden sm:block text-left leading-tight">
-                <p className="text-xs font-bold text-slate-900 group-hover:text-[#166534] transition-colors">{adminName}</p>
-                <p className="text-[11px] text-slate-500 font-medium">{adminRole}</p>
-              </div>
-            </Link>
           </div>
         </header>
 

@@ -16,6 +16,8 @@ Dockerized FastAPI, MySQL, and React application for local development.
 The Compose defaults are for local development only. To customize them, copy
 `.env.example` to `.env` and replace the development values. Never use the
 example credentials or signing key for a public deployment.
+Set a non-empty `STAFF_PORTAL_PIN` in `.env` before starting Compose; startup
+is intentionally blocked while this required portal PIN is unset.
 
 The Docker backend runs without Uvicorn hot reload to avoid filesystem polling
 errors with Windows bind mounts. Restart or rebuild the backend after changing
@@ -37,18 +39,18 @@ Use the MySQL credentials in your local `.env` to sign in to phpMyAdmin. Select
 
 ## Demo accounts
 
-The seeded demo accounts are for local testing only:
+The seeded demo admin account is for local testing only:
 
-- Admin: username `admin`, password `admin`
-- Warga: username `wargademo`, password `admin123`
+- Admin: username `admin`, password configured by `ADMIN_INITIAL_PASSWORD`
 
-The local demo admin credentials are available on the admin login form in
-development mode. Other staff accounts must already exist with the `admin`
-role; a warga username cannot sign in to the admin portal. Change or remove
-these credentials before any public deployment. The warga
-registration form generates a username automatically; it shows the generated
-username after successful registration. Warga sign in from the main portal
-using their NIK. Admins use the separate portal at `/admin/login` (for example,
+Set `ADMIN_INITIAL_PASSWORD` in the root `.env` before first startup to create
+the admin account on a fresh database. It does not reset an existing admin
+password. Other staff accounts must already exist with the `admin` role; a
+warga username cannot sign in to the admin portal. Change or remove demo
+credentials before any public deployment. Warga accounts are not seeded on
+startup; eligible warga register using their NIK and receive an automatically
+generated username after successful registration. Warga sign in from the main
+portal using their NIK. Admins use the separate portal at `/admin/login` (for example,
 `http://localhost/admin/login` with Docker or `http://localhost:5173/admin/login`
 with the Vite development server).
 
@@ -73,8 +75,10 @@ certificate key from Firebase project settings.
 
 For the backend, download a Firebase service-account JSON file and save it as
 `secrets/firebase-service-account.json`. Compose mounts the `secrets` folder
-read-only and points `GOOGLE_APPLICATION_CREDENTIALS` to that file. Never commit
-the JSON file. Rebuild the frontend and recreate the backend after configuring:
+read-only inside the backend container. Keep
+`GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/firebase-service-account.json` in
+the root `.env` (the `.env.example` value is already set). Never commit the JSON
+file. Rebuild the frontend and recreate the backend after configuring:
 
 ```powershell
 docker compose up -d --build frontend

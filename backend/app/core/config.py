@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     secret_key: str = "super-secret-key"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
+    admin_initial_password: str = ""
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.1-flash-lite"
     staff_portal_pin: str = Field(min_length=1)

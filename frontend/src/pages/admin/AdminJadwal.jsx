@@ -52,7 +52,6 @@ export default function AdminJadwal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState(null);
-  const [broadcastingId, setBroadcastingId] = useState(null);
 
   // Dynamic calendar states based on real-time new Date()
   const today = useMemo(() => new Date(), []);
@@ -71,6 +70,7 @@ export default function AdminJadwal() {
     lokasi: 'Pendopo Balai Desa Ngrowo',
     persyaratan: 'KTP Asli Penerima, Kartu Keluarga (KK), Undangan RT',
     status: 'Dijadwalkan',
+    notifyResidents: false,
   });
 
   const loadSchedules = async () => {
@@ -154,6 +154,7 @@ export default function AdminJadwal() {
       lokasi: 'Pendopo Balai Desa Ngrowo',
       persyaratan: 'KTP Asli Penerima, Kartu Keluarga (KK), Undangan RT',
       status: 'Dijadwalkan',
+      notifyResidents: false,
     });
     setIsAddModalOpen(true);
   };
@@ -168,6 +169,7 @@ export default function AdminJadwal() {
       lokasi: item.lokasi || '',
       persyaratan: Array.isArray(item.persyaratan) ? item.persyaratan.join(', ') : item.persyaratan || '',
       status: item.status || 'Dijadwalkan',
+      notifyResidents: false,
     });
     setIsAddModalOpen(true);
   };
@@ -177,8 +179,9 @@ export default function AdminJadwal() {
     try {
       setIsSaving(true);
       setFeedback(null);
+      const { notifyResidents, ...scheduleFields } = newSchedule;
       const reqPayload = {
-        ...newSchedule,
+        ...scheduleFields,
         tanggal: formatIsoDate(newSchedule.iso_date),
         persyaratan: typeof newSchedule.persyaratan === 'string'
           ? newSchedule.persyaratan.split(',').map((p) => p.trim()).filter(Boolean)
@@ -186,10 +189,30 @@ export default function AdminJadwal() {
       };
       if (editingSchedule) {
         await adminService.updateJadwal(editingSchedule.id, reqPayload);
+        setFeedback({ type: 'success', message: `Jadwal '${newSchedule.program}' berhasil diperbarui.` });
       } else {
         await adminService.createJadwal(reqPayload);
+        if (notifyResidents) {
+          const requirements = reqPayload.persyaratan.length
+            ? ` Persyaratan: ${reqPayload.persyaratan.join(', ')}.`
+            : '';
+          try {
+            const result = await adminService.sendNotification({
+              title: `Jadwal Penyaluran: ${newSchedule.program}`.slice(0, 120),
+              body: `Penyaluran ${newSchedule.program} dijadwalkan pada ${reqPayload.tanggal} pukul ${newSchedule.jam}, bertempat di ${newSchedule.lokasi}.${requirements}`.slice(0, 500),
+            });
+            const sent = typeof result?.sent === 'number' ? ` (${result.sent} penerima)` : '';
+            setFeedback({ type: 'success', message: `Jadwal tersimpan dan notifikasi berhasil dikirim${sent}.` });
+          } catch (notificationError) {
+            setFeedback({
+              type: 'warning',
+              message: `Jadwal tersimpan, tetapi notifikasi gagal dikirim: ${notificationError.message || 'Terjadi kesalahan.'}`,
+            });
+          }
+        } else {
+          setFeedback({ type: 'success', message: `Jadwal '${newSchedule.program}' berhasil disimpan.` });
+        }
       }
-      setFeedback({ type: 'success', message: `Jadwal '${newSchedule.program}' berhasil ${editingSchedule ? 'diperbarui' : 'disimpan'} secara permanen.` });
       setIsAddModalOpen(false);
       setEditingSchedule(null);
       await loadSchedules();
@@ -212,34 +235,6 @@ export default function AdminJadwal() {
       await loadSchedules();
     } catch (err) {
       setFeedback({ type: 'error', message: err.message || 'Jadwal gagal diarsipkan.' });
-    }
-  };
-
-  const handleBroadcastSchedule = async (item, index) => {
-    const targetKey = item.id ?? index;
-    const title = `Jadwal Penyaluran: ${item.program}`.slice(0, 120);
-    const body = `Penyaluran ${item.program} dijadwalkan pada ${item.tanggal} pukul ${item.jam} bertempat di ${item.lokasi}. Harap membawa persyaratan dokumen asli.`.slice(0, 500);
-
-    if (!window.confirm(`Kirim notifikasi jadwal '${item.program}' ke seluruh warga sekarang?`)) {
-      return;
-    }
-
-    try {
-      setBroadcastingId(targetKey);
-      setFeedback(null);
-      const result = await adminService.sendNotification({ title, body });
-      const total = result?.sent ?? 1;
-      setFeedback({
-        type: 'success',
-        message: `Notifikasi jadwal '${item.program}' berhasil dikirim ke warga (${total} penerima).`,
-      });
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: err.message || 'Gagal mengirim notifikasi jadwal ke warga.',
-      });
-    } finally {
-      setBroadcastingId(null);
     }
   };
 
@@ -281,12 +276,16 @@ export default function AdminJadwal() {
       {feedback && (
         <div
           className={`p-4 rounded-xl text-sm font-semibold flex items-center justify-between gap-3 shadow-xs transition-all ${
-            feedback.type === 'success' ? 'bg-emerald-50 text-[#166534] border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            feedback.type === 'success'
+              ? 'bg-emerald-50 text-[#166534] border border-emerald-200'
+              : feedback.type === 'warning'
+              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}
         >
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-[20px]">
-              {feedback.type === 'success' ? 'check_circle' : 'error'}
+              {feedback.type === 'success' ? 'check_circle' : feedback.type === 'warning' ? 'warning' : 'error'}
             </span>
             <span>{feedback.message}</span>
           </div>
@@ -504,18 +503,6 @@ export default function AdminJadwal() {
                         <button type="button" onClick={() => handleArchiveSchedule(item)} className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-50" title="Arsipkan jadwal">
                           <span className="material-symbols-outlined text-[15px]">archive</span>Arsip
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleBroadcastSchedule(item, index)}
-                          disabled={broadcastingId !== null}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-2xs transition-colors hover:bg-blue-100 disabled:opacity-50"
-                          title="Kirim notifikasi jadwal ini ke warga"
-                        >
-                          <span className={`material-symbols-outlined text-[15px] ${broadcastingId === (item.id ?? index) ? 'animate-spin' : ''}`}>
-                            {broadcastingId === (item.id ?? index) ? 'progress_activity' : 'send'}
-                          </span>
-                          {broadcastingId === (item.id ?? index) ? 'Mengirim...' : 'Broadcast'}
-                        </button>
                       </div>
                     </div>
 
@@ -617,6 +604,18 @@ export default function AdminJadwal() {
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-xs focus:border-emerald-600 focus:outline-none"
                 />
               </div>
+
+              {!editingSchedule && (
+                <label className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={newSchedule.notifyResidents}
+                    onChange={(event) => setNewSchedule({ ...newSchedule, notifyResidents: event.target.checked })}
+                    className="mt-0.5 h-4 w-4 accent-emerald-800"
+                  />
+                  <span>Kirim notifikasi ke semua warga setelah jadwal tersimpan</span>
+                </label>
+              )}
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button

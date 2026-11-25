@@ -2,8 +2,8 @@ import { citizenApiClient } from './apiClient';
 
 export const bansosService = {
   async getDesilSaya() {
-    const response = await citizenApiClient.get('/bansos/desil-saya');
-    return response.data;
+    const response = await citizenApiClient.get('/auth/me');
+    return response.data.desil;
   },
 
   async cekBansosByNik(nik) {
@@ -97,6 +97,17 @@ export const notificationService = {
     } catch (error) {
       if (error.status !== 404 && error.status !== 405) throw error;
       const fallback = await citizenApiClient.post(`/notifications/${idNotification}/read`);
+      return fallback.data;
+    }
+  },
+
+  async dismissNotification(idNotification) {
+    try {
+      const response = await citizenApiClient.delete(`/notifications/${idNotification}/dismiss`);
+      return response.data;
+    } catch (error) {
+      if (error.status !== 404 && error.status !== 405) throw error;
+      const fallback = await citizenApiClient.delete(`/api/notifications/${idNotification}/dismiss`);
       return fallback.data;
     }
   },

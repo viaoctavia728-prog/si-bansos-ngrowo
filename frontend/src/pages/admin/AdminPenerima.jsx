@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
+import { BANSOS_PROGRAMS } from '../../constants';
+
+const PROGRAM_OPTIONS = BANSOS_PROGRAMS.filter(({ id }) => id !== 'all');
+const OTHER_PROGRAM = 'Lainnya';
 
 export default function AdminPenerima() {
   const { globalSearch } = useOutletContext() || {};
@@ -16,6 +20,7 @@ export default function AdminPenerima() {
   const [form, setForm] = useState({
     nik_penerima: '',
     jenis_bansos: 'PKH',
+    jenis_bansos_lainnya: '',
     periode_tahun: new Date().getFullYear(),
     status_penerima: 'aktif',
     rt: '',
@@ -89,6 +94,7 @@ export default function AdminPenerima() {
     setForm({
       nik_penerima: '',
       jenis_bansos: 'PKH',
+      jenis_bansos_lainnya: '',
       periode_tahun: new Date().getFullYear(),
       status_penerima: 'aktif',
       rt: '',
@@ -99,11 +105,13 @@ export default function AdminPenerima() {
   };
 
   const startEdit = (item) => {
+    const isKnownProgram = PROGRAM_OPTIONS.some(({ id }) => id === item.jenis_bansos);
     setEditingItem(item);
     setIsFormOpen(true);
     setForm({
       nik_penerima: item.nik_penerima,
-      jenis_bansos: item.jenis_bansos,
+      jenis_bansos: isKnownProgram ? item.jenis_bansos : OTHER_PROGRAM,
+      jenis_bansos_lainnya: isKnownProgram ? '' : item.jenis_bansos,
       periode_tahun: item.periode_tahun,
       status_penerima: item.status_penerima,
       rt: item.rt,
@@ -115,13 +123,21 @@ export default function AdminPenerima() {
 
   const saveItem = async (event) => {
     event.preventDefault();
+    const jenisBansos = form.jenis_bansos === OTHER_PROGRAM
+      ? form.jenis_bansos_lainnya.trim()
+      : form.jenis_bansos;
+    if (!jenisBansos) {
+      setError('Isi nama program bantuan lainnya.');
+      return;
+    }
+
     try {
       setSaving(true);
       setError('');
       setFeedback('');
       if (editingItem) {
         await adminService.updatePenerimaBansos(editingItem.id_bansos, {
-          jenis_bansos: form.jenis_bansos,
+          jenis_bansos: jenisBansos,
           periode_tahun: Number(form.periode_tahun),
           status_penerima: form.status_penerima,
           rt: form.rt,
@@ -136,7 +152,7 @@ export default function AdminPenerima() {
           nik_penerima: resident.nik,
           nama_penerima: resident.nama_lengkap,
           no_kk: form.no_kk || null,
-          jenis_bansos: form.jenis_bansos,
+          jenis_bansos: jenisBansos,
           periode_tahun: Number(form.periode_tahun),
           status_penerima: form.status_penerima,
           rt: form.rt,
@@ -368,7 +384,21 @@ export default function AdminPenerima() {
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block text-xs font-semibold text-slate-700">Program bantuan
-                  <input required minLength="2" maxLength="50" value={form.jenis_bansos} onChange={(event) => setForm((value) => ({ ...value, jenis_bansos: event.target.value }))} className="gov-input mt-1" placeholder="Contoh: PKH" />
+                  <select required value={form.jenis_bansos} onChange={(event) => setForm((value) => ({ ...value, jenis_bansos: event.target.value, jenis_bansos_lainnya: '' }))} className="gov-input mt-1">
+                    {PROGRAM_OPTIONS.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+                    <option value={OTHER_PROGRAM}>{OTHER_PROGRAM}</option>
+                  </select>
+                  {form.jenis_bansos === OTHER_PROGRAM && (
+                    <input
+                      required
+                      minLength="2"
+                      maxLength="50"
+                      value={form.jenis_bansos_lainnya}
+                      onChange={(event) => setForm((value) => ({ ...value, jenis_bansos_lainnya: event.target.value }))}
+                      className="gov-input mt-2"
+                      placeholder="Contoh: Bansos Beras CPP"
+                    />
+                  )}
                 </label>
                 <label className="block text-xs font-semibold text-slate-700">Tahun periode
                   <input required type="number" min="2000" max="2100" value={form.periode_tahun} onChange={(event) => setForm((value) => ({ ...value, periode_tahun: event.target.value }))} className="gov-input mt-1" />
