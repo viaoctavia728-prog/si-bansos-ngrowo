@@ -12,6 +12,7 @@ class DataBansos(Base):
     no_kk = Column(String(16), nullable=True)
     jenis_bansos = Column(String(50), nullable=False)
     periode_tahun = Column(Integer, nullable=False)
+    periode_bulan = Column(Integer, nullable=True)
     status_penerima = Column(String(20), default="aktif")
     rt = Column(String(10), nullable=False)
     rw = Column(String(10), nullable=False)

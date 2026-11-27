@@ -9,6 +9,7 @@ class DataBansosCreate(BaseModel):
   no_kk: Optional[str] = Field(default=None, min_length=16, max_length=16, pattern=r"^\d{16}$")
   jenis_bansos: str = Field(min_length=2, max_length=50)
   periode_tahun: int = Field(ge=2000, le=2100)
+  periode_bulan: Optional[int] = Field(default=None, ge=1, le=12)
   status_penerima: Literal["aktif", "graduasi", "penangguhan"] = "aktif"
   rt: str = Field(min_length=1, max_length=10)
   rw: str = Field(min_length=1, max_length=10)
@@ -44,6 +45,7 @@ class DataBansosUpdate(BaseModel):
   no_kk: Optional[str] = Field(default=None, min_length=16, max_length=16, pattern=r"^\d{16}$")
   jenis_bansos: Optional[str] = Field(default=None, min_length=2, max_length=50)
   periode_tahun: Optional[int] = Field(default=None, ge=2000, le=2100)
+  periode_bulan: Optional[int] = Field(default=None, ge=1, le=12)
   status_penerima: Optional[Literal["aktif", "graduasi", "penangguhan"]] = None
   rt: Optional[str] = Field(default=None, min_length=1, max_length=10)
   rw: Optional[str] = Field(default=None, min_length=1, max_length=10)

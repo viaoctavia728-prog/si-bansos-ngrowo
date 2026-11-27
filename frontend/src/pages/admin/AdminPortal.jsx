@@ -9,6 +9,7 @@ import AdminWarga from './AdminWarga';
 import AdminAuditLog from './AdminAuditLog';
 import AdminPenerima from './AdminPenerima';
 import AdminJadwal from './AdminJadwal';
+import AdminProfile from './AdminProfile';
 
 function AdminLoginRoute() {
   return adminAuthService.isAuthenticated()
@@ -44,8 +45,8 @@ export default function AdminPortal() {
         <Route path="notifications" element={<Navigate to="/admin/jadwal#broadcast" replace />} />
         <Route path="audit-log" element={<AdminAuditLog />} />
         <Route path="audit-logs" element={<AdminAuditLog />} />
-        <Route path="profil" element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="profile" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="profil" element={<AdminProfile />} />
+        <Route path="profile" element={<AdminProfile />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_current_user
+from app.core.normalization import normalize_name
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.bansos import DataBansos
@@ -101,7 +102,7 @@ def get_admin_penerima_bansos(
         .all()
     )
     return [
-        DataBansosResponse.model_validate(item).model_copy(update={"desil": desil})
+        DataBansosResponse.model_validate(item).model_copy(update={"desil": desil or item.desil or 4})
         for item, desil in rows
     ]
 
@@ -112,12 +113,30 @@ def tambah_penerima_bansos(
     db: Session = Depends(get_db),
     _current_admin=Depends(get_current_admin),
 ):
+    user = db.query(User).filter(User.nik == data.nik_penerima).first()
     eligible_resident = db.query(EligibleResident).filter(
         EligibleResident.nik == data.nik_penerima,
         EligibleResident.is_active.is_(True),
     ).first()
-    if not eligible_resident:
-        raise HTTPException(status_code=404, detail="NIK belum ada di daftar warga aktif.")
+
+    if not eligible_resident and not user:
+        raise HTTPException(status_code=404, detail="NIK belum ada di data kependudukan warga aktif.")
+
+    if not eligible_resident and user:
+        eligible_resident = EligibleResident(
+            nik=user.nik,
+            nama_lengkap=user.nama_lengkap,
+            nama_normalized=normalize_name(user.nama_lengkap),
+            desil=4,
+            registered_user_id=user.id_user,
+            is_active=user.is_active,
+        )
+        db.add(eligible_resident)
+        user.eligible_resident = eligible_resident
+        db.flush()
+    elif eligible_resident and user and not eligible_resident.registered_user_id:
+        eligible_resident.registered_user_id = user.id_user
+
     duplicate = db.query(DataBansos).filter(
         DataBansos.nik_penerima == data.nik_penerima,
         DataBansos.jenis_bansos == data.jenis_bansos,
@@ -127,11 +146,11 @@ def tambah_penerima_bansos(
     if duplicate:
         raise HTTPException(status_code=409, detail="Warga sudah terdaftar pada program dan periode tersebut.")
 
-    user = db.query(User).filter(User.nik == data.nik_penerima).first()
     values = data.model_dump(exclude={"desil"})
-    values["nama_penerima"] = eligible_resident.nama_lengkap
-    values["no_kk"] = user.no_kk if user else data.no_kk
-    values["desil"] = eligible_resident.desil
+    nama_penerima = eligible_resident.nama_lengkap if eligible_resident else (user.nama_lengkap if user else data.nama_penerima)
+    values["nama_penerima"] = nama_penerima
+    values["no_kk"] = (user.no_kk if user and user.no_kk else None) or data.no_kk
+    values["desil"] = eligible_resident.desil if eligible_resident else (data.desil or 4)
     penerima_baru = DataBansos(**values)
     db.add(penerima_baru)
     admin_id = _current_admin.get("id_user")

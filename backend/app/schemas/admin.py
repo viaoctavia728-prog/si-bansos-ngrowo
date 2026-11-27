@@ -7,9 +7,11 @@ from pydantic import BaseModel, Field, field_validator
 class EligibleResidentCreate(BaseModel):
     nik: str = Field(min_length=16, max_length=16, pattern=r"^\d{16}$")
     nama_lengkap: str = Field(min_length=2, max_length=100)
+    rt: Optional[str] = Field(default=None, max_length=10)
+    rw: Optional[str] = Field(default=None, max_length=10)
     desil: int = Field(ge=1, le=10, default=4)
 
-    @field_validator("nama_lengkap", mode="before")
+    @field_validator("nama_lengkap", "rt", "rw", mode="before")
     @classmethod
     def strip_name(cls, value):
         return value.strip() if isinstance(value, str) else value
@@ -17,10 +19,12 @@ class EligibleResidentCreate(BaseModel):
 
 class EligibleResidentUpdate(BaseModel):
     nama_lengkap: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    rt: Optional[str] = Field(default=None, max_length=10)
+    rw: Optional[str] = Field(default=None, max_length=10)
     desil: Optional[int] = Field(default=None, ge=1, le=10)
     is_active: Optional[bool] = None
 
-    @field_validator("nama_lengkap", mode="before")
+    @field_validator("nama_lengkap", "rt", "rw", mode="before")
     @classmethod
     def strip_name(cls, value):
         return value.strip() if isinstance(value, str) else value
@@ -30,6 +34,8 @@ class EligibleResidentResponse(BaseModel):
     id: int
     nik: str
     nama_lengkap: str
+    rt: Optional[str] = None
+    rw: Optional[str] = None
     desil: int
     is_active: bool
     registered_user_id: Optional[int] = None
@@ -40,6 +46,30 @@ class EligibleResidentResponse(BaseModel):
         from_attributes = True
 
 
+class AdminWargaCreate(BaseModel):
+    nik: str = Field(min_length=16, max_length=16, pattern=r"^\d{16}$")
+    nama_lengkap: str = Field(min_length=2, max_length=100)
+    no_kk: Optional[str] = Field(default=None, max_length=16, pattern=r"^\d{16}$")
+    no_hp: Optional[str] = Field(default=None, max_length=15, pattern=r"^\d{8,15}$")
+    rt: Optional[str] = Field(default=None, max_length=10)
+    rw: Optional[str] = Field(default=None, max_length=10)
+    alamat_detail: Optional[str] = Field(default=None, max_length=255)
+    desil: int = Field(ge=1, le=10, default=4)
+    password: Optional[str] = Field(default=None, min_length=6, max_length=72)
+
+    @field_validator("nik", "nama_lengkap", "no_kk", "no_hp", "rt", "rw", "alamat_detail", mode="before")
+    @classmethod
+    def strip_create_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("password")
+    @classmethod
+    def enforce_password_limit(cls, value):
+        if value is not None and len(value.encode("utf-8")) > 72:
+            raise ValueError("Password maksimal 72 byte.")
+        return value
+
+
 class AdminWargaUpdate(BaseModel):
     nama_lengkap: Optional[str] = Field(default=None, min_length=2, max_length=100)
     no_kk: Optional[str] = Field(default=None, max_length=16, pattern=r"^\d{16}$")
@@ -48,11 +78,19 @@ class AdminWargaUpdate(BaseModel):
     rw: Optional[str] = Field(default=None, max_length=10)
     alamat_detail: Optional[str] = Field(default=None, max_length=255)
     desil: Optional[int] = Field(default=None, ge=1, le=10)
+    password: Optional[str] = Field(default=None, min_length=6, max_length=72)
 
     @field_validator("nama_lengkap", "no_kk", "no_hp", "rt", "rw", "alamat_detail", mode="before")
     @classmethod
     def strip_text(cls, value):
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("password")
+    @classmethod
+    def enforce_bcrypt_byte_limit(cls, value):
+        if value is not None and len(value.encode("utf-8")) > 72:
+            raise ValueError("Password maksimal 72 byte.")
+        return value
 
 
 class JadwalBansosCreate(BaseModel):

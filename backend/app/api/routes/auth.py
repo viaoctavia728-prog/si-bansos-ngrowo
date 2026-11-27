@@ -74,8 +74,8 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         no_hp=user_data.no_hp,
         alamat_detail=user_data.alamat_detail,
         password_hash=hash_password(user_data.password),  # ✅ Hash bcrypt
-        rt=user_data.rt,
-        rw=user_data.rw,
+        rt=eligible_resident.rt if is_pre_registered and eligible_resident.rt else user_data.rt,
+        rw=eligible_resident.rw if is_pre_registered and eligible_resident.rw else user_data.rw,
         role="user",
         # Data pada daftar awal 100 warga telah diverifikasi operator.
         # Pendaftar di luar daftar tetap boleh membuat akun, tetapi harus
@@ -189,13 +189,19 @@ async def login(request: Request, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    is_citizen = user.role in {"user", "warga"}
+    if is_citizen and not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Akun warga belum diaktifkan. Silakan menunggu aktivasi dan verifikasi admin.",
+        )
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Akun dinonaktifkan oleh petugas. Hubungi admin desa untuk bantuan.",
         )
 
-    is_citizen = user.role in {"user", "warga"}
     if is_citizen and not (user.is_ngrowo_resident and user.is_verified):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

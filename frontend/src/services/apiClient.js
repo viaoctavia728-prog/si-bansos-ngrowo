@@ -26,14 +26,24 @@ function createApiClient({ tokenKeys, sessionKeys }) {
   client.interceptors.response.use(
     (response) => response,
     (error) => {
-      if (error.response?.status === 401) {
+      const authorization = error.config?.headers?.Authorization || error.config?.headers?.authorization;
+      const detail = error.response?.data?.detail;
+      const requestToken = typeof authorization === 'string'
+        ? authorization.replace(/^Bearer\s+/i, '')
+        : '';
+      const activeToken = tokenKeys.map((key) => localStorage.getItem(key)).find(Boolean);
+      const invalidSession = typeof detail === 'string'
+        && /token tidak valid|kadaluarsa|sesi tidak aktif/i.test(detail);
+      if (error.response?.status === 401 && requestToken && requestToken === activeToken && invalidSession) {
         sessionKeys.forEach((key) => localStorage.removeItem(key));
       }
 
       let message = 'Terjadi kesalahan pada sistem.';
       if (error.response) {
         const detail = error.response.data?.detail;
-        if (typeof detail === 'string') {
+        if (error.response.status === 405) {
+          message = 'Metode permintaan tidak didukung (Method Not Allowed). Pastikan backend aktif dengan versi terbaru.';
+        } else if (typeof detail === 'string') {
           message = detail;
         } else if (Array.isArray(detail)) {
           const fieldLabels = {
@@ -45,7 +55,14 @@ function createApiClient({ tokenKeys, sessionKeys }) {
             bukti_foto: 'Foto bukti',
             nik: 'NIK',
             password: 'Password',
+            confirm_password: 'Konfirmasi password',
             nama_lengkap: 'Nama lengkap',
+            no_kk: 'Nomor KK',
+            no_hp: 'Nomor telepon / WhatsApp',
+            rt: 'RT',
+            rw: 'RW',
+            alamat_detail: 'Alamat lengkap',
+            desil: 'Desil kesejahteraan',
           };
           message = detail
             .map((item) => {

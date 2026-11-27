@@ -56,7 +56,7 @@ export default function Login() {
                 authService.logout();
                 setErrorMessage('Portal ini khusus warga. Petugas silakan masuk melalui Portal Admin.');
             } else if (res?.data?.role === 'user' || res?.data?.role === 'warga') {
-                navigate('/dashboard');
+                navigate('/dashboard', { state: { showWelcomeAfterLogin: true } });
             } else {
                 authService.logout();
                 setErrorMessage('Akun tidak memiliki akses ke portal warga.');
@@ -166,6 +166,11 @@ export default function Login() {
                         <div className="absolute inset-0 opacity-[0.035] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
                     </div>
                 ))}
+
+                <div className="login-batik-backdrop" aria-hidden="true">
+                    <div className="login-batik login-batik--top" />
+                    <div className="login-batik login-batik--bottom" />
+                </div>
 
                 {/* Central Hero Content */}
                 <main className="relative z-20 flex-1 flex flex-col items-center justify-center text-center px-4 sm:px-6 py-6 sm:py-10 my-auto">

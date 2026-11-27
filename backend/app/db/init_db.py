@@ -20,10 +20,12 @@ def create_tables(max_retries: int = 30, delay_seconds: int = 2):
             ensure_username_column()
             ensure_user_status_columns()
             ensure_resident_active_columns()
+            ensure_eligible_resident_location_columns()
             ensure_notification_preference_column()
             ensure_notification_archive_column()
             ensure_notification_dismissal_column()
             ensure_desil_columns()
+            ensure_bansos_period_column()
             drop_dusun_columns()
             seed_default_admin()
             activate_eligible_citizens()
@@ -80,6 +82,14 @@ def ensure_resident_active_columns():
                 )
 
 
+def ensure_eligible_resident_location_columns():
+    columns = {column["name"] for column in inspect(engine).get_columns("eligible_residents")}
+    with engine.begin() as connection:
+        for column in ("rt", "rw"):
+            if column not in columns:
+                connection.execute(text(f"ALTER TABLE eligible_residents ADD COLUMN {column} VARCHAR(10) NULL"))
+
+
 def ensure_notification_preference_column():
     columns = {column["name"] for column in inspect(engine).get_columns("users")}
     if "notifikasi_otomatis" not in columns:
@@ -109,6 +119,13 @@ def ensure_desil_columns():
         if "desil" not in columns:
             with engine.begin() as connection:
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN desil INTEGER NOT NULL DEFAULT 4"))
+
+
+def ensure_bansos_period_column():
+    columns = {column["name"] for column in inspect(engine).get_columns("data_bansos")}
+    if "periode_bulan" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE data_bansos ADD COLUMN periode_bulan INTEGER NULL"))
 
 
 def drop_dusun_columns():

@@ -6,9 +6,34 @@ export const adminService = {
     return response.data;
   },
 
+  async createWarga(payload) {
+    try {
+      const response = await adminApiClient.post('/admin/warga', payload);
+      return response.data;
+    } catch (err) {
+      if (err.status === 404 || err.status === 405) {
+        try {
+          const fallback = await adminApiClient.post('/api/admin/warga', payload);
+          return fallback.data;
+        } catch {}
+      }
+      throw err;
+    }
+  },
+
   async updateWarga(idUser, payload) {
-    const response = await adminApiClient.put(`/admin/warga/${idUser}`, payload);
-    return response.data;
+    try {
+      const response = await adminApiClient.put(`/admin/warga/${idUser}`, payload);
+      return response.data;
+    } catch (err) {
+      if (err.status === 404 || err.status === 405) {
+        try {
+          const fallback = await adminApiClient.put(`/api/admin/warga/${idUser}`, payload);
+          return fallback.data;
+        } catch {}
+      }
+      throw err;
+    }
   },
 
   async getEligibleResidents() {
@@ -75,6 +100,11 @@ export const adminService = {
 
   async getAuditLogs(params = {}) {
     const response = await adminApiClient.get('/admin/audit-logs', { params });
+    return response.data;
+  },
+
+  async getAuditLogRekapPdf(params = {}) {
+    const response = await adminApiClient.get('/admin/audit-logs/rekap-pdf', { params, responseType: 'blob' });
     return response.data;
   },
 

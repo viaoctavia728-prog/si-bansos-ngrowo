@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, time
 from io import BytesIO
 import random
+import secrets
 import string
 from typing import Any, List
 
@@ -25,12 +26,13 @@ from app.models.jadwal_bansos import JadwalBansos
 from app.models.pengaduan import PengaduanBansos
 from app.models.user import User
 from app.schemas.admin import (
+    AdminWargaCreate,
+    AdminWargaUpdate,
     EligibleResidentCreate,
     EligibleResidentResponse,
     EligibleResidentUpdate,
     JadwalBansosCreate,
     JadwalBansosUpdate,
-    AdminWargaUpdate,
 )
 from app.schemas.auth import UserProfileUpdate, UserResponse
 from app.schemas.pengaduan import (
@@ -159,6 +161,8 @@ def _eligible_resident_response(resident: EligibleResident) -> dict:
         "id": resident.id,
         "nik": resident.nik,
         "nama_lengkap": resident.nama_lengkap,
+        "rt": resident.rt,
+        "rw": resident.rw,
         "desil": resident.desil,
         "is_active": resident.is_active,
         "registered_user_id": resident.registered_user_id,
@@ -176,6 +180,31 @@ def get_eligible_residents(
     db: Session = Depends(get_db),
     _current_admin=Depends(get_current_admin),
 ):
+    users = db.query(User).filter(User.role.in_(["user", "warga"])).all()
+    created_any = False
+    for u in users:
+        if not u.eligible_resident:
+            existing = db.query(EligibleResident).filter(EligibleResident.nik == u.nik).first()
+            if existing:
+                existing.registered_user_id = u.id_user
+                u.eligible_resident = existing
+            else:
+                new_er = EligibleResident(
+                    nik=u.nik,
+                    nama_lengkap=u.nama_lengkap,
+                    nama_normalized=normalize_name(u.nama_lengkap),
+                    rt=u.rt,
+                    rw=u.rw,
+                    desil=4,
+                    registered_user_id=u.id_user,
+                    is_active=u.is_active,
+                )
+                db.add(new_er)
+                u.eligible_resident = new_er
+            created_any = True
+    if created_any:
+        db.commit()
+
     residents = (
         db.query(EligibleResident)
         .options(joinedload(EligibleResident.registered_user))
@@ -198,11 +227,20 @@ def create_eligible_resident(
         nik=data.nik,
         nama_lengkap=data.nama_lengkap,
         nama_normalized=normalize_name(data.nama_lengkap),
+        rt=data.rt,
+        rw=data.rw,
         desil=data.desil,
         registered_user_id=user.id_user if user else None,
     )
     if user:
         user.eligible_resident = resident
+        if user.is_active:
+            user.is_ngrowo_resident = True
+            user.is_verified = True
+        if data.rt:
+            user.rt = data.rt
+        if data.rw:
+            user.rw = data.rw
     db.query(DataBansos).filter(DataBansos.nik_penerima == data.nik).update(
         {"desil": data.desil},
         synchronize_session=False,
@@ -251,6 +289,10 @@ def update_eligible_resident(
             {"desil": changes["desil"]},
             synchronize_session=False,
         )
+    if "rt" in changes:
+        resident.rt = changes["rt"]
+    if "rw" in changes:
+        resident.rw = changes["rw"]
     if "is_active" in changes and changes["is_active"] is not None:
         resident.is_active = changes["is_active"]
         if resident.registered_user:
@@ -289,6 +331,80 @@ def deactivate_eligible_resident(
     return {"status": "success", "message": "Data warga dinonaktifkan tanpa menghapus riwayat."}
 
 
+@router.post("/warga", response_model=UserResponse, status_code=201)
+def create_warga(
+    data: AdminWargaCreate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    if db.query(User).filter(User.nik == data.nik).first():
+        raise HTTPException(status_code=400, detail="NIK sudah terdaftar dalam sistem.")
+
+    while True:
+        username = f"warga_{secrets.token_hex(4)}"
+        if not db.query(User).filter(User.username == username).first():
+            break
+
+    initial_password = data.password if data.password else f"Ngrowo{data.nik[-4:]}!"
+    password_hash = hash_password(initial_password)
+
+    new_user = User(
+        nik=data.nik,
+        username=username,
+        nama_lengkap=data.nama_lengkap,
+        no_kk=data.no_kk,
+        no_hp=data.no_hp,
+        rt=data.rt,
+        rw=data.rw,
+        alamat_detail=data.alamat_detail,
+        password_hash=password_hash,
+        role="user",
+        # Data yang dimasukkan admin belum berarti warga sudah mendaftar/
+        # diverifikasi. Akun harus diaktifkan lewat aksi verifikasi admin
+        # sebelum endpoint login mengizinkan pembuatan sesi.
+        is_ngrowo_resident=False,
+        is_verified=False,
+        is_active=False,
+    )
+    db.add(new_user)
+    db.flush()
+
+    resident = db.query(EligibleResident).filter(EligibleResident.nik == data.nik).first()
+    if resident:
+        resident.registered_user_id = new_user.id_user
+        resident.nama_lengkap = data.nama_lengkap
+        resident.nama_normalized = normalize_name(data.nama_lengkap)
+        resident.desil = data.desil
+        resident.is_active = True
+    else:
+        resident = EligibleResident(
+            nik=data.nik,
+            nama_lengkap=data.nama_lengkap,
+            nama_normalized=normalize_name(data.nama_lengkap),
+            desil=data.desil,
+            registered_user_id=new_user.id_user,
+            is_active=True,
+        )
+        db.add(resident)
+
+    new_user.eligible_resident = resident
+
+    db.query(DataBansos).filter(DataBansos.nik_penerima == data.nik).update(
+        {"nama_penerima": data.nama_lengkap, "desil": data.desil},
+        synchronize_session=False,
+    )
+
+    db.add(
+        AuditLog(
+            id_user=current_admin.get("id_user"),
+            aktivitas=f"Admin menambahkan warga: {data.nama_lengkap} (NIK: {data.nik}, Desil: {data.desil})",
+        )
+    )
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+
 @router.put("/warga/{id_user}", response_model=UserResponse)
 def update_warga(
     id_user: int,
@@ -306,9 +422,42 @@ def update_warga(
         raise HTTPException(status_code=404, detail="Akun warga tidak ditemukan.")
 
     changes = data.model_dump(exclude_unset=True)
-    desil = changes.pop("desil", None)
+    password_changed = bool(changes.get("password"))
     for field, value in changes.items():
-        setattr(user, field, value)
+        if field == "password":
+            if value is not None:
+                user.password_hash = hash_password(value)
+        elif field == "desil":
+            pass
+        else:
+            setattr(user, field, value)
+
+    if "desil" in changes and changes["desil"] is not None:
+        new_desil = changes["desil"]
+        if user.eligible_resident:
+            user.eligible_resident.desil = new_desil
+        else:
+            resident = db.query(EligibleResident).filter(EligibleResident.nik == user.nik).first()
+            if resident:
+                resident.desil = new_desil
+                resident.registered_user_id = user.id_user
+                user.eligible_resident = resident
+            else:
+                resident = EligibleResident(
+                    nik=user.nik,
+                    nama_lengkap=user.nama_lengkap,
+                    nama_normalized=normalize_name(user.nama_lengkap),
+                    desil=new_desil,
+                    registered_user_id=user.id_user,
+                    is_active=user.is_active,
+                )
+                db.add(resident)
+                user.eligible_resident = resident
+        db.query(DataBansos).filter(DataBansos.nik_penerima == user.nik).update(
+            {"desil": new_desil},
+            synchronize_session=False,
+        )
+
     if user.eligible_resident and "nama_lengkap" in changes:
         user.eligible_resident.nama_lengkap = user.nama_lengkap
         user.eligible_resident.nama_normalized = normalize_name(user.nama_lengkap)
@@ -316,19 +465,15 @@ def update_warga(
             {"nama_penerima": user.nama_lengkap},
             synchronize_session=False,
         )
-    if desil is not None:
-        if not user.eligible_resident:
-            raise HTTPException(status_code=409, detail="Akun belum memiliki data warga eligible untuk diperbarui desilnya.")
-        user.eligible_resident.desil = desil
-        db.query(DataBansos).filter(DataBansos.nik_penerima == user.nik).update(
-            {"desil": desil},
-            synchronize_session=False,
-        )
 
+    desil_info = f", Desil: {changes['desil']}" if "desil" in changes and changes["desil"] is not None else ""
+    activity = f"Admin memperbarui data akun warga: {user.nama_lengkap} (NIK: {user.nik}{desil_info})"
+    if password_changed:
+        activity += " Password akun juga diperbarui."
     db.add(
         AuditLog(
             id_user=current_admin.get("id_user"),
-            aktivitas=f"Admin memperbarui data akun warga: {user.nama_lengkap} (NIK: {user.nik})",
+            aktivitas=activity,
         )
     )
     db.commit()
@@ -489,6 +634,8 @@ def export_rekap_pengaduan_pdf(
     rw: str | None = Query(default=None),
     status: str | None = Query(default=None),
     search: str | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
     db: Session = Depends(get_db),
     _current_admin=Depends(get_current_admin),
 ):
@@ -504,6 +651,10 @@ def export_rekap_pengaduan_pdf(
         query = query.filter(User.rw == rw)
     if status:
         query = query.filter(PengaduanBansos.status_laporan == status)
+    if date_from:
+        query = query.filter(PengaduanBansos.created_at >= _parse_report_date(date_from, end=False))
+    if date_to:
+        query = query.filter(PengaduanBansos.created_at <= _parse_report_date(date_to, end=True))
     if search:
         keyword = f"%{search.strip()}%"
         query = query.filter(
@@ -666,6 +817,65 @@ def get_audit_logs(
     current_admin=Depends(get_current_admin),
 ):
     return db.query(AuditLog).order_by(AuditLog.timestamp.desc()).limit(limit).all()
+
+
+@router.get("/audit-logs/rekap-pdf")
+def export_rekap_audit_pdf(
+    search: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _current_admin=Depends(get_current_admin),
+):
+    query = db.query(AuditLog)
+    if date_from:
+        query = query.filter(AuditLog.timestamp >= _parse_report_date(date_from, end=False))
+    if date_to:
+        query = query.filter(AuditLog.timestamp <= _parse_report_date(date_to, end=True))
+    if search:
+        query = query.filter(AuditLog.aktivitas.ilike(f"%{search.strip()}%"))
+    if category and category != "all":
+        category_terms = {
+            "pengaduan": ["status", "laporan", "tiket"],
+            "warga": ["warga", "registrasi", "verifikasi"],
+            "notifikasi": ["notifikasi", "broadcast"],
+        }.get(category.lower())
+        if category_terms:
+            query = query.filter(or_(*[AuditLog.aktivitas.ilike(f"%{term}%") for term in category_terms]))
+
+    logs = query.order_by(AuditLog.timestamp.desc()).all()
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1.2 * cm, leftMargin=1.2 * cm, topMargin=1.2 * cm, bottomMargin=1.2 * cm)
+    styles = getSampleStyleSheet()
+    cell_style = ParagraphStyle("AuditCell", parent=styles["Normal"], fontSize=8, leading=9)
+    elements = [
+        Paragraph("REKAP AUDIT LOG DESA NGROWO", ParagraphStyle("AuditTitle", parent=styles["Heading2"], alignment=1)),
+        Paragraph(f"Tanggal cetak: {_format_tanggal_indonesia(datetime.now())}", ParagraphStyle("AuditDate", parent=styles["Normal"], alignment=1, fontSize=9)),
+        Spacer(1, 8),
+    ]
+    table_data = [[Paragraph(f"<b>{header}</b>", cell_style) for header in ["No", "Waktu", "Kategori", "Pelaksana", "Aktivitas"]]]
+    for index, log in enumerate(logs, start=1):
+        text = log.aktivitas or "-"
+        lower = text.lower()
+        category_label = "Pengaduan" if any(term in lower for term in ("status", "laporan", "tiket")) else "Warga" if any(term in lower for term in ("warga", "registrasi", "verifikasi")) else "Notifikasi" if any(term in lower for term in ("notifikasi", "broadcast")) else "Sistem"
+        table_data.append([Paragraph(str(index), cell_style), Paragraph(_format_tanggal_indonesia(log.timestamp), cell_style), Paragraph(category_label, cell_style), Paragraph(f"Perangkat #{log.id_user}" if log.id_user else "Sistem / Admin", cell_style), Paragraph(text, cell_style)])
+    if len(table_data) == 1:
+        table_data.append([Paragraph(value, cell_style) for value in ["-", "-", "-", "-", "Tidak ada data audit sesuai filter"]])
+    report_table = Table(table_data, colWidths=[1.1 * cm, 4.0 * cm, 3.0 * cm, 4.0 * cm, 14.5 * cm], repeatRows=1)
+    report_table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#DCFCE7")), ("GRID", (0, 0), (-1, -1), 0.4, colors.black), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    elements.append(report_table)
+    doc.build(elements)
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="Rekap_Audit_Log_Ngrowo_{datetime.now().strftime("%Y-%m-%d")}.pdf"'})
+
+
+def _parse_report_date(value: str, end: bool = False) -> datetime:
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Format tanggal harus YYYY-MM-DD.") from exc
+    return datetime.combine(parsed, time.max if end else time.min)
 
 
 def _generate_nomor_tiket() -> str:

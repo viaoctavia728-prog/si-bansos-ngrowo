@@ -5,17 +5,24 @@ from app.api.routes.admin import (
     archive_jadwal_bansos,
     create_eligible_resident,
     create_jadwal_bansos,
+    create_warga,
     get_jadwal_bansos,
     update_eligible_resident,
+    update_warga,
 )
 from app.api.routes.bansos import cek_bansos_by_nik
+from app.api.routes.auth import register
+from app.core.security import hash_password, verify_password
 from app.db.base import Base
 from app.models import AuditLog, DataBansos, EligibleResident, User
 from app.schemas.admin import (
+    AdminWargaCreate,
+    AdminWargaUpdate,
     EligibleResidentCreate,
     EligibleResidentUpdate,
     JadwalBansosCreate,
 )
+from app.schemas.auth import UserRegister
 from app.db import init_db
 from fastapi import HTTPException
 
@@ -95,6 +102,51 @@ def test_eligible_resident_updates_sync_desil_and_deactivation_preserves_account
         assert resident_user.is_active is False
         assert resident_user.is_ngrowo_resident is True
         assert resident_user.is_verified is True
+    finally:
+        db.close()
+def test_admin_can_edit_resident_and_password_without_eligible_record():
+    db = create_test_session()
+    try:
+        admin = create_user(db, "0000000000000010", role="admin")
+        resident = create_user(db, "3524000000000010")
+        resident.password_hash = hash_password("old-password")
+
+        result = update_warga(
+            resident.id_user,
+            AdminWargaUpdate(nama_lengkap="Warga Diperbarui", password="new-password"),
+            db,
+            {"id_user": admin.id_user},
+        )
+
+        db.refresh(resident)
+        assert result.nama_lengkap == "Warga Diperbarui"
+        assert verify_password("new-password", resident.password_hash)
+        assert not verify_password("old-password", resident.password_hash)
+        assert db.query(AuditLog).count() == 1
+        assert "Password akun juga diperbarui." in db.query(AuditLog).one().aktivitas
+    finally:
+        db.close()
+
+def test_admin_cannot_edit_password_of_nonresident_account():
+    db = create_test_session()
+    try:
+        admin = create_user(db, "0000000000000011", role="admin")
+        another_admin = create_user(db, "0000000000000012", role="admin")
+        original_hash = another_admin.password_hash
+
+        try:
+            update_warga(
+                another_admin.id_user,
+                AdminWargaUpdate(password="new-password"),
+                db,
+                {"id_user": admin.id_user},
+            )
+            assert False, "Password reset must only target resident accounts."
+        except HTTPException as error:
+            assert error.status_code == 404
+
+        assert another_admin.password_hash == original_hash
+        assert db.query(AuditLog).count() == 0
     finally:
         db.close()
 
@@ -194,3 +246,118 @@ def test_startup_links_matching_eligible_residents_to_accounts(monkeypatch):
         assert user.is_verified is True
     finally:
         db.close()
+
+
+def test_admin_create_warga_directly_and_edit_desil():
+    db = create_test_session()
+    try:
+        admin = create_user(db, "0000000000000099", role="admin")
+        created_warga = create_warga(
+            AdminWargaCreate(
+                nik="3524111122223333",
+                nama_lengkap="Siti Aminah",
+                no_kk="3524111122220000",
+                no_hp="081234567890",
+                rt="003",
+                rw="002",
+                alamat_detail="Jl. Mawar No. 10",
+                desil=2,
+                password="password123",
+            ),
+            db,
+            {"id_user": admin.id_user},
+        )
+
+        assert created_warga.nik == "3524111122223333"
+        assert created_warga.nama_lengkap == "Siti Aminah"
+        assert created_warga.desil == 2
+        assert created_warga.is_verified is False
+        assert created_warga.is_ngrowo_resident is False
+        assert created_warga.is_active is False
+
+        resident_record = db.query(EligibleResident).filter_by(nik="3524111122223333").one()
+        assert resident_record.desil == 2
+        assert resident_record.registered_user_id == created_warga.id_user
+
+        updated_warga = update_warga(
+            created_warga.id_user,
+            AdminWargaUpdate(
+                desil=1,
+                nama_lengkap="Siti Aminah Baru",
+            ),
+            db,
+            {"id_user": admin.id_user},
+        )
+
+        db.refresh(resident_record)
+        assert updated_warga.desil == 1
+        assert resident_record.desil == 1
+        assert resident_record.nama_lengkap == "Siti Aminah Baru"
+    finally:
+        db.close()
+
+
+def test_eligible_registration_uses_admin_location_and_creates_verified_account():
+    db = create_test_session()
+    try:
+        admin = create_user(db, "0000000000000100", role="admin")
+        resident = create_eligible_resident(
+            EligibleResidentCreate(
+                nik="3524111122224444",
+                nama_lengkap="Warga Eligible",
+                rt="004",
+                rw="005",
+                desil=2,
+            ),
+            db,
+            {"id_user": admin.id_user},
+        )
+
+        result = register(
+            UserRegister(
+                nik=resident["nik"],
+                nama_lengkap="Warga Eligible",
+                no_kk="3524111122220000",
+                no_hp="081234567890",
+                rt="999",
+                rw="999",
+                password="password123",
+            ),
+            db,
+        )
+
+        user = db.query(User).filter(User.nik == resident["nik"]).one()
+        assert result["verification_status"] == "verified"
+        assert user.is_ngrowo_resident is True
+        assert user.is_verified is True
+        assert user.rt == "004"
+        assert user.rw == "005"
+        assert db.query(EligibleResident).filter_by(nik=resident["nik"]).one().registered_user_id == user.id_user
+    finally:
+        db.close()
+
+
+def test_unlisted_registration_waits_for_admin_verification():
+    db = create_test_session()
+    try:
+        result = register(
+            UserRegister(
+                nik="3524111122225555",
+                nama_lengkap="Warga Menunggu",
+                no_kk="3524111122220000",
+                no_hp="081234567890",
+                rt="001",
+                rw="001",
+                password="password123",
+            ),
+            db,
+        )
+
+        user = db.query(User).filter(User.nik == "3524111122225555").one()
+        assert result["verification_status"] == "pending"
+        assert user.is_ngrowo_resident is False
+        assert user.is_verified is False
+        assert user.is_active is True
+    finally:
+        db.close()
+

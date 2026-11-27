@@ -11,6 +11,7 @@ import DetailLaporan from './pages/warga/DetailLaporan';
 import Jadwal from './pages/warga/Jadwal';
 import Info from './pages/warga/Info';
 import Profil from './pages/warga/Profil';
+import AccessibilityControls from './components/AccessibilityControls';
 
 // Halaman & Portal Admin (Modular)
 import AdminPortal from './pages/admin/AdminPortal';
@@ -44,24 +45,27 @@ function PublicRoute({ children }) {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-      <Route path="/lupa-pin" element={<PublicRoute><LupaPin /></PublicRoute>} />
-      <Route path="/admin/*" element={<AdminPortal />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
-      <Route path="/cek-bansos" element={<ProtectedRoute><CekBansos /></ProtectedRoute>} />
-      <Route path="/pengaduan" element={<ProtectedRoute><Pengaduan /></ProtectedRoute>} />
-      <Route path="/detail-laporan" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
-      <Route path="/tracking" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
-      <Route path="/jadwal" element={<ProtectedRoute><Jadwal /></ProtectedRoute>} />
-      <Route path="/info" element={<ProtectedRoute><Info /></ProtectedRoute>} />
-      <Route path="/notifikasi" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/info-bansos" element={<Info />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/lupa-pin" element={<PublicRoute><LupaPin /></PublicRoute>} />
+        <Route path="/admin/*" element={<AdminPortal />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
+        <Route path="/cek-bansos" element={<ProtectedRoute><CekBansos /></ProtectedRoute>} />
+        <Route path="/pengaduan" element={<ProtectedRoute><Pengaduan /></ProtectedRoute>} />
+        <Route path="/detail-laporan" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
+        <Route path="/tracking" element={<ProtectedRoute><DetailLaporan /></ProtectedRoute>} />
+        <Route path="/jadwal" element={<ProtectedRoute><Jadwal /></ProtectedRoute>} />
+        <Route path="/info" element={<ProtectedRoute><Info /></ProtectedRoute>} />
+        <Route path="/notifikasi" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/info-bansos" element={<Info />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <AccessibilityControls />
+    </>
   );
 }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
 import AdminNotification from './AdminNotification';
@@ -530,9 +531,9 @@ export default function AdminJadwal() {
       </div>
 
       {/* 4. MODAL ADD NEW SCHEDULE */}
-      {isAddModalOpen && (
+      {isAddModalOpen && createPortal(
         <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setIsAddModalOpen(false); setEditingSchedule(null); } }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="schedule-form-title" className="modal-panel motion-modal max-w-lg overflow-hidden p-0">
+          <div role="dialog" aria-modal="true" aria-labelledby="schedule-form-title" className="modal-panel motion-modal max-w-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
               <h3 id="schedule-form-title" className="text-base font-extrabold text-slate-900">{editingSchedule ? 'Perbarui Jadwal Penyaluran' : 'Buat Jadwal Penyaluran Baru'}</h3>
               <button
@@ -545,7 +546,8 @@ export default function AdminJadwal() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveSchedule} className="p-6 overflow-y-auto space-y-4 text-xs">
+            <form onSubmit={handleSaveSchedule} className="space-y-4 text-xs">
+              <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nama Program Bantuan</label>
                 <input
@@ -617,7 +619,8 @@ export default function AdminJadwal() {
                 </label>
               )}
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+              </div>
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
                 <button
                   type="button"
                   onClick={() => { setIsAddModalOpen(false); setEditingSchedule(null); }}
@@ -638,7 +641,8 @@ export default function AdminJadwal() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <section id="broadcast" className="border-t border-slate-200 pt-6">

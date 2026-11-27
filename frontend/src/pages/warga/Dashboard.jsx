@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import WargaSidebar from '../../components/WargaSidebar';
@@ -7,8 +7,10 @@ import WargaMain from '../../components/WargaMain';
 import { authService } from '../../services/auth';
 import { getAssetUrl } from '../../services/apiClient';
 import { bansosService, pengaduanService } from '../../services/api';
+import WelcomeTransition from '../../components/WelcomeTransition';
 
 export default function Dashboard() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [bansosData, setBansosData] = useState([]);
@@ -19,6 +21,16 @@ export default function Dashboard() {
   const [reportsLoaded, setReportsLoaded] = useState(false);
   const [dashboardError, setDashboardError] = useState('');
   const [now, setNow] = useState(() => new Date());
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  const finishWelcome = useCallback(() => setShowWelcome(false), []);
+
+  useEffect(() => {
+    if (location.state?.showWelcomeAfterLogin) {
+      setShowWelcome(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -93,6 +105,15 @@ export default function Dashboard() {
       <WargaMain>
       <Header />
 
+      {showWelcome && (
+        <WelcomeTransition
+          userName={currentUser?.nama_lengkap || 'Warga Ngrowo'}
+          rt={currentUser?.rt}
+          rw={currentUser?.rw}
+          onFinish={finishWelcome}
+        />
+      )}
+
       <main className="flex-1 pb-24 lg:pb-10">
         <div className="warga-shell pt-5 sm:pt-7">
 
@@ -108,7 +129,7 @@ export default function Dashboard() {
             <section className="motion-hero relative overflow-hidden rounded-2xl border border-emerald-900 bg-gradient-to-br from-primary-dark via-primary to-primary-hover px-5 py-6 text-white shadow-card sm:px-8 sm:py-8">
               <div className="motion-orb pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
               <div className="motion-orb motion-orb-delay pointer-events-none absolute -bottom-16 right-1/3 h-40 w-40 rounded-full bg-emerald-300/10 blur-2xl" />
-              <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold backdrop-blur">
                     <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>

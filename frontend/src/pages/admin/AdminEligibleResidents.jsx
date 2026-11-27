@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { adminService } from '../../services/admin/adminApi';
 
-const EMPTY_FORM = { nik: '', nama_lengkap: '', desil: 4 };
+const EMPTY_FORM = { nik: '', nama_lengkap: '', rt: '', rw: '', desil: 4 };
 
 export default function AdminEligibleResidents() {
   const [residents, setResidents] = useState([]);
@@ -52,6 +53,8 @@ export default function AdminEligibleResidents() {
     setForm({
       nik: resident.nik,
       nama_lengkap: resident.nama_lengkap,
+      rt: resident.rt || '',
+      rw: resident.rw || '',
       desil: resident.desil,
       is_active: resident.is_active,
     });
@@ -68,6 +71,8 @@ export default function AdminEligibleResidents() {
       if (editingResident) {
         await adminService.updateEligibleResident(editingResident.id, {
           nama_lengkap: form.nama_lengkap,
+          rt: form.rt || null,
+          rw: form.rw || null,
           desil: Number(form.desil),
           is_active: form.is_active,
         });
@@ -75,6 +80,8 @@ export default function AdminEligibleResidents() {
         await adminService.createEligibleResident({
           nik: form.nik,
           nama_lengkap: form.nama_lengkap,
+          rt: form.rt || null,
+          rw: form.rw || null,
           desil: Number(form.desil),
         });
       }
@@ -169,7 +176,7 @@ export default function AdminEligibleResidents() {
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-xs">
               <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
-                <tr><th className="px-4 py-3">Nama / NIK</th><th className="px-4 py-3">Desil</th><th className="px-4 py-3">Status akun</th><th className="px-4 py-3 text-right">Aksi</th></tr>
+                <tr><th className="px-4 py-3">Nama / NIK</th><th className="px-4 py-3">Wilayah</th><th className="px-4 py-3">Desil</th><th className="px-4 py-3">Status akun</th><th className="px-4 py-3 text-right">Aksi</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {visibleResidents.map((resident, index) => (
@@ -178,6 +185,7 @@ export default function AdminEligibleResidents() {
                       <p className="font-bold text-slate-900">{resident.nama_lengkap}</p>
                       <p className="mt-0.5 font-mono text-[11px] text-slate-500">{resident.nik}</p>
                     </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap text-slate-600">RT {resident.rt || '-'} / RW {resident.rw || '-'}</td>
                     <td className="px-4 py-3.5"><span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-bold text-amber-900">Desil {resident.desil}</span></td>
                     <td className="px-4 py-3.5">
                       {resident.registered_user_id ? (
@@ -209,9 +217,9 @@ export default function AdminEligibleResidents() {
         <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 text-xs text-slate-500">Menampilkan {visibleResidents.length} dari {residents.length} data warga</div>
       </div>
 
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setIsFormOpen(false); setError(''); } }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="resident-form-title" className="modal-panel motion-modal max-w-lg">
+          <section role="dialog" aria-modal="true" aria-labelledby="resident-form-title" className="modal-panel motion-modal max-w-xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-800">Data kependudukan</p><h3 id="resident-form-title" className="mt-1 text-lg font-extrabold">{editingResident ? 'Perbarui data warga' : 'Tambah warga eligible'}</h3></div>
               <button type="button" onClick={() => { setIsFormOpen(false); setError(''); }} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Tutup formulir"><span className="material-symbols-outlined">close</span></button>
@@ -219,12 +227,21 @@ export default function AdminEligibleResidents() {
             <p className="mb-4 text-xs leading-relaxed text-slate-500">Warga eligible dapat mendaftar sendiri menggunakan NIK dan nama yang sesuai. Akun tidak dibuat oleh admin.</p>
             {error && <p role="alert" className="mb-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800">{error}</p>}
             <form onSubmit={saveResident} className="space-y-4">
+              <div className="space-y-4">
               <label className="block text-xs font-semibold text-slate-700">NIK
                 <input required minLength="16" maxLength="16" pattern="\d{16}" inputMode="numeric" readOnly={Boolean(editingResident)} value={form.nik} onChange={(event) => setForm((value) => ({ ...value, nik: event.target.value }))} className="gov-input mt-1 font-mono read-only:bg-slate-100" placeholder="16 digit NIK" />
               </label>
               <label className="block text-xs font-semibold text-slate-700">Nama lengkap
                 <input required minLength="2" maxLength="100" value={form.nama_lengkap} onChange={(event) => setForm((value) => ({ ...value, nama_lengkap: event.target.value }))} className="gov-input mt-1" placeholder="Nama sesuai dokumen kependudukan" />
               </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-semibold text-slate-700">RT
+                  <input maxLength="10" value={form.rt} onChange={(event) => setForm((value) => ({ ...value, rt: event.target.value }))} className="gov-input mt-1" placeholder="Contoh: 001" />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">RW
+                  <input maxLength="10" value={form.rw} onChange={(event) => setForm((value) => ({ ...value, rw: event.target.value }))} className="gov-input mt-1" placeholder="Contoh: 001" />
+                </label>
+              </div>
               <label className="block text-xs font-semibold text-slate-700">Desil kesejahteraan
                 <select required min="1" max="10" value={form.desil} onChange={(event) => setForm((value) => ({ ...value, desil: Number(event.target.value) }))} className="gov-input mt-1">
                   {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>Desil {value}</option>)}
@@ -236,6 +253,7 @@ export default function AdminEligibleResidents() {
                   Data warga aktif dan dapat digunakan untuk registrasi
                 </label>
               )}
+              </div>
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <button type="button" onClick={() => { setIsFormOpen(false); setError(''); }} className="gov-btn-outline">Batal</button>
                 <button type="submit" disabled={saving} className="gov-btn-primary">
@@ -245,7 +263,8 @@ export default function AdminEligibleResidents() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );

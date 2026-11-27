@@ -20,7 +20,7 @@ export default {
         line: '#E2E8F0',
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'Arial', 'sans-serif'],
       },
       boxShadow: {
         civic: '0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05)',

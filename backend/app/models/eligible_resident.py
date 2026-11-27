@@ -11,6 +11,8 @@ class EligibleResident(Base):
     nik = Column(String(16), unique=True, index=True, nullable=False)
     nama_lengkap = Column(String(100), nullable=False)
     nama_normalized = Column(String(100), nullable=False)
+    rt = Column(String(10), nullable=True)
+    rw = Column(String(10), nullable=True)
     registered_user_id = Column(Integer, ForeignKey("users.id_user"), nullable=True)
     desil = Column(Integer, nullable=False, default=4)
     is_active = Column(Boolean, nullable=False, default=True)

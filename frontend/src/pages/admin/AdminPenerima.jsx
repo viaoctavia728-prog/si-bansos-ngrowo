@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import { adminService } from '../../services/admin/adminApi';
 import { BANSOS_PROGRAMS } from '../../constants';
@@ -9,7 +10,7 @@ const OTHER_PROGRAM = 'Lainnya';
 export default function AdminPenerima() {
   const { globalSearch } = useOutletContext() || {};
   const [dataPenerima, setDataPenerima] = useState([]);
-  const [eligibleResidents, setEligibleResidents] = useState([]);
+  const [wargaList, setWargaList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -17,11 +18,13 @@ export default function AdminPenerima() {
   const [showInactive, setShowInactive] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [wargaSearch, setWargaSearch] = useState('');
   const [form, setForm] = useState({
     nik_penerima: '',
     jenis_bansos: 'PKH',
     jenis_bansos_lainnya: '',
     periode_tahun: new Date().getFullYear(),
+    periode_bulan: new Date().getMonth() + 1,
     status_penerima: 'aktif',
     rt: '',
     rw: '',
@@ -36,12 +39,30 @@ export default function AdminPenerima() {
     try {
       setLoading(true);
       setError('');
-      const [data, residents] = await Promise.all([
+      const [data, warga, eligible] = await Promise.all([
         adminService.getPenerimaBansos(),
+        adminService.getWarga(),
         adminService.getEligibleResidents(),
       ]);
       setDataPenerima(Array.isArray(data) ? data : []);
-      setEligibleResidents(Array.isArray(residents) ? residents.filter((resident) => resident.is_active) : []);
+      const accounts = Array.isArray(warga) ? warga.filter((w) => w.is_active) : [];
+      const accountNiks = new Set(accounts.map((w) => w.nik));
+      const eligibleWithoutAccount = Array.isArray(eligible)
+        ? eligible
+          .filter((resident) => resident.is_active && !accountNiks.has(resident.nik))
+          .map((resident) => ({
+            id_user: `eligible-${resident.id}`,
+            nik: resident.nik,
+            nama_lengkap: resident.nama_lengkap,
+            no_kk: null,
+            rt: resident.rt || '',
+            rw: resident.rw || '',
+            desil: resident.desil,
+            is_active: true,
+            is_eligible_only: true,
+          }))
+        : [];
+      setWargaList([...accounts, ...eligibleWithoutAccount]);
     } catch (err) {
       setError(err.message || 'Gagal memuat data penerima bansos.');
     } finally {
@@ -88,14 +109,52 @@ export default function AdminPenerima() {
     });
   }, [dataPenerima, search, globalSearch, filterJenis, filterRt, filterRw, showInactive]);
 
+  const filteredWargaSelect = useMemo(() => {
+    const q = wargaSearch.trim().toLowerCase();
+    if (!q) return wargaList;
+    return wargaList.filter((w) => {
+      const text = `${w.nama_lengkap} ${w.nik} ${w.no_kk || ''} ${w.rt || ''} ${w.rw || ''}`.toLowerCase();
+      return text.includes(q);
+    });
+  }, [wargaList, wargaSearch]);
+
+  const selectedWargaObj = useMemo(() => {
+    if (!form.nik_penerima) return null;
+    return wargaList.find((w) => w.nik === form.nik_penerima) || null;
+  }, [wargaList, form.nik_penerima]);
+
+  const handleSelectWarga = (warga) => {
+    setForm((prev) => ({
+      ...prev,
+      nik_penerima: warga.nik,
+      rt: warga.rt || prev.rt || '',
+      rw: warga.rw || prev.rw || '',
+      no_kk: warga.no_kk || prev.no_kk || '',
+    }));
+    setError('');
+  };
+
+  const handleClearSelectedWarga = () => {
+    setForm((prev) => ({
+      ...prev,
+      nik_penerima: '',
+      rt: '',
+      rw: '',
+      no_kk: '',
+    }));
+    setWargaSearch('');
+  };
+
   const startCreate = () => {
     setEditingItem(null);
     setIsFormOpen(true);
+    setWargaSearch('');
     setForm({
       nik_penerima: '',
       jenis_bansos: 'PKH',
       jenis_bansos_lainnya: '',
       periode_tahun: new Date().getFullYear(),
+      periode_bulan: new Date().getMonth() + 1,
       status_penerima: 'aktif',
       rt: '',
       rw: '',
@@ -108,11 +167,13 @@ export default function AdminPenerima() {
     const isKnownProgram = PROGRAM_OPTIONS.some(({ id }) => id === item.jenis_bansos);
     setEditingItem(item);
     setIsFormOpen(true);
+    setWargaSearch('');
     setForm({
       nik_penerima: item.nik_penerima,
       jenis_bansos: isKnownProgram ? item.jenis_bansos : OTHER_PROGRAM,
       jenis_bansos_lainnya: isKnownProgram ? '' : item.jenis_bansos,
       periode_tahun: item.periode_tahun,
+      periode_bulan: item.periode_bulan || '',
       status_penerima: item.status_penerima,
       rt: item.rt,
       rw: item.rw,
@@ -123,6 +184,10 @@ export default function AdminPenerima() {
 
   const saveItem = async (event) => {
     event.preventDefault();
+    if (!editingItem && !form.nik_penerima) {
+      setError('Silakan cari dan pilih salah satu warga dari data kependudukan.');
+      return;
+    }
     const jenisBansos = form.jenis_bansos === OTHER_PROGRAM
       ? form.jenis_bansos_lainnya.trim()
       : form.jenis_bansos;
@@ -139,6 +204,7 @@ export default function AdminPenerima() {
         await adminService.updatePenerimaBansos(editingItem.id_bansos, {
           jenis_bansos: jenisBansos,
           periode_tahun: Number(form.periode_tahun),
+          periode_bulan: form.periode_bulan ? Number(form.periode_bulan) : null,
           status_penerima: form.status_penerima,
           rt: form.rt,
           rw: form.rw,
@@ -146,17 +212,18 @@ export default function AdminPenerima() {
           is_active: true,
         });
       } else {
-        const resident = eligibleResidents.find((item) => item.nik === form.nik_penerima);
-        if (!resident) throw new Error('Pilih warga dari daftar warga aktif.');
+        const resident = wargaList.find((item) => item.nik === form.nik_penerima);
+        if (!resident) throw new Error('Pilih warga dari data kependudukan warga.');
         await adminService.createPenerimaBansos({
           nik_penerima: resident.nik,
           nama_penerima: resident.nama_lengkap,
-          no_kk: form.no_kk || null,
+          no_kk: form.no_kk || resident.no_kk || null,
           jenis_bansos: jenisBansos,
           periode_tahun: Number(form.periode_tahun),
+          periode_bulan: form.periode_bulan ? Number(form.periode_bulan) : null,
           status_penerima: form.status_penerima,
-          rt: form.rt,
-          rw: form.rw,
+          rt: form.rt || resident.rt || '',
+          rw: form.rw || resident.rw || '',
         });
       }
       setIsFormOpen(false);
@@ -336,7 +403,7 @@ export default function AdminPenerima() {
                       </span>
                     </td>
                     <td className="px-5 py-4 font-mono text-xs text-slate-600">
-                      Tahun {item.periode_tahun}
+                      {item.periode_bulan ? `${new Date(2000, item.periode_bulan - 1, 1).toLocaleString('id-ID', { month: 'long' })} ` : ''}{item.periode_tahun}
                     </td>
                     <td className="px-5 py-4"><span className="rounded-full bg-amber-50 px-2.5 py-1 font-bold text-amber-900">Desil {item.desil ?? '-'}</span></td>
                     <td className="px-5 py-4 text-center">
@@ -363,7 +430,7 @@ export default function AdminPenerima() {
         </div>
       </div>
 
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setIsFormOpen(false); setError(''); } }}>
           <section role="dialog" aria-modal="true" aria-labelledby="penerima-form-title" className="modal-panel motion-modal max-w-xl">
             <div className="mb-5 flex items-start justify-between gap-4">
@@ -375,12 +442,131 @@ export default function AdminPenerima() {
               {editingItem ? (
                 <label className="block text-xs font-semibold text-slate-700">Warga<input readOnly value={`${editingItem.nama_penerima} · ${editingItem.nik_penerima}`} className="gov-input mt-1 bg-slate-100 font-mono" /></label>
               ) : (
-                <label className="block text-xs font-semibold text-slate-700">Pilih warga eligible
-                  <select required value={form.nik_penerima} onChange={(event) => setForm((value) => ({ ...value, nik_penerima: event.target.value }))} className="gov-input mt-1">
-                    <option value="">Pilih warga...</option>
-                    {eligibleResidents.map((resident) => <option key={resident.id} value={resident.nik}>{resident.nama_lengkap} · {resident.nik}</option>)}
-                  </select>
-                </label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Pilih Warga (dari Data Kependudukan) <span className="text-rose-500">*</span>
+                    </label>
+                    {selectedWargaObj && (
+                      <button
+                        type="button"
+                        onClick={handleClearSelectedWarga}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">sync_alt</span>
+                        Ganti Warga
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedWargaObj ? (
+                    <div className="p-3 rounded-xl border border-emerald-300 bg-emerald-50/70 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-9 w-9 rounded-full bg-emerald-200 text-emerald-800 font-bold flex items-center justify-center text-sm shrink-0">
+                          {selectedWargaObj.nama_lengkap?.charAt(0).toUpperCase() || 'W'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-900 text-xs">
+                              {selectedWargaObj.nama_lengkap}
+                            </span>
+                            {selectedWargaObj.is_eligible_only && (
+                              <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+                                Belum memiliki akun
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              Desil {selectedWargaObj.desil ?? 4}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span>NIK: {selectedWargaObj.nik}</span>
+                            <span>•</span>
+                            <span>RT {selectedWargaObj.rt || '-'}/RW {selectedWargaObj.rw || '-'}</span>
+                            {selectedWargaObj.no_kk && (
+                              <>
+                                <span>•</span>
+                                <span>KK: {selectedWargaObj.no_kk}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="material-symbols-outlined text-emerald-700 text-[22px] shrink-0" title="Warga terpilih">
+                        check_circle
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                          search
+                        </span>
+                        <input
+                          type="text"
+                          value={wargaSearch}
+                          onChange={(e) => setWargaSearch(e.target.value)}
+                          placeholder="Cari berdasarkan nama, NIK, No KK, atau RT/RW..."
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 text-xs focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-200"
+                        />
+                        {wargaSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setWargaSearch('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {wargaList.length === 0 ? (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                          {loading ? 'Memuat data warga...' : 'Belum ada data warga eligible aktif. Tambahkan warga melalui tab Daftar warga & desil terlebih dahulu.'}
+                        </div>
+                      ) : filteredWargaSelect.length === 0 ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center text-xs text-slate-500">
+                          <span className="material-symbols-outlined text-2xl text-slate-400 block mb-1">person_search</span>
+                          Tidak ditemukan warga dengan kata kunci "{wargaSearch}"
+                        </div>
+                      ) : (
+                        <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-inner">
+                          {filteredWargaSelect.map((warga) => (
+                            <button
+                              key={warga.id_user}
+                              type="button"
+                              onClick={() => handleSelectWarga(warga)}
+                              className="w-full text-left p-2.5 hover:bg-emerald-50/70 transition-colors flex items-center justify-between gap-3 group"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="h-7 w-7 rounded-full bg-slate-100 group-hover:bg-emerald-100 text-slate-700 group-hover:text-emerald-800 font-bold flex items-center justify-center text-xs shrink-0">
+                                  {warga.nama_lengkap?.charAt(0).toUpperCase() || 'W'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-900 text-xs truncate group-hover:text-emerald-900">
+                                    {warga.nama_lengkap}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
+                                    NIK: {warga.nik} · RT {warga.rt || '-'}/RW {warga.rw || '-'}
+                                  </p>
+                                  {warga.is_eligible_only && <span className="mt-1 inline-flex rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-800">Belum memiliki akun</span>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                  Desil {warga.desil ?? 4}
+                                </span>
+                                <span className="material-symbols-outlined text-[16px] text-slate-300 group-hover:text-emerald-700">
+                                  arrow_forward
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block text-xs font-semibold text-slate-700">Program bantuan
@@ -402,6 +588,12 @@ export default function AdminPenerima() {
                 </label>
                 <label className="block text-xs font-semibold text-slate-700">Tahun periode
                   <input required type="number" min="2000" max="2100" value={form.periode_tahun} onChange={(event) => setForm((value) => ({ ...value, periode_tahun: event.target.value }))} className="gov-input mt-1" />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">Bulan mulai menerima
+                  <select value={form.periode_bulan} onChange={(event) => setForm((value) => ({ ...value, periode_bulan: event.target.value }))} className="gov-input mt-1">
+                    <option value="">Tidak ditentukan</option>
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <option key={month} value={month}>{new Date(2000, month - 1, 1).toLocaleString('id-ID', { month: 'long' })}</option>)}
+                  </select>
                 </label>
                 <label className="block text-xs font-semibold text-slate-700">RT
                   <input required maxLength="10" value={form.rt} onChange={(event) => setForm((value) => ({ ...value, rt: event.target.value }))} className="gov-input mt-1" />
@@ -425,7 +617,8 @@ export default function AdminPenerima() {
               </div>
             </form>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

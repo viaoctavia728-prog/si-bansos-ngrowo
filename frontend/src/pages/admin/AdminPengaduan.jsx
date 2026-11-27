@@ -45,6 +45,8 @@ export default function AdminPengaduan() {
   const [rtFilter, setRtFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [ticketSearch, setTicketSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Applied filter state
   const [appliedFilters, setAppliedFilters] = useState({
@@ -52,6 +54,8 @@ export default function AdminPengaduan() {
     rt: '',
     status: 'all',
     search: '',
+    dateFrom: '',
+    dateTo: '',
   });
 
   // Modal / Detail state
@@ -122,6 +126,8 @@ export default function AdminPengaduan() {
       rt: rtFilter,
       status: statusFilter,
       search: ticketSearch.trim().toLowerCase(),
+      dateFrom,
+      dateTo,
     });
     setCurrentPage(1);
   };
@@ -132,11 +138,15 @@ export default function AdminPengaduan() {
     setRtFilter('');
     setStatusFilter('all');
     setTicketSearch('');
+    setDateFrom('');
+    setDateTo('');
     setAppliedFilters({
       rw: '',
       rt: '',
       status: 'all',
       search: '',
+      dateFrom: '',
+      dateTo: '',
     });
     setCurrentPage(1);
   };
@@ -168,6 +178,7 @@ export default function AdminPengaduan() {
       const { rt, rw } = getItemWilayah(item);
       const user = personById[item.id_user];
       const pelaporName = item.is_anonymous ? 'anonim' : (user?.nama_lengkap || '').toLowerCase();
+      const createdDate = item.created_at ? new Date(item.created_at).toISOString().slice(0, 10) : '';
 
       // Status
       if (appliedFilters.status !== 'all' && item.status_laporan !== appliedFilters.status) {
@@ -181,6 +192,8 @@ export default function AdminPengaduan() {
       if (appliedFilters.rt && rt !== appliedFilters.rt) {
         return false;
       }
+      if (appliedFilters.dateFrom && (!createdDate || createdDate < appliedFilters.dateFrom)) return false;
+      if (appliedFilters.dateTo && (!createdDate || createdDate > appliedFilters.dateTo)) return false;
       // Search
       if (activeSearch) {
         const searchable = [
@@ -454,17 +467,9 @@ export default function AdminPengaduan() {
       const { rt, rw } = getItemWilayah(item);
       const pelapor = item.is_anonymous ? 'Anonim' : (user?.nama_lengkap || `User #${item.id_user}`);
       return [
-        `"${item.nomor_tiket}"`,
-        `"${item.created_at || ''}"`,
-        `"${pelapor}"`,
-        `"${item.nik_terlapor || ''}"`,
-        `"${item.kategori_aduan}"`,
-        `"${item.program_terkait}"`,
-        `"RT ${rt}"`,
-        `"RW ${rw}"`,
-        `"${item.status_laporan}"`,
-        `"${(item.catatan_admin || '').replace(/"/g, '""')}"`,
-      ].join(',');
+        item.nomor_tiket, item.created_at || '', pelapor, item.nik_terlapor || '', item.kategori_aduan,
+        item.program_terkait, `RT ${rt}`, `RW ${rw}`, item.status_laporan, item.catatan_admin || '',
+      ];
     });
     return { headers, rows };
   };
@@ -573,6 +578,8 @@ export default function AdminPengaduan() {
         rw: appliedFilters.rw || undefined,
         status: appliedFilters.status !== 'all' ? appliedFilters.status : undefined,
         search: (appliedFilters.search || (globalSearch || '').trim()).trim() || undefined,
+        date_from: appliedFilters.dateFrom || undefined,
+        date_to: appliedFilters.dateTo || undefined,
       });
 
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -747,7 +754,7 @@ export default function AdminPengaduan() {
           <span className="text-xs text-slate-400 hidden sm:inline">Menampilkan data real-time Desa Ngrowo</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           {/* RW */}
           <div>
             <label className="block text-[11px] font-bold text-slate-600 mb-1">Rukun Warga (RW)</label>
@@ -812,6 +819,15 @@ export default function AdminPengaduan() {
                 className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-8 pr-3 text-xs text-slate-800 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-200"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1">Tanggal mulai</label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-800 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-200" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1">Tanggal sampai</label>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-800 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-200" />
           </div>
         </div>
 

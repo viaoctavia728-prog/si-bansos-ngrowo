@@ -7,10 +7,20 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [globalSearch, setGlobalSearch] = useState('');
+  const adminUser = adminAuthService.getCurrentUser();
+  const adminInitials = (adminUser?.nama_lengkap || 'Admin')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
 
   const handleLogout = () => {
     adminAuthService.logout();
+    // Tetap berada di alur portal petugas setelah logout admin.
+    // Akses PIN portal sudah diberikan sebelum login admin.
+    sessionStorage.setItem('staff_portal_access', 'granted');
     navigate('/admin/login', { replace: true });
   };
 
@@ -33,7 +43,7 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex font-sans antialiased">
+    <div className="portal-surface admin-surface min-h-screen bg-[#f8fafc] text-slate-800 flex font-sans antialiased">
       {/* SIDEBAR DESKTOP */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex shadow-sm">
         {/* Brand / Logo */}
@@ -101,8 +111,8 @@ export default function AdminLayout() {
       {/* MAIN CONTAINER */}
       <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
         {/* TOPBAR / HEADER */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 sm:px-8 backdrop-blur shadow-xs">
-          {/* Mobile hamburger */}
+        <header className="sticky top-0 z-30 flex h-16 sm:h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-4 sm:px-8 backdrop-blur shadow-xs">
+          {/* Mobile hamburger & logo */}
           <div className="flex items-center gap-3 lg:hidden">
             <button
               type="button"
@@ -113,22 +123,14 @@ export default function AdminLayout() {
               <span className="material-symbols-outlined">{mobileMenuOpen ? 'close' : 'menu'}</span>
             </button>
             <img src={logoNgrowo} alt="Logo" className="h-8 w-8 object-contain" />
+            <span className="text-xs font-bold text-slate-800">SI-BANSOS</span>
           </div>
 
-          {/* Search bar in header */}
-          <div className="flex-1 max-w-xl mx-2 sm:mx-0">
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">
-                search
-              </span>
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Cari NIK, Nama Warga, atau ID Bansos..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-10 pr-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100 transition-all"
-              />
-            </div>
+          {/* Desktop Left Breadcrumb / Info */}
+          <div className="hidden lg:flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Panel Administrasi</span>
+            <span className="text-slate-300">•</span>
+            <span className="text-xs font-semibold text-emerald-800">Pemerintah Desa Ngrowo</span>
           </div>
 
           {/* Notification control */}
@@ -143,7 +145,14 @@ export default function AdminLayout() {
               <span className="material-symbols-outlined text-[20px]">notifications</span>
               <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
             </Link>
-
+            <Link
+              to="/admin/profil"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 text-left hover:bg-slate-50 transition-colors"
+              title="Profil Admin"
+              aria-label="Buka Profil Admin"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-800 text-xs font-extrabold text-white">{adminInitials}</span>
+            </Link>
           </div>
         </header>
 
@@ -194,7 +203,7 @@ export default function AdminLayout() {
 
         {/* OUTLET FOR SUBPAGES */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
-          <Outlet context={{ globalSearch }} />
+          <Outlet />
         </main>
       </div>
     </div>

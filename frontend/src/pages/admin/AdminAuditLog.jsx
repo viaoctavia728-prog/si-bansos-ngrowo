@@ -80,6 +80,8 @@ export default function AdminAuditLog() {
       const pdfBlob = await adminService.getAuditLogRekapPdf({
         search: (search || globalSearch || '').trim() || undefined,
         category: filterType !== 'all' ? filterType : undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
       });
       const blobUrl = URL.createObjectURL(pdfBlob);
       previewTab.location.href = blobUrl;
